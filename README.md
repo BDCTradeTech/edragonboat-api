@@ -36,6 +36,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 3. Botón **Authorize** → pegá `Bearer <token>` o solo el token según el diálogo.
 4. `POST /api/v1/teams` — crear equipo (quedás como **captain**).
 5. `GET /api/v1/teams/me` — listar tus equipos.
+6. `POST /api/v1/sessions/libre` — subir JSON de sesión libre (requiere `Authorization: Bearer …`; lo usa la app MiniDBoat).
 
 ## Nuevo droplet DigitalOcean
 

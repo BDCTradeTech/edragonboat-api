@@ -11,6 +11,7 @@ from app.db.session import engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import app.models.libre_session_upload  # noqa: F401
     import app.models.membership  # noqa: F401
     import app.models.team  # noqa: F401
     import app.models.user  # noqa: F401
