@@ -14,7 +14,7 @@ from app.core.config import get_settings
 from app.core.mail import INVITE_DEFAULT_PASSWORD, send_team_invite_email
 from app.core.security import hash_password
 from app.db.base import Base
-from app.db.session import engine, get_db
+from app.db.session import SessionLocal, engine, get_db
 from app.models.membership import TeamMembership, TeamRole
 from app.models.team import Team
 from app.models.user import User
@@ -56,6 +56,29 @@ def _migrate_users_platform_admin() -> None:
             conn.execute(text("ALTER TABLE users ADD COLUMN is_platform_admin BOOLEAN NOT NULL DEFAULT false"))
 
 
+def _bootstrap_platform_admin_emails() -> None:
+    """Marca como admin de plataforma los usuarios listados en PLATFORM_ADMIN_EMAILS (solo promueve, no quita el flag)."""
+    cfg = get_settings()
+    raw = (cfg.platform_admin_emails or "").strip()
+    if not raw:
+        return
+    emails = {e.strip().casefold() for e in raw.split(",") if e.strip()}
+    if not emails:
+        return
+    db = SessionLocal()
+    try:
+        users = db.scalars(select(User).where(func.lower(User.email).in_(emails))).all()
+        changed = False
+        for u in users:
+            if not u.is_platform_admin:
+                u.is_platform_admin = True
+                changed = True
+        if changed:
+            db.commit()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import app.models.libre_session_upload  # noqa: F401
@@ -66,6 +89,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _migrate_sqlite_teams_country()
     _migrate_users_platform_admin()
+    _bootstrap_platform_admin_emails()
     yield
 
 
@@ -105,7 +129,7 @@ def deploy_check() -> dict[str, object]:
     """Sin autenticación: usá esto para ver si el proceso usa este código (curl local o vía Caddy)."""
     return {
         "ok": True,
-        "build": "panel-0.2.3-deploy-2026-04-05",
+        "build": "platform-admin-emails-env-2026-04-05",
         "has_panel_routes": True,
         "invite_creates_user": True,
         "panel_invite_path": "/api/v1/panel/teams/{team_id}/members",

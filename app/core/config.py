@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     smtp_use_tls: bool = True
     app_public_url: str = "https://app.edragonboat.com"
+    # Emails (minúsculas) separados por coma: al arrancar la API se marca is_platform_admin=1 en esos usuarios.
+    platform_admin_emails: str = ""
 
 
 @lru_cache
