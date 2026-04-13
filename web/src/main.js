@@ -46,13 +46,18 @@ function roleLabel(role) {
   return m[role] || role;
 }
 
-function fmtSessionStartLong(iso) {
+/** Fecha de inicio de sesión: dd/mm/aaaa y hora (local). */
+function fmtSessionStartMap(iso) {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString("es-AR", {
-      dateStyle: "long",
-      timeStyle: "short",
-    });
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
   } catch {
     return String(iso);
   }
@@ -67,7 +72,7 @@ function boatTypeLabelEsp(bt) {
 }
 
 /** Resumen encima del mapa (pantalla y export JPG). */
-function buildSessionMapSummaryHtml(s, data, last) {
+function buildSessionMapSummaryHtml(s, last) {
   const km =
     last != null && typeof last.distanceMeters === "number" && Number.isFinite(last.distanceMeters)
       ? (last.distanceMeters / 1000).toFixed(2)
@@ -75,13 +80,11 @@ function buildSessionMapSummaryHtml(s, data, last) {
   const team = s.teamName ? escapeHtml(s.teamName) : "—";
   const boat = boatTypeLabelEsp(s.boatType);
   const paddlers = s.paddlersCount != null ? escapeHtml(String(s.paddlersCount)) : "—";
-  const fechaInicio = escapeHtml(fmtSessionStartLong(s.sessionStartTime));
-  const fechaSubida = escapeHtml(fmtDate(data.created_at));
+  const fechaInicio = escapeHtml(fmtSessionStartMap(s.sessionStartTime));
   const distHtml = km != null ? `${escapeHtml(km)} km` : "—";
   return `
     <div class="session-map-summary-grid">
       <div><span class="sms-label">Fecha / inicio</span><span class="sms-val">${fechaInicio}</span></div>
-      <div><span class="sms-label">Subida al panel</span><span class="sms-val">${fechaSubida}</span></div>
       <div><span class="sms-label">Equipo</span><span class="sms-val">${team}</span></div>
       <div><span class="sms-label">Bote</span><span class="sms-val">${boat}</span></div>
       <div><span class="sms-label">Palistas</span><span class="sms-val">${paddlers}</span></div>
@@ -718,7 +721,7 @@ async function renderSessionDetail(id) {
     const metaTable = buildSessionMetadataTable(s);
     const pointsTable = buildDynamicDataPointsTable(s.dataPoints);
     const exploreBlock = buildExploreControlsHtml(s.dataPoints);
-    const sessionMapSummaryHtml = buildSessionMapSummaryHtml(s, data, last);
+    const sessionMapSummaryHtml = buildSessionMapSummaryHtml(s, last);
 
     layout(`
       <p><a class="link" href="#/">← Volver a entrenamientos</a></p>
