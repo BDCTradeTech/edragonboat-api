@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -9,6 +11,9 @@ class LibreDataPoint(BaseModel):
     speedKmh: float
     paladas: int
     spm: int
+    latitude: float | None = None
+    longitude: float | None = None
+    locationAccuracyM: float | None = None
 
 
 class LibreSessionCreate(BaseModel):
@@ -24,3 +29,19 @@ class LibreSessionCreate(BaseModel):
 
 class LibreSessionUploaded(BaseModel):
     id: int
+
+
+class LibreSessionListItem(BaseModel):
+    id: int
+    created_at: datetime
+    session_start_time: str | None = None
+    total_seconds: int | None = None
+    distance_meters: float | None = None
+    paladas: int | None = None
+    team_name: str | None = None
+
+
+class LibreSessionDetailResponse(BaseModel):
+    id: int
+    created_at: datetime
+    session: LibreSessionCreate

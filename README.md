@@ -37,6 +37,60 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 4. `POST /api/v1/teams` — crear equipo (quedás como **captain**).
 5. `GET /api/v1/teams/me` — listar tus equipos.
 6. `POST /api/v1/sessions/libre` — subir JSON de sesión libre (requiere `Authorization: Bearer …`; lo usa la app MiniDBoat).
+7. `GET /api/v1/sessions/libre` — listar tus sesiones subidas.
+8. `GET /api/v1/sessions/libre/{id}` — detalle (JSON parseado).
+
+## Panel web (`web/`)
+
+SPA liviana con **Vite** (HTML/CSS/JS): login, listado de entrenamientos libres y vista detalle con JSON.
+
+### Desarrollo local
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Abrí http://127.0.0.1:5173 — por defecto llama a `https://api.edragonboat.com`. Para otra API:
+
+```bash
+# web/.env.local
+VITE_API_URL=http://127.0.0.1:8000
+```
+
+### Build para producción
+
+```bash
+cd web
+npm install
+npm run build
+```
+
+Subí el contenido de `web/dist/` al servidor (ej. `/var/www/edragonboat-web`).
+
+### DNS y Caddy (ejemplo)
+
+1. En DonWeb: registro **A** `app` → IP del droplet (panel en `https://app.edragonboat.com`).
+2. En el servidor `.env` de la API, incluí el origen del panel (ya viene en `.env.example` como `CORS_ORIGINS`).
+3. Tras `git pull`, reiniciá: `systemctl restart edragonboat-api`.
+
+**Caddyfile** con API + panel estático:
+
+```caddy
+api.edragonboat.com {
+    reverse_proxy 127.0.0.1:8000
+}
+
+app.edragonboat.com {
+    root * /var/www/edragonboat-web
+    encode gzip
+    file_server
+    try_files {path} /index.html
+}
+```
+
+Copiá los archivos de `web/dist/` a `/var/www/edragonboat-web` y `systemctl reload caddy`.
 
 ## Nuevo droplet DigitalOcean
 
@@ -79,7 +133,7 @@ WantedBy=multi-user.target
 
 ## CORS
 
-Por defecto `allow_origins=["*"]` para desarrollo. En producción restringí a los orígenes de tu web y, si aplica, esquemas de la app.
+Variable **`CORS_ORIGINS`**: lista separada por comas (ej. `https://app.edragonboat.com,http://localhost:5173`). La app Android usa el host `api` directamente, no depende de CORS del navegador.
 
 ## Siguientes pasos sugeridos
 
