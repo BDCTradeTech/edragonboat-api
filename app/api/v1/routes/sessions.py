@@ -21,6 +21,14 @@ from app.schemas.libre_session import (
 router = APIRouter()
 
 
+def _users_share_team(db: Session, uid_a: int, uid_b: int) -> bool:
+    if uid_a == uid_b:
+        return True
+    teams_a = set(db.scalars(select(TeamMembership.team_id).where(TeamMembership.user_id == uid_a)).all())
+    teams_b = set(db.scalars(select(TeamMembership.team_id).where(TeamMembership.user_id == uid_b)).all())
+    return bool(teams_a & teams_b)
+
+
 def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
     try:
         parsed = LibreSessionCreate.model_validate_json(row.json_payload)
@@ -83,7 +91,7 @@ def list_libre_sessions(
     limit: int = Query(50, ge=1, le=100),
     team_id: int | None = Query(None, description="Filtrar por nombre de equipo en el JSON de la sesión"),
 ) -> list[LibreSessionListItem]:
-    """Sesiones libres del usuario. Con team_id, solo las que en JSON tienen teamName igual al nombre del equipo (misma membresía)."""
+    """Sin team_id: solo sesiones que subió el usuario. Con team_id: sesiones de cualquier miembro del equipo cuyo JSON teamName coincide con el nombre del equipo."""
     base = (
         select(LibreSessionUpload)
         .where(LibreSessionUpload.user_id == current.id)
@@ -110,6 +118,15 @@ def list_libre_sessions(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
     target_name = team.name.strip().casefold()
 
+    # Capitán, entrenador y palistas: ven entrenamientos subidos por cualquier miembro del equipo
+    # (mismo criterio: teamName en el JSON coincide con el nombre del equipo).
+    member_ids = select(TeamMembership.user_id).where(TeamMembership.team_id == team_id)
+    base = (
+        select(LibreSessionUpload)
+        .where(LibreSessionUpload.user_id.in_(member_ids))
+        .order_by(LibreSessionUpload.created_at.desc())
+    )
+
     cap = min(2000, max(500, (skip + limit) * 20))
     rows = db.scalars(base.limit(cap)).all()
     matched: list[LibreSessionListItem] = []
@@ -128,7 +145,9 @@ def get_libre_session(
 ) -> dict[str, Any]:
     """Devuelve el JSON guardado tal cual (incluye latitude/longitude aunque sean null)."""
     row = db.get(LibreSessionUpload, session_id)
-    if row is None or row.user_id != current.id:
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
+    if not _users_share_team(db, current.id, row.user_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
     try:
         session_payload: dict[str, Any] = json.loads(row.json_payload)
