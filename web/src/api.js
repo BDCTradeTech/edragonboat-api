@@ -81,6 +81,14 @@ export async function apiGetSession(id) {
   return res.json();
 }
 
+export async function apiDeleteSession(id) {
+  const res = await fetch(`${API}/api/v1/sessions/libre/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
 export async function apiMyTeams() {
   const res = await fetch(`${API}/api/v1/teams/me`, { headers: authHeaders() });
   if (!res.ok) throw new Error(await res.text());

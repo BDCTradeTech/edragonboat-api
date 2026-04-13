@@ -212,7 +212,7 @@ def update_member_role(
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
 ) -> TeamMemberRead:
-    _require_captain_or_coach(db, current, team_id)
+    actor = _require_captain_or_coach(db, current, team_id)
     _non_captain_roles(body.role)
     m = _membership(db, user_id, team_id)
     if m is None:
@@ -222,6 +222,17 @@ def update_member_role(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No se puede cambiar el rol del capitán desde aquí",
         )
+    if actor.role == TeamRole.coach:
+        if body.role == TeamRole.coach:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo el capitán puede asignar el rol entrenador",
+            )
+        if m.role == TeamRole.coach:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo el capitán puede modificar a otros entrenadores",
+            )
     m.role = body.role
     db.commit()
     u = db.get(User, user_id)
@@ -236,7 +247,7 @@ def remove_team_member(
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
 ) -> None:
-    _require_captain_or_coach(db, current, team_id)
+    actor = _require_captain_or_coach(db, current, team_id)
     m = _membership(db, user_id, team_id)
     if m is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Miembro no encontrado")
@@ -244,6 +255,11 @@ def remove_team_member(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No se puede eliminar al capitán del equipo",
+        )
+    if m.role == TeamRole.coach and actor.role != TeamRole.captain:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el capitán puede quitar a un entrenador",
         )
     db.delete(m)
     db.commit()

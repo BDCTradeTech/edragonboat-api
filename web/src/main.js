@@ -772,8 +772,12 @@ function initSessionMap(points) {
 async function renderSessionDetail(id) {
   layout(`<p class="loading-line">Cargando sesión #${escapeHtml(id)}…</p>`);
   try {
-    const data = await api.apiGetSession(id);
+    const [data, myTeams] = await Promise.all([api.apiGetSession(id), api.apiMyTeams()]);
     const s = data.session;
+    const myRole = myTeams.length ? myTeams[0].role : null;
+    const isPaddler = myRole === "paddler";
+    const canDelete = data.can_delete === true;
+
     const last =
       s.dataPoints && s.dataPoints.length ? s.dataPoints[s.dataPoints.length - 1] : null;
     const stats = `
@@ -786,30 +790,25 @@ async function renderSessionDetail(id) {
       </div>
     `;
 
-    const metaTable = buildSessionMetadataTable(s);
-    const pointsTable = buildDynamicDataPointsTable(s.dataPoints);
-    const exploreBlock = buildExploreControlsHtml(s.dataPoints);
     const sessionMapSummaryHtml = buildSessionMapSummaryHtml(s, last);
 
-    layout(`
-      <p><a class="link" href="#/sessions">← Volver a entrenamientos</a></p>
-      <div class="card session-card">
-        <h2 class="card-title">Sesión #${data.id}</h2>
-        <p class="muted">Subida: ${fmtDate(data.created_at)}</p>
-        <div class="tabs" id="session-tabs">
-          <div class="tab-list" role="tablist">
+    const tabButtons = isPaddler
+      ? `
+            <button type="button" class="tab-btn active" data-tab="resumen" role="tab">Resumen</button>
+            <button type="button" class="tab-btn" data-tab="mapas" role="tab">Mapas</button>`
+      : `
             <button type="button" class="tab-btn active" data-tab="resumen" role="tab">Resumen</button>
             <button type="button" class="tab-btn" data-tab="tabla" role="tab">Tablas y JSON</button>
             <button type="button" class="tab-btn" data-tab="graficos" role="tab">Gráficos</button>
             <button type="button" class="tab-btn" data-tab="mapas" role="tab">Mapas</button>
-            <button type="button" class="tab-btn" data-tab="json" role="tab">JSON completo</button>
-          </div>
-          <div id="panel-resumen" class="tab-panel active" role="tabpanel">
-            ${stats}
-            ${s.teamName ? `<p><strong>Equipo (en sesión):</strong> ${escapeHtml(s.teamName)}</p>` : ""}
-            ${s.boatType ? `<p><strong>Bote:</strong> ${escapeHtml(s.boatType)}</p>` : ""}
-            ${s.paddlersCount != null ? `<p><strong>Cant. palistas:</strong> ${escapeHtml(String(s.paddlersCount))}</p>` : ""}
-          </div>
+            <button type="button" class="tab-btn" data-tab="json" role="tab">JSON completo</button>`;
+
+    let tablaGraficosPanels = "";
+    if (!isPaddler) {
+      const metaTable = buildSessionMetadataTable(s);
+      const pointsTable = buildDynamicDataPointsTable(s.dataPoints);
+      const exploreBlock = buildExploreControlsHtml(s.dataPoints);
+      tablaGraficosPanels = `
           <div id="panel-tabla" class="tab-panel" role="tabpanel">
             <h3 class="subheading">Campos del entrenamiento (JSON raíz)</h3>
             <div class="table-scroll">${metaTable}</div>
@@ -824,7 +823,10 @@ async function renderSessionDetail(id) {
               <div class="chart-box"><h4>Paladas</h4><div class="chart-canvas-wrap"><canvas id="chart-pal"></canvas></div></div>
             </div>
             ${exploreBlock}
-          </div>
+          </div>`;
+    }
+
+    const mapasPanel = `
           <div id="panel-mapas" class="tab-panel" role="tabpanel">
             <p class="muted small">Recorrido del bote con los puntos GPS que envía la app (una posición por segundo, si hay señal).</p>
             <div id="session-map-export-root" class="session-map-export-root">
@@ -835,16 +837,47 @@ async function renderSessionDetail(id) {
             </div>
             <p class="muted small map-export-hint">Descargá el mapa con el resumen del entrenamiento (JPG).</p>
             <button type="button" class="secondary btn-sm" id="btn-session-map-jpg">Descargar mapa (JPG)</button>
-          </div>
+          </div>`;
+
+    const jsonPanel = isPaddler
+      ? ""
+      : `
           <div id="panel-json" class="tab-panel" role="tabpanel">
             <pre class="json">${escapeHtml(JSON.stringify(data.session, null, 2))}</pre>
+          </div>`;
+
+    const deleteBtn = canDelete
+      ? `<button type="button" class="btn-danger btn-sm" id="btn-delete-session">Borrar sesión</button>`
+      : "";
+
+    layout(`
+      <p><a class="link" href="#/sessions">← Volver a entrenamientos</a></p>
+      <div class="card session-card">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;justify-content:space-between;margin-bottom:0.35rem">
+          <h2 class="card-title" style="margin:0">Sesión #${data.id}</h2>
+          ${deleteBtn}
+        </div>
+        <p class="muted">Subida: ${fmtDate(data.created_at)}</p>
+        ${isPaddler ? `<p class="muted small">Como <strong>palista</strong> solo ves el resumen y el mapa.</p>` : ""}
+        <div class="tabs" id="session-tabs">
+          <div class="tab-list" role="tablist">
+            ${tabButtons}
           </div>
+          <div id="panel-resumen" class="tab-panel active" role="tabpanel">
+            ${stats}
+            ${s.teamName ? `<p><strong>Equipo (en sesión):</strong> ${escapeHtml(s.teamName)}</p>` : ""}
+            ${s.boatType ? `<p><strong>Bote:</strong> ${escapeHtml(s.boatType)}</p>` : ""}
+            ${s.paddlersCount != null ? `<p><strong>Cant. palistas:</strong> ${escapeHtml(String(s.paddlersCount))}</p>` : ""}
+          </div>
+          ${tablaGraficosPanels}
+          ${mapasPanel}
+          ${jsonPanel}
         </div>
       </div>
     `);
 
     const tabRoot = document.getElementById("session-tabs");
-    const panels = ["resumen", "tabla", "graficos", "mapas", "json"];
+    const panels = isPaddler ? ["resumen", "mapas"] : ["resumen", "tabla", "graficos", "mapas", "json"];
     const sessionUiState = { chartsReady: false, mapReady: false };
 
     function activateSessionTab(name, { focusButton } = {}) {
@@ -859,7 +892,8 @@ async function renderSessionDetail(id) {
         });
       }
       panels.forEach((p) => {
-        document.getElementById(`panel-${p}`).classList.toggle("active", p === name);
+        const el = document.getElementById(`panel-${p}`);
+        if (el) el.classList.toggle("active", p === name);
       });
       if (name === "graficos" && !sessionUiState.chartsReady) {
         initSessionCharts(s.dataPoints);
@@ -882,6 +916,17 @@ async function renderSessionDetail(id) {
         const name = btn.getAttribute("data-tab");
         activateSessionTab(name, { focusButton: true });
       });
+    });
+
+    document.getElementById("btn-delete-session")?.addEventListener("click", async () => {
+      if (!confirm("¿Borrar esta sesión de entrenamiento? No se puede deshacer.")) return;
+      try {
+        await api.apiDeleteSession(id);
+        location.hash = "#/sessions";
+        route();
+      } catch (ex) {
+        alert(humanizeApiError(ex.message) || ex.message || "Error");
+      }
     });
 
     document.getElementById("btn-session-map-jpg")?.addEventListener("click", async () => {
@@ -1118,14 +1163,22 @@ async function renderTeamDetail(id) {
   }
 }
 
-/** Tabla de plantel en Cuenta (gestión de roles si capitán o entrenador). */
-function buildAccountPlantelTable(members, canManageRoster, teamId) {
-  const thead = canManageRoster
+/** Plantel en Cuenta: capitán gestiona roles; entrenador solo quita palistas (no asciende a entrenador ni toca entrenadores). */
+function buildAccountPlantelTable(members, { isCaptain, isCoach }, teamId) {
+  const canManage = isCaptain || isCoach;
+  const thead = canManage
     ? `<thead><tr><th>Email</th><th>Nombre</th><th>Rol</th><th>Gestión</th></tr></thead>`
     : `<thead><tr><th>Email</th><th>Nombre</th><th>Rol</th></tr></thead>`;
   const rows = members
     .map((m) => {
-      if (canManageRoster && m.role === "captain") {
+      if (!canManage) {
+        return `<tr>
+          <td>${escapeHtml(m.email)}</td>
+          <td>${escapeHtml(m.full_name || "—")}</td>
+          <td>${roleLabel(m.role)}</td>
+        </tr>`;
+      }
+      if (m.role === "captain") {
         return `<tr>
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
@@ -1133,7 +1186,15 @@ function buildAccountPlantelTable(members, canManageRoster, teamId) {
           <td class="muted">—</td>
         </tr>`;
       }
-      if (canManageRoster) {
+      if (isCoach && m.role === "coach") {
+        return `<tr>
+          <td>${escapeHtml(m.email)}</td>
+          <td>${escapeHtml(m.full_name || "—")}</td>
+          <td>${roleLabel(m.role)}</td>
+          <td class="muted">Solo el capitán gestiona entrenadores</td>
+        </tr>`;
+      }
+      if (isCaptain) {
         return `<tr>
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
@@ -1151,6 +1212,9 @@ function buildAccountPlantelTable(members, canManageRoster, teamId) {
         <td>${escapeHtml(m.email)}</td>
         <td>${escapeHtml(m.full_name || "—")}</td>
         <td>${roleLabel(m.role)}</td>
+        <td class="actions-cell">
+          <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">Quitar</button>
+        </td>
       </tr>`;
     })
     .join("");
@@ -1262,7 +1326,7 @@ async function renderAccount() {
       <div class="card" style="margin-top:1rem">
         <h3 style="margin-top:0">Plantel — ${escapeHtml(entry.team.name)}</h3>
         <p class="muted small">Tu rol: <strong>${roleLabel(entry.role)}</strong></p>
-        ${buildAccountPlantelTable(members, canManageRoster, tid)}
+        ${buildAccountPlantelTable(members, { isCaptain, isCoach }, tid)}
         ${inviteBlock}
       </div>`;
       })
@@ -1366,18 +1430,20 @@ async function renderAccount() {
     withMembers.forEach(({ entry }) => {
       const tid = entry.team.id;
       if (entry.role !== "captain" && entry.role !== "coach") return;
-      document.querySelectorAll(`.role-select-acc[data-team="${tid}"]`).forEach((sel) => {
-        sel.addEventListener("change", async () => {
-          const uid = Number(sel.getAttribute("data-user"));
-          try {
-            await api.apiPatchMemberRole(tid, uid, sel.value);
-            location.hash = "#/cuenta";
-            route();
-          } catch (ex) {
-            alert(ex.message || "Error al cambiar rol");
-          }
+      if (entry.role === "captain") {
+        document.querySelectorAll(`.role-select-acc[data-team="${tid}"]`).forEach((sel) => {
+          sel.addEventListener("change", async () => {
+            const uid = Number(sel.getAttribute("data-user"));
+            try {
+              await api.apiPatchMemberRole(tid, uid, sel.value);
+              location.hash = "#/cuenta";
+              route();
+            } catch (ex) {
+              alert(ex.message || "Error al cambiar rol");
+            }
+          });
         });
-      });
+      }
       document.querySelectorAll(`.btn-remove-acc[data-team="${tid}"]`).forEach((btn) => {
         btn.addEventListener("click", async () => {
           const uid = Number(btn.getAttribute("data-user"));

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.libre_session_upload import LibreSessionUpload
-from app.models.membership import TeamMembership
+from app.models.membership import TeamMembership, TeamRole
 from app.models.team import Team
 from app.models.user import User
 from app.schemas.libre_session import (
@@ -27,6 +27,33 @@ def _users_share_team(db: Session, uid_a: int, uid_b: int) -> bool:
     teams_a = set(db.scalars(select(TeamMembership.team_id).where(TeamMembership.user_id == uid_a)).all())
     teams_b = set(db.scalars(select(TeamMembership.team_id).where(TeamMembership.user_id == uid_b)).all())
     return bool(teams_a & teams_b)
+
+
+def _session_team_name_key(json_payload: str) -> str | None:
+    try:
+        d = json.loads(json_payload)
+        t = d.get("teamName")
+        if t is None or str(t).strip() == "":
+            return None
+        return str(t).strip().casefold()
+    except Exception:
+        return None
+
+
+def _can_delete_libre_session(db: Session, current: User, row: LibreSessionUpload) -> bool:
+    if row.user_id == current.id:
+        return True
+    key = _session_team_name_key(row.json_payload)
+    if key is None:
+        return False
+    memberships = db.scalars(select(TeamMembership).where(TeamMembership.user_id == current.id)).all()
+    for m in memberships:
+        if m.role not in (TeamRole.captain, TeamRole.coach):
+            continue
+        team = db.get(Team, m.team_id)
+        if team is not None and team.name.strip().casefold() == key:
+            return True
+    return False
 
 
 def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
@@ -165,5 +192,22 @@ def get_libre_session(
     return {
         "id": row.id,
         "created_at": row.created_at,
+        "uploaded_by_user_id": row.user_id,
+        "can_delete": _can_delete_libre_session(db, current, row),
         "session": session_payload,
     }
+
+
+@router.delete("/libre/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_libre_session(
+    session_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+) -> None:
+    row = db.get(LibreSessionUpload, session_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
+    if not _can_delete_libre_session(db, current, row):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenés permiso para borrar esta sesión")
+    db.delete(row)
+    db.commit()
