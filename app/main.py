@@ -89,7 +89,7 @@ def deploy_check() -> dict[str, object]:
     """Sin autenticación: usá esto para ver si el proceso usa este código (curl local o vía Caddy)."""
     return {
         "ok": True,
-        "build": "panel-invite-2026-04-05-v2",
+        "build": "coach-roster-api-2026-04-06",
         "has_panel_routes": True,
         "invite_creates_user": True,
         "panel_invite_path": "/api/v1/panel/teams/{team_id}/members",

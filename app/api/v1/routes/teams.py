@@ -55,6 +55,16 @@ def _require_captain(db: Session, current: User, team_id: int) -> TeamMembership
     return m
 
 
+def _require_captain_or_coach(db: Session, current: User, team_id: int) -> TeamMembership:
+    m = _require_access(db, current, team_id)
+    if m.role not in (TeamRole.captain, TeamRole.coach):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el capitán o el entrenador pueden realizar esta acción",
+        )
+    return m
+
+
 def _non_captain_roles(role: TeamRole) -> None:
     if role == TeamRole.captain:
         raise HTTPException(
@@ -202,7 +212,7 @@ def update_member_role(
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
 ) -> TeamMemberRead:
-    _require_captain(db, current, team_id)
+    _require_captain_or_coach(db, current, team_id)
     _non_captain_roles(body.role)
     m = _membership(db, user_id, team_id)
     if m is None:
@@ -226,7 +236,7 @@ def remove_team_member(
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
 ) -> None:
-    _require_captain(db, current, team_id)
+    _require_captain_or_coach(db, current, team_id)
     m = _membership(db, user_id, team_id)
     if m is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Miembro no encontrado")

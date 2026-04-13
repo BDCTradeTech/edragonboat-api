@@ -1,5 +1,5 @@
 /**
- * Panel web E-DragonBoat — entrenamientos, regatas, equipos, cuenta.
+ * Panel web E-DragonBoat — home, entrenamientos, regatas, equipo, cuenta.
  */
 
 import { Chart, registerables } from "chart.js";
@@ -93,6 +93,43 @@ function buildSessionMapSummaryHtml(s, last) {
   `;
 }
 
+function safeMapJpgTeamSegment(teamName) {
+  const raw = teamName && String(teamName).trim();
+  if (!raw) return "sin_equipo";
+  const cleaned = raw
+    .replace(/[/\\?%*:|"<>\u0000-\u001f]/g, "")
+    .replace(/\s+/g, "_")
+    .slice(0, 80);
+  return cleaned || "sin_equipo";
+}
+
+/** dd-mm-aa y hora (HH-MM,24 h) desde ISO, hora local. */
+function sessionInstantForMapJpgFilename(iso) {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const aa = String(d.getFullYear()).slice(-2);
+    const HH = String(d.getHours()).padStart(2, "0");
+    const MM = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}-${mm}-${aa}-${HH}-${MM}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Nombre de archivo: Equipo_dd-mm-aa-HH-MM.jpg */
+function buildSessionMapJpegFileName(s, sessionId, fallbackIso) {
+  const team = safeMapJpgTeamSegment(s.teamName);
+  const stamp =
+    sessionInstantForMapJpgFilename(s.sessionStartTime) ||
+    sessionInstantForMapJpgFilename(fallbackIso) ||
+    `sesion-${sessionId}`;
+  return `${team}_${stamp}.jpg`;
+}
+
 /** Shell con menú lateral (solo autenticado). */
 function layout(content, { showNav = true } = {}) {
   const email = api.getEmail();
@@ -103,9 +140,10 @@ function layout(content, { showNav = true } = {}) {
     <aside class="nav-rail" aria-label="Menú principal">
       <div class="nav-brand">E-DragonBoat</div>
       <nav class="nav-links">
-        <a class="nav-item" href="#/" data-match="sessions">Entrenamientos</a>
+        <a class="nav-item" href="#/" data-match="home">Home</a>
+        <a class="nav-item" href="#/sessions" data-match="sessions">Entrenamientos</a>
         <a class="nav-item" href="#/regatas" data-match="regatas">Regatas</a>
-        <a class="nav-item" href="#/teams" data-match="teams">Equipos</a>
+        <a class="nav-item" href="#/teams" data-match="teams">Equipo</a>
         <a class="nav-item" href="#/cuenta" data-match="cuenta">Cuenta</a>
       </nav>
     </aside>`
@@ -148,15 +186,39 @@ function layout(content, { showNav = true } = {}) {
 
 function highlightNav() {
   const hash = (location.hash.replace(/^#\/?/, "") || "/").split("/").filter(Boolean);
-  let key = "sessions";
-  if (hash[0] === "teams") key = "teams";
+  let key = "home";
+  if (hash[0] === "sessions" || hash[0] === "session") key = "sessions";
+  else if (hash[0] === "teams") key = "teams";
   else if (hash[0] === "cuenta") key = "cuenta";
   else if (hash[0] === "regatas") key = "regatas";
-  else if (hash[0] === "session") key = "sessions";
 
   document.querySelectorAll(".nav-item").forEach((a) => {
     a.classList.toggle("active", a.getAttribute("data-match") === key);
   });
+}
+
+function renderHome() {
+  layout(`
+    <div class="card home-hero">
+      <h2 class="card-title">E-DragonBoat</h2>
+      <p class="home-lead">
+        Plataforma para equipos de <strong>dragon boat</strong>: registrá entrenamientos libres desde la app móvil,
+        revisalos en este panel con gráficos, mapas GPS y exportación, y organizá tu plantel.
+      </p>
+      <ul class="home-features">
+        <li><strong>Entrenamientos:</strong> sesiones subidas desde la app, filtradas por tu equipo; detalle con resumen, tablas, gráficos (distancia, velocidad, SPM, paladas) y mapa del recorrido.</li>
+        <li><strong>Mapas y JPG:</strong> recorrido sobre mapa abierto; podés descargar una imagen con el mapa y un resumen (fecha, equipo, bote, palistas, distancia en km).</li>
+        <li><strong>Equipo:</strong> datos del club y roles (capitán, entrenador, palista). El <strong>capitán</strong> puede editar nombre y país del equipo, eliminarlo e <strong>invitar</strong> por email. El <strong>entrenador</strong> ve lo mismo en entrenamientos y plantel, y puede cambiar roles y quitar miembros, pero no invita ni modifica los datos del equipo.</li>
+        <li><strong>Cuenta:</strong> tu perfil, contraseña y gestión del plantel según tu rol.</li>
+        <li><strong>Regatas:</strong> listado cuando haya datos publicados por la API.</li>
+      </ul>
+      <div class="home-actions">
+        <a class="btn-inline primary" href="#/sessions">Ir a entrenamientos</a>
+        <a class="btn-inline" href="#/teams">Ir a equipo</a>
+        <a class="btn-inline" href="#/cuenta">Ir a cuenta</a>
+      </div>
+    </div>
+  `);
 }
 
 function humanizeApiError(text) {
@@ -187,7 +249,7 @@ function route() {
   if (parts[0] === "session" && parts[1]) {
     if (!/^\d+$/.test(parts[1])) {
       layout(
-        `<div class="card"><p class="msg-error">ID de sesión inválido.</p><p><a class="link" href="#/">Volver</a></p></div>`
+        `<div class="card"><p class="msg-error">ID de sesión inválido.</p><p><a class="link" href="#/sessions">Volver</a></p></div>`
       );
       return;
     }
@@ -198,7 +260,7 @@ function route() {
     if (parts[1] === "new") return renderTeamNew();
     if (!/^\d+$/.test(parts[1])) {
       layout(
-        `<div class="card"><p class="msg-error">ID de equipo inválido (solo números).</p><p><a class="link" href="#/teams">Volver a equipos</a></p></div>`
+        `<div class="card"><p class="msg-error">ID de equipo inválido (solo números).</p><p><a class="link" href="#/teams">Volver al equipo</a></p></div>`
       );
       return;
     }
@@ -206,7 +268,9 @@ function route() {
   }
   if (parts[0] === "regatas") return renderRegatas();
   if (parts[0] === "cuenta") return renderAccount();
-  return renderSessionsList();
+  if (parts[0] === "sessions") return renderSessionsList();
+  if (!parts.length || parts[0] === "home") return renderHome();
+  return renderHome();
 }
 
 function renderLogin() {
@@ -282,7 +346,7 @@ async function renderSessionsList() {
             </select>
             <p class="muted small">Solo se listan sesiones cuyo <code>teamName</code> en la app coincide con el nombre de este equipo (sin distinguir mayúsculas).</p>
           </div>`
-        : `<p class="muted">No tenés equipos: se muestran <strong>todos</strong> tus entrenamientos. Creá un equipo en el menú para filtrar por nombre.</p>`;
+        : `<p class="muted">No tenés equipo: se muestran <strong>todos</strong> tus entrenamientos. Creá uno desde el menú <strong>Equipo</strong> para filtrar por nombre.</p>`;
 
     if (!rows.length) {
       layout(`
@@ -724,7 +788,7 @@ async function renderSessionDetail(id) {
     const sessionMapSummaryHtml = buildSessionMapSummaryHtml(s, last);
 
     layout(`
-      <p><a class="link" href="#/">← Volver a entrenamientos</a></p>
+      <p><a class="link" href="#/sessions">← Volver a entrenamientos</a></p>
       <div class="card session-card">
         <h2 class="card-title">Sesión #${data.id}</h2>
         <p class="muted">Subida: ${fmtDate(data.created_at)}</p>
@@ -838,7 +902,7 @@ async function renderSessionDetail(id) {
         });
         const a = document.createElement("a");
         a.href = dataUrl;
-        a.download = `edragonboat-mapa-sesion-${data.id}.jpg`;
+        a.download = buildSessionMapJpegFileName(s, data.id, data.created_at);
         a.click();
       } catch (e) {
         console.error(e);
@@ -849,20 +913,20 @@ async function renderSessionDetail(id) {
     });
   } catch (ex) {
     layout(`
-      <p><a class="link" href="#/">← Volver</a></p>
+      <p><a class="link" href="#/sessions">← Volver</a></p>
       <div class="card"><p class="msg-error">${escapeHtml(ex.message)}</p></div>
     `);
   }
 }
 
 async function renderTeamsList() {
-  layout(`<p class="loading-line">Cargando equipos…</p>`);
+  layout(`<p class="loading-line">Cargando equipo…</p>`);
   try {
     const list = await api.apiMyTeams();
     if (!list.length) {
       layout(`
         <div class="card">
-          <h2 class="card-title">Equipos</h2>
+          <h2 class="card-title">Equipo</h2>
           <p>Todavía no pertenecés a ningún equipo.</p>
           <a class="btn-inline" href="#/teams/new">Crear equipo</a>
         </div>
@@ -887,8 +951,8 @@ async function renderTeamsList() {
           : ""
       }
       <div class="card">
-        <h2 class="card-title">Mis equipos</h2>
-        <p class="muted">Un usuario solo puede tener <strong>un</strong> equipo. En la ficha del equipo el capitán puede cambiar nombre, país y eliminar el equipo. El plantel y las invitaciones están en <a class="link" href="#/cuenta">Cuenta</a>.</p>
+        <h2 class="card-title">Mi equipo</h2>
+        <p class="muted">Un usuario solo puede tener <strong>un</strong> equipo. En la ficha del equipo el capitán puede cambiar nombre, país y eliminar el equipo. En <a class="link" href="#/cuenta">Cuenta</a>, el capitán o el entrenador gestionan el plantel; solo el capitán invita.</p>
         <div class="table-scroll">
           <table>
             <thead>
@@ -925,7 +989,7 @@ async function renderTeamNew() {
   const countryOpts = countrySelectOptionsHtml("");
 
   layout(`
-    <p><a class="link" href="#/teams">← Equipos</a></p>
+    <p><a class="link" href="#/teams">← Equipo</a></p>
     <div class="card narrow">
       <h2 class="card-title">Nuevo equipo</h2>
       <form id="form-new-team">
@@ -976,7 +1040,7 @@ async function renderTeamDetail(id) {
     const countryOptsEdit = countrySelectOptionsHtml(team.country || "");
 
     const cuentaHint = `
-      <p class="muted">El <strong>plantel</strong> y las <strong>invitaciones</strong> se gestionan en <a class="link" href="#/cuenta">Cuenta</a>.</p>`;
+      <p class="muted">El <strong>plantel</strong> y las <strong>invitaciones</strong> (solo capitán) se gestionan en <a class="link" href="#/cuenta">Cuenta</a>.</p>`;
 
     const editBlock = isCaptain
       ? `
@@ -1000,7 +1064,7 @@ async function renderTeamDetail(id) {
       : `<p class="muted">Solo el capitán puede cambiar el nombre, el país o eliminar el equipo.</p>`;
 
     layout(`
-      <p><a class="link" href="#/teams">← Mis equipos</a></p>
+      <p><a class="link" href="#/teams">← Mi equipo</a></p>
       <div class="card">
         <h2 class="card-title">${escapeHtml(team.name)}</h2>
         <p class="muted">País: ${escapeHtml(team.country || "—")} · Tu rol: <strong>${roleLabel(myRole || "")}</strong></p>
@@ -1045,19 +1109,19 @@ async function renderTeamDetail(id) {
     }
   } catch (ex) {
     layout(
-      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/teams">Volver a equipos</a></p></div>`
+      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/teams">Volver al equipo</a></p></div>`
     );
   }
 }
 
-/** Tabla de plantel en Cuenta (gestión de roles solo si isCaptain). */
-function buildAccountPlantelTable(members, isCaptain, teamId) {
-  const thead = isCaptain
+/** Tabla de plantel en Cuenta (gestión de roles si capitán o entrenador). */
+function buildAccountPlantelTable(members, canManageRoster, teamId) {
+  const thead = canManageRoster
     ? `<thead><tr><th>Email</th><th>Nombre</th><th>Rol</th><th>Gestión</th></tr></thead>`
     : `<thead><tr><th>Email</th><th>Nombre</th><th>Rol</th></tr></thead>`;
   const rows = members
     .map((m) => {
-      if (isCaptain && m.role === "captain") {
+      if (canManageRoster && m.role === "captain") {
         return `<tr>
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
@@ -1065,7 +1129,7 @@ function buildAccountPlantelTable(members, isCaptain, teamId) {
           <td class="muted">—</td>
         </tr>`;
       }
-      if (isCaptain) {
+      if (canManageRoster) {
         return `<tr>
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
@@ -1157,8 +1221,11 @@ async function renderAccount() {
       .map(({ entry, members }) => {
         const tid = entry.team.id;
         const isCaptain = entry.role === "captain";
-        const inviteForm = isCaptain
-          ? `
+        const isCoach = entry.role === "coach";
+        const canManageRoster = isCaptain || isCoach;
+        let inviteBlock = "";
+        if (isCaptain) {
+          inviteBlock = `
         <details class="disclosure-card" style="margin-top:0.75rem">
           <summary class="disclosure-summary">
             <span>Invitar al equipo</span>
@@ -1180,22 +1247,26 @@ async function renderAccount() {
               <p id="inv-err-${tid}" class="msg-error"></p>
             </form>
           </div>
-        </details>`
-          : `<p class="muted small">Solo el <strong>capitán</strong> puede invitar o gestionar roles del plantel.</p>`;
+        </details>`;
+        } else if (isCoach) {
+          inviteBlock = `<p class="muted small">Solo el <strong>capitán</strong> puede invitar nuevas personas al equipo.</p>`;
+        } else {
+          inviteBlock = `<p class="muted small">El <strong>capitán</strong> o el <strong>entrenador</strong> gestionan el plantel; las invitaciones las envía solo el capitán.</p>`;
+        }
 
         return `
       <div class="card" style="margin-top:1rem">
         <h3 style="margin-top:0">Plantel — ${escapeHtml(entry.team.name)}</h3>
         <p class="muted small">Tu rol: <strong>${roleLabel(entry.role)}</strong></p>
-        ${buildAccountPlantelTable(members, isCaptain, tid)}
-        ${inviteForm}
+        ${buildAccountPlantelTable(members, canManageRoster, tid)}
+        ${inviteBlock}
       </div>`;
       })
       .join("");
 
     const noTeamMsg =
       teams.length === 0
-        ? `<div class="card" style="margin-top:1rem"><p class="muted">No tenés equipo. Podés crear uno en <a class="link" href="#/teams/new">Equipos</a>.</p></div>`
+        ? `<div class="card" style="margin-top:1rem"><p class="muted">No tenés equipo. Podés crear uno en <a class="link" href="#/teams/new">Equipo</a>.</p></div>`
         : "";
 
     layout(`
@@ -1290,7 +1361,7 @@ async function renderAccount() {
 
     withMembers.forEach(({ entry }) => {
       const tid = entry.team.id;
-      if (entry.role !== "captain") return;
+      if (entry.role !== "captain" && entry.role !== "coach") return;
       document.querySelectorAll(`.role-select-acc[data-team="${tid}"]`).forEach((sel) => {
         sel.addEventListener("change", async () => {
           const uid = Number(sel.getAttribute("data-user"));

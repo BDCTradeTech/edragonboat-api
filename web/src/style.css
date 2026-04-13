@@ -149,6 +149,33 @@ body {
   font-size: 1.35rem;
 }
 
+.home-hero .home-lead {
+  font-size: 1.05rem;
+  line-height: 1.5;
+  margin: 0 0 1rem;
+}
+
+.home-features {
+  margin: 0 0 1.25rem;
+  padding-left: 1.2rem;
+  line-height: 1.55;
+}
+
+.home-features li {
+  margin-bottom: 0.65rem;
+}
+
+.home-features li strong {
+  color: var(--primary);
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
 .sub-card {
   margin-top: 1rem;
   background: #f8fbff;
