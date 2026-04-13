@@ -8,6 +8,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import * as api from "./api.js";
 import { countrySelectOptionsHtml } from "./countries.js";
+import panelPkg from "../package.json";
 
 Chart.register(...registerables);
 
@@ -146,6 +147,9 @@ function layout(content, { showNav = true } = {}) {
         <a class="nav-item" href="#/teams" data-match="teams">Equipo</a>
         <a class="nav-item" href="#/cuenta" data-match="cuenta">Cuenta</a>
       </nav>
+      <div class="nav-footer">
+        <span class="nav-version">Panel v${escapeHtml(String(panelPkg.version))}</span>
+      </div>
     </aside>`
     : "";
 

@@ -66,9 +66,25 @@ body {
 }
 
 .nav-links {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-height: 0;
+}
+
+.nav-footer {
+  margin-top: auto;
+  padding: 0.85rem 1.25rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.nav-version {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(227, 242, 253, 0.72);
+  letter-spacing: 0.02em;
 }
 
 .nav-item {
@@ -689,6 +705,13 @@ details[open] .disclosure-chev::after {
     flex-direction: row;
     flex-wrap: wrap;
     width: 100%;
+    flex: none;
+  }
+
+  .nav-footer {
+    width: 100%;
+    padding-top: 0.65rem;
+    margin-top: 0.35rem;
   }
 
   .nav-item {
