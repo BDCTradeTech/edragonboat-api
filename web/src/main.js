@@ -3,6 +3,7 @@
  */
 
 import { Chart, registerables } from "chart.js";
+import { toJpeg } from "html-to-image";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import * as api from "./api.js";
@@ -43,6 +44,50 @@ function fmtDate(iso) {
 function roleLabel(role) {
   const m = { captain: "Capitán", coach: "Entrenador", paddler: "Palista" };
   return m[role] || role;
+}
+
+function fmtSessionStartLong(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("es-AR", {
+      dateStyle: "long",
+      timeStyle: "short",
+    });
+  } catch {
+    return String(iso);
+  }
+}
+
+function boatTypeLabelEsp(bt) {
+  if (bt == null || String(bt).trim() === "") return "—";
+  const x = String(bt).trim().toLowerCase();
+  if (x === "grande") return "Grande";
+  if (x === "chico") return "Chico";
+  return escapeHtml(String(bt));
+}
+
+/** Resumen encima del mapa (pantalla y export JPG). */
+function buildSessionMapSummaryHtml(s, data, last) {
+  const km =
+    last != null && typeof last.distanceMeters === "number" && Number.isFinite(last.distanceMeters)
+      ? (last.distanceMeters / 1000).toFixed(2)
+      : null;
+  const team = s.teamName ? escapeHtml(s.teamName) : "—";
+  const boat = boatTypeLabelEsp(s.boatType);
+  const paddlers = s.paddlersCount != null ? escapeHtml(String(s.paddlersCount)) : "—";
+  const fechaInicio = escapeHtml(fmtSessionStartLong(s.sessionStartTime));
+  const fechaSubida = escapeHtml(fmtDate(data.created_at));
+  const distHtml = km != null ? `${escapeHtml(km)} km` : "—";
+  return `
+    <div class="session-map-summary-grid">
+      <div><span class="sms-label">Fecha / inicio</span><span class="sms-val">${fechaInicio}</span></div>
+      <div><span class="sms-label">Subida al panel</span><span class="sms-val">${fechaSubida}</span></div>
+      <div><span class="sms-label">Equipo</span><span class="sms-val">${team}</span></div>
+      <div><span class="sms-label">Bote</span><span class="sms-val">${boat}</span></div>
+      <div><span class="sms-label">Palistas</span><span class="sms-val">${paddlers}</span></div>
+      <div><span class="sms-label">Distancia</span><span class="sms-val">${distHtml}</span></div>
+    </div>
+  `;
 }
 
 /** Shell con menú lateral (solo autenticado). */
@@ -673,6 +718,7 @@ async function renderSessionDetail(id) {
     const metaTable = buildSessionMetadataTable(s);
     const pointsTable = buildDynamicDataPointsTable(s.dataPoints);
     const exploreBlock = buildExploreControlsHtml(s.dataPoints);
+    const sessionMapSummaryHtml = buildSessionMapSummaryHtml(s, data, last);
 
     layout(`
       <p><a class="link" href="#/">← Volver a entrenamientos</a></p>
@@ -710,7 +756,14 @@ async function renderSessionDetail(id) {
           </div>
           <div id="panel-mapas" class="tab-panel" role="tabpanel">
             <p class="muted small">Recorrido del bote con los puntos GPS que envía la app (una posición por segundo, si hay señal).</p>
-            <div id="session-map" class="session-map-host" role="region" aria-label="Mapa del recorrido"></div>
+            <div id="session-map-export-root" class="session-map-export-root">
+              <div id="session-map-export-summary" class="session-map-export-summary">
+                ${sessionMapSummaryHtml}
+              </div>
+              <div id="session-map" class="session-map-host" role="region" aria-label="Mapa del recorrido"></div>
+            </div>
+            <p class="muted small map-export-hint">Descargá el mapa con el resumen del entrenamiento (JPG).</p>
+            <button type="button" class="secondary btn-sm" id="btn-session-map-jpg">Descargar mapa (JPG)</button>
           </div>
           <div id="panel-json" class="tab-panel" role="tabpanel">
             <pre class="json">${escapeHtml(JSON.stringify(data.session, null, 2))}</pre>
@@ -721,31 +774,75 @@ async function renderSessionDetail(id) {
 
     const tabRoot = document.getElementById("session-tabs");
     const panels = ["resumen", "tabla", "graficos", "mapas", "json"];
-    let chartsReady = false;
-    let mapReady = false;
+    const sessionUiState = { chartsReady: false, mapReady: false };
+
+    function activateSessionTab(name, { focusButton } = {}) {
+      if (focusButton && name) {
+        const b = tabRoot.querySelector(`.tab-btn[data-tab="${name}"]`);
+        if (b) {
+          tabRoot.querySelectorAll(".tab-btn").forEach((x) => x.classList.toggle("active", x === b));
+        }
+      } else if (name) {
+        tabRoot.querySelectorAll(".tab-btn").forEach((b) => {
+          b.classList.toggle("active", b.getAttribute("data-tab") === name);
+        });
+      }
+      panels.forEach((p) => {
+        document.getElementById(`panel-${p}`).classList.toggle("active", p === name);
+      });
+      if (name === "graficos" && !sessionUiState.chartsReady) {
+        initSessionCharts(s.dataPoints);
+        wireExploreChart(s.dataPoints);
+        sessionUiState.chartsReady = true;
+      }
+      if (name === "mapas") {
+        if (!sessionUiState.mapReady) {
+          initSessionMap(s.dataPoints);
+          sessionUiState.mapReady = true;
+        } else {
+          const wrap = document.getElementById("session-map");
+          if (wrap?._edbMap) setTimeout(() => wrap._edbMap.invalidateSize(), 200);
+        }
+      }
+    }
 
     tabRoot.querySelectorAll(".tab-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const name = btn.getAttribute("data-tab");
-        tabRoot.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b === btn));
-        panels.forEach((p) => {
-          document.getElementById(`panel-${p}`).classList.toggle("active", p === name);
-        });
-        if (name === "graficos" && !chartsReady) {
-          initSessionCharts(s.dataPoints);
-          wireExploreChart(s.dataPoints);
-          chartsReady = true;
-        }
-        if (name === "mapas") {
-          if (!mapReady) {
-            initSessionMap(s.dataPoints);
-            mapReady = true;
-          } else {
-            const wrap = document.getElementById("session-map");
-            if (wrap?._edbMap) setTimeout(() => wrap._edbMap.invalidateSize(), 200);
-          }
-        }
+        activateSessionTab(name, { focusButton: true });
       });
+    });
+
+    document.getElementById("btn-session-map-jpg")?.addEventListener("click", async () => {
+      activateSessionTab("mapas");
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => setTimeout(r, 400));
+      const wrap = document.getElementById("session-map");
+      if (wrap?._edbMap) {
+        wrap._edbMap.invalidateSize();
+        await new Promise((r) => setTimeout(r, 700));
+      } else {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      const root = document.getElementById("session-map-export-root");
+      if (!root) return;
+      try {
+        const dataUrl = await toJpeg(root, {
+          quality: 0.92,
+          pixelRatio: 2,
+          cacheBust: true,
+        });
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `edragonboat-mapa-sesion-${data.id}.jpg`;
+        a.click();
+      } catch (e) {
+        console.error(e);
+        alert(
+          "No se pudo generar el JPG (a veces por las teselas del mapa). Esperá a que cargue el mapa y reintentá, o usá captura de pantalla."
+        );
+      }
     });
   } catch (ex) {
     layout(`
@@ -1059,23 +1156,28 @@ async function renderAccount() {
         const isCaptain = entry.role === "captain";
         const inviteForm = isCaptain
           ? `
-        <div class="card sub-card" style="margin-top:0.75rem">
-          <h4 style="margin-top:0">Invitar</h4>
-          <p class="muted small">Podés invitar por email aunque no tengan cuenta: se crea el usuario con contraseña <strong>12345678</strong> (que deberían cambiar en Cuenta). Si el servidor tiene SMTP, reciben un correo con el acceso.</p>
-          <form id="form-invite-${tid}">
-            <label for="inv-name-${tid}">Nombre (opcional)</label>
-            <input id="inv-name-${tid}" type="text" maxlength="200" autocomplete="name" />
-            <label for="inv-email-${tid}">Email</label>
-            <input id="inv-email-${tid}" type="email" required autocomplete="email" />
-            <label for="inv-role-${tid}">Rol</label>
-            <select id="inv-role-${tid}">
-              <option value="coach">Entrenador</option>
-              <option value="paddler" selected>Palista</option>
-            </select>
-            <button type="submit">Invitar</button>
-            <p id="inv-err-${tid}" class="msg-error"></p>
-          </form>
-        </div>`
+        <details class="disclosure-card" style="margin-top:0.75rem">
+          <summary class="disclosure-summary">
+            <span>Invitar al equipo</span>
+            <span class="disclosure-chev" aria-hidden="true"></span>
+          </summary>
+          <div class="disclosure-body">
+            <p class="muted small">Podés invitar por email aunque no tengan cuenta: se crea el usuario con contraseña <strong>12345678</strong> (que deberían cambiar en Cuenta). Si el servidor tiene SMTP, reciben un correo con el acceso.</p>
+            <form id="form-invite-${tid}">
+              <label for="inv-name-${tid}">Nombre (opcional)</label>
+              <input id="inv-name-${tid}" type="text" maxlength="200" autocomplete="name" />
+              <label for="inv-email-${tid}">Email</label>
+              <input id="inv-email-${tid}" type="email" required autocomplete="email" />
+              <label for="inv-role-${tid}">Rol</label>
+              <select id="inv-role-${tid}">
+                <option value="coach">Entrenador</option>
+                <option value="paddler" selected>Palista</option>
+              </select>
+              <button type="submit">Invitar</button>
+              <p id="inv-err-${tid}" class="msg-error"></p>
+            </form>
+          </div>
+        </details>`
           : `<p class="muted small">Solo el <strong>capitán</strong> puede invitar o gestionar roles del plantel.</p>`;
 
         return `

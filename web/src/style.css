@@ -527,6 +527,56 @@ pre.json {
   filter: brightness(0.95);
 }
 
+.session-map-export-root {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: #fff;
+  margin-top: 0.75rem;
+}
+
+.session-map-export-summary {
+  padding: 0.75rem 1rem;
+  background: linear-gradient(180deg, #f5f9ff 0%, #fff 100%);
+  border-bottom: 1px solid var(--border);
+}
+
+.session-map-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 0.55rem 1rem;
+  font-size: 0.85rem;
+}
+
+.sms-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #546e7a;
+  margin-bottom: 0.15rem;
+}
+
+.sms-val {
+  font-weight: 600;
+  color: #102a43;
+}
+
+.session-map-export-root .session-map-host {
+  margin-top: 0;
+  border: none;
+  border-radius: 0;
+}
+
+.map-export-hint {
+  margin: 0.65rem 0 0.35rem;
+}
+
+#btn-session-map-jpg {
+  margin-top: 0.25rem;
+}
+
 .session-map-host {
   height: 420px;
   width: 100%;
