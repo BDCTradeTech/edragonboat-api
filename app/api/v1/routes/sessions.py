@@ -41,6 +41,8 @@ def _session_team_name_key(json_payload: str) -> str | None:
 
 
 def _can_delete_libre_session(db: Session, current: User, row: LibreSessionUpload) -> bool:
+    if current.is_platform_admin:
+        return True
     if row.user_id == current.id:
         return True
     key = _session_team_name_key(row.json_payload)
@@ -54,6 +56,14 @@ def _can_delete_libre_session(db: Session, current: User, row: LibreSessionUploa
         if team is not None and team.name.strip().casefold() == key:
             return True
     return False
+
+
+def _can_view_libre_session(db: Session, current: User, upload_user_id: int) -> bool:
+    if current.is_platform_admin:
+        return True
+    if current.id == upload_user_id:
+        return True
+    return _users_share_team(db, current.id, upload_user_id)
 
 
 def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
@@ -129,17 +139,18 @@ def list_libre_sessions(
         rows = db.scalars(stmt).all()
         return [_summarize_row(r) for r in rows]
 
-    m = db.scalar(
-        select(TeamMembership).where(
-            TeamMembership.user_id == current.id,
-            TeamMembership.team_id == team_id,
+    if not current.is_platform_admin:
+        m = db.scalar(
+            select(TeamMembership).where(
+                TeamMembership.user_id == current.id,
+                TeamMembership.team_id == team_id,
+            )
         )
-    )
-    if m is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Equipo no encontrado o sin acceso",
-        )
+        if m is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Equipo no encontrado o sin acceso",
+            )
     team = db.get(Team, team_id)
     if team is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
@@ -174,7 +185,7 @@ def get_libre_session(
     row = db.get(LibreSessionUpload, session_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
-    if not _users_share_team(db, current.id, row.user_id):
+    if not _can_view_libre_session(db, current, row.user_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
     try:
         session_payload: dict[str, Any] = json.loads(row.json_payload)

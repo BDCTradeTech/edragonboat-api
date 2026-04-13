@@ -772,10 +772,15 @@ function initSessionMap(points) {
 async function renderSessionDetail(id) {
   layout(`<p class="loading-line">Cargando sesión #${escapeHtml(id)}…</p>`);
   try {
-    const [data, myTeams] = await Promise.all([api.apiGetSession(id), api.apiMyTeams()]);
+    const [data, myTeams, me] = await Promise.all([
+      api.apiGetSession(id),
+      api.apiMyTeams(),
+      api.apiMe(),
+    ]);
     const s = data.session;
     const myRole = myTeams.length ? myTeams[0].role : null;
-    const isPaddler = myRole === "paddler";
+    const isPlatformAdmin = me.is_platform_admin === true;
+    const isPaddler = !isPlatformAdmin && myRole === "paddler";
     const canDelete = data.can_delete === true;
 
     const last =
@@ -971,7 +976,8 @@ async function renderSessionDetail(id) {
 async function renderTeamsList() {
   layout(`<p class="loading-line">Cargando equipo…</p>`);
   try {
-    const list = await api.apiMyTeams();
+    const [list, me] = await Promise.all([api.apiMyTeams(), api.apiMe()]);
+    const isPlatformAdmin = me.is_platform_admin === true;
     if (!list.length) {
       layout(`
         <div class="card">
@@ -1000,12 +1006,16 @@ async function renderTeamsList() {
           : ""
       }
       <div class="card">
-        <h2 class="card-title">Mi equipo</h2>
-        <p class="muted">Un usuario solo puede tener <strong>un</strong> equipo. En la ficha del equipo el capitán puede cambiar nombre, país y eliminar el equipo. En <a class="link" href="#/cuenta">Cuenta</a>, el capitán o el entrenador gestionan el plantel; solo el capitán invita.</p>
+        <h2 class="card-title">${isPlatformAdmin ? "Todos los equipos" : "Mi equipo"}</h2>
+        <p class="muted">${
+          isPlatformAdmin
+            ? "Vista de administrador: podés abrir cualquier equipo y gestionar planteles en Cuenta. Los demás usuarios no te ven en sus planteles."
+            : "Un usuario solo puede tener <strong>un</strong> equipo. En la ficha del equipo el capitán puede cambiar nombre, país y eliminar el equipo. En <a class=\"link\" href=\"#/cuenta\">Cuenta</a>, el capitán o el entrenador gestionan el plantel; solo el capitán invita."
+        }</p>
         <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>Nombre</th><th>País</th><th>Tu rol</th></tr>
+              <tr><th>Nombre</th><th>País</th><th>${isPlatformAdmin ? "Tu rol (si estás en el equipo)" : "Tu rol"}</th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
@@ -1021,15 +1031,16 @@ async function renderTeamsList() {
 
 async function renderTeamNew() {
   let existing;
+  let me;
   try {
-    existing = await api.apiMyTeams();
+    [existing, me] = await Promise.all([api.apiMyTeams(), api.apiMe()]);
   } catch (ex) {
     layout(
       `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/teams">Volver</a></p></div>`
     );
     return;
   }
-  if (existing.length > 0) {
+  if (existing.length > 0 && me.is_platform_admin !== true) {
     location.hash = "#/teams";
     route();
     return;
@@ -1082,10 +1093,14 @@ async function renderTeamDetail(id) {
   }
   layout(`<p class="loading-line">Cargando equipo…</p>`);
   try {
-    const [team, myTeams] = await Promise.all([api.apiGetTeam(teamId), api.apiMyTeams()]);
+    const [team, myTeams, me] = await Promise.all([
+      api.apiGetTeam(teamId),
+      api.apiMyTeams(),
+      api.apiMe(),
+    ]);
     const myEntry = myTeams.find((t) => t.team.id === teamId);
     const myRole = myEntry?.role;
-    const isCaptain = myRole === "captain";
+    const isCaptain = myRole === "captain" || me.is_platform_admin === true;
     const countryOptsEdit = countrySelectOptionsHtml(team.country || "");
 
     const cuentaHint = `
@@ -1163,9 +1178,9 @@ async function renderTeamDetail(id) {
   }
 }
 
-/** Plantel en Cuenta: capitán gestiona roles; entrenador solo quita palistas (no asciende a entrenador ni toca entrenadores). */
-function buildAccountPlantelTable(members, { isCaptain, isCoach }, teamId) {
-  const canManage = isCaptain || isCoach;
+/** Plantel en Cuenta: capitán gestiona roles; entrenador solo quita palistas; admin de plataforma ve todos los equipos y todos los roles. */
+function buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, teamId) {
+  const canManage = isCaptain || isCoach || isPlatformAdmin;
   const thead = canManage
     ? `<thead><tr><th>Email</th><th>Nombre</th><th>Rol</th><th>Gestión</th></tr></thead>`
     : `<thead><tr><th>Email</th><th>Nombre</th><th>Rol</th></tr></thead>`;
@@ -1176,6 +1191,23 @@ function buildAccountPlantelTable(members, { isCaptain, isCoach }, teamId) {
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
           <td>${roleLabel(m.role)}</td>
+        </tr>`;
+      }
+      if (isPlatformAdmin) {
+        return `<tr>
+          <td>${escapeHtml(m.email)}</td>
+          <td>${escapeHtml(m.full_name || "—")}</td>
+          <td>${roleLabel(m.role)}</td>
+          <td class="actions-cell">
+            <select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="Rol">
+              <option value="captain" ${m.role === "captain" ? "selected" : ""}>Capitán</option>
+              <option value="coach" ${m.role === "coach" ? "selected" : ""}>Entrenador</option>
+              <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>Palista</option>
+            </select>
+            <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}" ${
+              m.role === "captain" ? "disabled title=\"Promové a otro capitán antes de quitar\"" : ""
+            }>Quitar</button>
+          </td>
         </tr>`;
       }
       if (m.role === "captain") {
@@ -1285,10 +1317,12 @@ async function renderAccount() {
       }))
     );
 
+    const isPlatformAdmin = me.is_platform_admin === true;
+
     const plantelBlocks = withMembers
       .map(({ entry, members }) => {
         const tid = entry.team.id;
-        const isCaptain = entry.role === "captain";
+        const isCaptain = entry.role === "captain" || isPlatformAdmin;
         const isCoach = entry.role === "coach";
         const canManageRoster = isCaptain || isCoach;
         let inviteBlock = "";
@@ -1325,15 +1359,15 @@ async function renderAccount() {
         return `
       <div class="card" style="margin-top:1rem">
         <h3 style="margin-top:0">Plantel — ${escapeHtml(entry.team.name)}</h3>
-        <p class="muted small">Tu rol: <strong>${roleLabel(entry.role)}</strong></p>
-        ${buildAccountPlantelTable(members, { isCaptain, isCoach }, tid)}
+        <p class="muted small">Tu rol: <strong>${roleLabel(entry.role)}</strong>${isPlatformAdmin ? " · <strong>Administrador</strong>" : ""}</p>
+        ${buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, tid)}
         ${inviteBlock}
       </div>`;
       })
       .join("");
 
     const noTeamMsg =
-      teams.length === 0
+      teams.length === 0 && !isPlatformAdmin
         ? `<div class="card" style="margin-top:1rem"><p class="muted">No tenés equipo. Podés crear uno en <a class="link" href="#/teams/new">Equipo</a>.</p></div>`
         : "";
 
@@ -1393,7 +1427,7 @@ async function renderAccount() {
 
     withMembers.forEach(({ entry }) => {
       const tid = entry.team.id;
-      if (entry.role !== "captain") return;
+      if (entry.role !== "captain" && !isPlatformAdmin) return;
       const form = document.getElementById(`form-invite-${tid}`);
       if (!form) return;
       form.addEventListener("submit", async (e) => {
@@ -1429,8 +1463,8 @@ async function renderAccount() {
 
     withMembers.forEach(({ entry }) => {
       const tid = entry.team.id;
-      if (entry.role !== "captain" && entry.role !== "coach") return;
-      if (entry.role === "captain") {
+      if (entry.role !== "captain" && entry.role !== "coach" && !isPlatformAdmin) return;
+      if (entry.role === "captain" || isPlatformAdmin) {
         document.querySelectorAll(`.role-select-acc[data-team="${tid}"]`).forEach((sel) => {
           sel.addEventListener("change", async () => {
             const uid = Number(sel.getAttribute("data-user"));
