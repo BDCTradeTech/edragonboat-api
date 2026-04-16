@@ -69,11 +69,36 @@ npm run build
 
 Subí el contenido de `web/dist/` al servidor (ej. `/var/www/edragonboat-web`).
 
+### Por qué el panel no cambia tras `git pull` (importante)
+
+- La carpeta **`web/dist/` no está en Git** (está en `.gitignore`). Solo se genera con `npm run build`.
+- **`systemctl restart edragonboat-api`** solo reinicia **Python/FastAPI**. No toca los HTML/JS del sitio **`app.edragonboat.com`** (eso lo sirve Caddy/nginx desde una carpeta como `/var/www/edragonboat-web`).
+- Por eso podés tener el código fuente del panel actualizado en el repo y seguir viendo **Panel v0.2.3** y textos viejos: el navegador sigue sirviendo los archivos **viejos** que copiaste la última vez a esa carpeta.
+
+**En el droplet, cada vez que cambie el panel web**, después de `git pull`:
+
+```bash
+cd /srv/edragonboat-api/web   # o la ruta donde clonaste el repo
+npm ci
+npm run build
+# Ajustá la ruta destino a la que tenga tu Caddyfile en root * ...
+sudo rsync -av --delete dist/ /var/www/edragonboat-web/
+sudo systemctl reload caddy
+```
+
+Si también cambió la API Python:
+
+```bash
+cd /srv/edragonboat-api && sudo systemctl restart edragonboat-api
+```
+
+**En tu PC** podés hacer `npm run build` en `web/` y subir **solo el contenido** de `web/dist/` por SFTP/SCP a `/var/www/edragonboat-web/` (sin subir la carpeta `dist` como contenedor; el *contenido* dentro).
+
 ### DNS y Caddy (ejemplo)
 
 1. En DonWeb: registro **A** `app` → IP del droplet (panel en `https://app.edragonboat.com`).
 2. En el servidor `.env` de la API, incluí el origen del panel (ya viene en `.env.example` como `CORS_ORIGINS`).
-3. Tras `git pull`, reiniciá: `systemctl restart edragonboat-api`.
+3. Tras cambios **solo de API**: `git pull` y `sudo systemctl restart edragonboat-api`. Tras cambios **del panel**: además build + copiar `dist/` + `reload caddy` (ver arriba).
 
 **Caddyfile** con API + panel estático:
 
