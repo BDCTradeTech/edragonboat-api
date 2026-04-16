@@ -48,6 +48,22 @@ export async function apiLogin(email, password) {
   return res.json();
 }
 
+/** Registro (sin email de verificación: solo crea usuario en la API). */
+export async function apiRegister(email, password, fullName = null) {
+  const body = {
+    email: String(email).trim(),
+    password: String(password),
+  };
+  if (fullName && String(fullName).trim()) body.full_name = String(fullName).trim();
+  const res = await fetch(`${API}/api/v1/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function apiMe() {
   /** Preferir `/me` y `/auth/me` (UserRead completo); `/profile` como alias por compatibilidad con proxies viejos. */
   const paths = ["/api/v1/me", "/api/v1/auth/me", "/api/v1/profile"];
@@ -105,6 +121,13 @@ export async function apiDeleteSession(id) {
 
 export async function apiMyTeams() {
   const res = await fetch(`${API}/api/v1/teams/me`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/** Países distintos que tienen al menos un equipo (tabla equipos). */
+export async function apiListTeamCountries() {
+  const res = await fetch(`${API}/api/v1/teams/countries`, { headers: authHeaders() });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

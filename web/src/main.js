@@ -265,17 +265,18 @@ function route() {
   const hash = location.hash.replace(/^#\/?/, "") || "/";
   const parts = hash.split("/").filter(Boolean);
 
-  if (!api.getToken() && parts[0] !== "login") {
+  if (!api.getToken() && parts[0] !== "login" && parts[0] !== "register") {
     location.hash = "#/login";
     return renderLogin();
   }
 
-  if (api.getToken() && parts[0] === "login") {
+  if (api.getToken() && (parts[0] === "login" || parts[0] === "register")) {
     location.hash = "#/";
     return route();
   }
 
   if (parts[0] === "login") return renderLogin();
+  if (parts[0] === "register") return renderRegister();
   if (parts[0] === "session" && parts[1]) {
     if (!/^\d+$/.test(parts[1])) {
       layout(
@@ -322,6 +323,7 @@ function renderLogin() {
           <button type="submit" class="btn-block">Entrar</button>
           <p id="login-err" class="msg-error"></p>
         </form>
+        <p class="muted small" style="margin-top:0.75rem;text-align:center">¿No tenés cuenta? <a class="link" href="#/register">Crear cuenta</a></p>
       </div>
     </div>
   `,
@@ -341,6 +343,60 @@ function renderLogin() {
       route();
     } catch (ex) {
       err.textContent = ex.message || "No se pudo iniciar sesión.";
+    }
+  });
+}
+
+function renderRegister() {
+  layout(
+    `
+    <div class="login-center">
+      <div class="card login-card">
+        <h1 class="login-title">Crear cuenta</h1>
+        <p class="muted">Registro con email y contraseña (sin correo de verificación). Luego podés crear tu equipo en <strong>Equipo</strong>.</p>
+        <form id="form-register">
+          <label for="reg-email">Email</label>
+          <input id="reg-email" name="email" type="email" autocomplete="username" required />
+          <label for="reg-name">Nombre (opcional)</label>
+          <input id="reg-name" name="full_name" type="text" maxlength="200" autocomplete="name" />
+          <label for="reg-password">Contraseña</label>
+          <input id="reg-password" name="password" type="password" autocomplete="new-password" required minlength="8" />
+          <label for="reg-password2">Repetir contraseña</label>
+          <input id="reg-password2" name="password2" type="password" autocomplete="new-password" required minlength="8" />
+          <button type="submit" class="btn-block">Registrarse</button>
+          <p id="reg-err" class="msg-error"></p>
+        </form>
+        <p class="muted small" style="margin-top:0.75rem;text-align:center">¿Ya tenés cuenta? <a class="link" href="#/login">Iniciar sesión</a></p>
+      </div>
+    </div>
+  `,
+    { showNav: false }
+  );
+
+  document.getElementById("form-register").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const err = document.getElementById("reg-err");
+    err.textContent = "";
+    const email = document.getElementById("reg-email").value.trim();
+    const fullName = document.getElementById("reg-name").value.trim();
+    const password = document.getElementById("reg-password").value;
+    const password2 = document.getElementById("reg-password2").value;
+    if (password !== password2) {
+      err.textContent = "Las contraseñas no coinciden.";
+      return;
+    }
+    if (password.length < 8) {
+      err.textContent = "La contraseña debe tener al menos 8 caracteres.";
+      return;
+    }
+    try {
+      await api.apiRegister(email, password, fullName || null);
+      const data = await api.apiLogin(email, password);
+      api.setSession(data.access_token, email);
+      location.hash = "#/";
+      route();
+    } catch (ex) {
+      err.textContent = humanizeApiError(ex.message) || String(ex.message);
     }
   });
 }
@@ -1306,7 +1362,11 @@ function compareCompetenciaRows(sortKey, sortDir, a, b) {
 async function renderCompetencias() {
   layout(`<p class="loading-line">Cargando competencias…</p>`);
   try {
-    const allRows = await api.apiListCompetenciaSessions();
+    const [allRows, teamCountriesRaw] = await Promise.all([
+      api.apiListCompetenciaSessions(),
+      api.apiListTeamCountries().catch(() => []),
+    ]);
+    const teamCountries = Array.isArray(teamCountriesRaw) ? teamCountriesRaw : [];
 
     const introBlock = `<p class="muted small">Listado global: se muestran las competencias subidas por <strong>todos</strong> los equipos (requiere iniciar sesión).</p>`;
 
@@ -1323,8 +1383,24 @@ async function renderCompetencias() {
       return;
     }
 
+    const countryFilterOptions =
+      `<option value="todos" selected>Todos</option>` +
+      teamCountries
+        .map((c) => {
+          const v = String(c);
+          const safeVal = v.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+          return `<option value="${safeVal}">${escapeHtml(v)}</option>`;
+        })
+        .join("");
+
     const filterBar = `
       <div class="competencia-filters" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-bottom:0.75rem">
+        <div>
+          <label for="comp-filter-pais" class="muted small" style="display:block">País</label>
+          <select id="comp-filter-pais">
+            ${countryFilterOptions}
+          </select>
+        </div>
         <div>
           <label for="comp-filter-boat" class="muted small" style="display:block">Bote</label>
           <select id="comp-filter-boat">
@@ -1393,6 +1469,7 @@ async function renderCompetencias() {
       <tr>
         <th data-sort="id" style="cursor:pointer" title="Ordenar">Id</th>
         <th data-sort="created_at" style="cursor:pointer" title="Ordenar">Subida</th>
+        <th data-sort="team_country" style="cursor:pointer" title="Ordenar">País</th>
         <th data-sort="team_name" style="cursor:pointer" title="Ordenar">Equipo</th>
         <th data-sort="boat_type" style="cursor:pointer" title="Ordenar">Bote</th>
         <th data-sort="paddlers_count" style="cursor:pointer" title="Ordenar">Palistas</th>
@@ -1427,6 +1504,11 @@ async function renderCompetencias() {
     };
 
     function rowMatchesFilters(r) {
+      const pais = document.getElementById("comp-filter-pais").value;
+      if (pais !== "todos") {
+        const tc = (r.team_country || "").trim();
+        if (tc !== pais) return false;
+      }
       const boat = document.getElementById("comp-filter-boat").value;
       if (boat !== "todos") {
         const b = (r.boat_type || "").toString().toLowerCase();
@@ -1464,6 +1546,7 @@ async function renderCompetencias() {
       <tr>
         <td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>
         <td>${fmtDate(r.created_at)}</td>
+        <td>${escapeHtml(r.team_country || "—")}</td>
         <td>${escapeHtml(r.team_name || "—")}</td>
         <td>${labelCompBoat(r.boat_type)}</td>
         <td>${r.paddlers_count != null ? r.paddlers_count : "—"}</td>
@@ -1481,10 +1564,11 @@ async function renderCompetencias() {
         .join("");
       document.getElementById("comp-tbody").innerHTML =
         html ||
-        `<tr><td colspan="13" class="muted">Ninguna sesión coincide con los filtros.</td></tr>`;
+        `<tr><td colspan="14" class="muted">Ninguna sesión coincide con los filtros.</td></tr>`;
     }
 
     [
+      "comp-filter-pais",
       "comp-filter-boat",
       "comp-filter-paddlers",
       "comp-filter-drummer",

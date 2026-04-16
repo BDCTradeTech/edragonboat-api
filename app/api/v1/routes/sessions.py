@@ -100,11 +100,14 @@ def _competencia_extras_from_raw(raw: dict[str, Any]) -> dict[str, Any]:
     ac = raw.get("ageCategory")
     if ac is not None:
         out["age_category"] = str(ac)
-    tc = raw.get("teamCategory")
-    if tc is not None:
-        out["team_category"] = str(tc)
+    tcat = raw.get("teamCategory")
+    if tcat is not None:
+        out["team_category"] = str(tcat)
     if "virada" in raw:
         out["virada"] = bool(raw.get("virada"))
+    tcountry = raw.get("teamCountry")
+    if tcountry is not None and str(tcountry).strip() != "":
+        out["team_country"] = str(tcountry).strip()
     return out
 
 
@@ -145,6 +148,7 @@ def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
             age_category=extras.get("age_category"),
             team_category=extras.get("team_category"),
             virada=extras.get("virada"),
+            team_country=extras.get("team_country"),
         )
     except Exception:
         extras_e = _competencia_extras_from_raw(raw) if sk == "competencia" else {}
@@ -164,6 +168,7 @@ def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
             age_category=extras_e.get("age_category"),
             team_category=extras_e.get("team_category"),
             virada=extras_e.get("virada"),
+            team_country=extras_e.get("team_country"),
         )
 
 

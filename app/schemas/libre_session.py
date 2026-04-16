@@ -50,6 +50,8 @@ class LibreSessionListItem(BaseModel):
     age_category: str | None = None
     team_category: str | None = None
     virada: bool | None = None
+    team_country: str | None = None
+    """País del equipo (código o nombre según la app / equipo en API)."""
 
 
 class LibreSessionDetailResponse(BaseModel):

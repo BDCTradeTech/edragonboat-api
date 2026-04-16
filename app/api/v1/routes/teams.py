@@ -154,6 +154,17 @@ def my_teams(
     return out
 
 
+@router.get("/countries", response_model=list[str])
+def list_distinct_team_countries(
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+) -> list[str]:
+    """Países distintos asignados a algún equipo (filtros del panel de competencias)."""
+    rows = db.scalars(select(Team.country).where(Team.country.isnot(None))).all()
+    out = sorted({(c or "").strip() for c in rows if c and str(c).strip()})
+    return out
+
+
 @router.get("/{team_id}/members", response_model=list[TeamMemberRead])
 def list_team_members(
     team_id: int,
