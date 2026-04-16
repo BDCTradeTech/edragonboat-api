@@ -47,6 +47,32 @@ function roleLabel(role) {
   return m[role] || role;
 }
 
+function labelCompBoat(bt) {
+  if (bt == null || bt === "") return "—";
+  const x = String(bt).toLowerCase();
+  if (x === "grande") return "Grande";
+  if (x === "chico") return "Chico";
+  return escapeHtml(String(bt));
+}
+
+function labelCompAge(k) {
+  if (k == null || k === "") return "—";
+  const m = { premier: "Premier", senior_a: "Senior A", senior_b: "Senior B", senior_c: "Senior C" };
+  return m[k] || escapeHtml(String(k));
+}
+
+function labelCompTeamCat(k) {
+  if (k == null || k === "") return "—";
+  const m = { open: "Open", mixto: "Mixto", damas: "Damas", acs: "ACS" };
+  return m[k] || escapeHtml(String(k));
+}
+
+function yn(v) {
+  if (v === true) return "Sí";
+  if (v === false) return "No";
+  return "—";
+}
+
 /** Fecha de inicio de sesión: dd/mm/aaaa y hora (local). */
 function fmtSessionStartMap(iso) {
   if (!iso) return "—";
@@ -1257,14 +1283,34 @@ function buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin
   return `<div class="table-scroll"><table>${thead}<tbody>${rows}</tbody></table></div>`;
 }
 
+function compareCompetenciaRows(sortKey, sortDir, a, b) {
+  const dir = sortDir === "asc" ? 1 : -1;
+  const va = a[sortKey];
+  const vb = b[sortKey];
+  if (va == null && vb == null) return 0;
+  if (va == null) return 1;
+  if (vb == null) return -1;
+  if (sortKey === "created_at") {
+    const ta = new Date(va).getTime();
+    const tb = new Date(vb).getTime();
+    return (ta - tb) * dir;
+  }
+  if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+  if (typeof va === "boolean" && typeof vb === "boolean") {
+    if (va === vb) return 0;
+    return va ? -1 * dir : 1 * dir;
+  }
+  return String(va).localeCompare(String(vb), "es") * dir;
+}
+
 async function renderCompetencias() {
   layout(`<p class="loading-line">Cargando competencias…</p>`);
   try {
-    const rows = await api.apiListCompetenciaSessions();
+    const allRows = await api.apiListCompetenciaSessions();
 
     const introBlock = `<p class="muted small">Listado global: se muestran las competencias subidas por <strong>todos</strong> los equipos (requiere iniciar sesión).</p>`;
 
-    if (!rows.length) {
+    if (!allRows.length) {
       layout(`
         <div class="card">
           <h2 class="card-title">Competencias</h2>
@@ -1277,44 +1323,194 @@ async function renderCompetencias() {
       return;
     }
 
-    const tableRows = rows
-      .map(
-        (r) => `
+    const filterBar = `
+      <div class="competencia-filters" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-bottom:0.75rem">
+        <div>
+          <label for="comp-filter-boat" class="muted small" style="display:block">Bote</label>
+          <select id="comp-filter-boat">
+            <option value="todos" selected>Todos</option>
+            <option value="grande">Grande</option>
+            <option value="chico">Chico</option>
+          </select>
+        </div>
+        <div>
+          <label for="comp-filter-paddlers" class="muted small" style="display:block">Palistas</label>
+          <select id="comp-filter-paddlers">
+            <option value="todos" selected>Todos</option>
+            <option value="10">10</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+        <div>
+          <label for="comp-filter-drummer" class="muted small" style="display:block">Drummer</label>
+          <select id="comp-filter-drummer">
+            <option value="todos" selected>Todos</option>
+            <option value="si">Sí</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <div>
+          <label for="comp-filter-age" class="muted small" style="display:block">Edad</label>
+          <select id="comp-filter-age">
+            <option value="todos" selected>Todos</option>
+            <option value="premier">Premier</option>
+            <option value="senior_a">Senior A</option>
+            <option value="senior_b">Senior B</option>
+            <option value="senior_c">Senior C</option>
+          </select>
+        </div>
+        <div>
+          <label for="comp-filter-teamcat" class="muted small" style="display:block">Equipo</label>
+          <select id="comp-filter-teamcat">
+            <option value="todos" selected>Todos</option>
+            <option value="open">Open</option>
+            <option value="mixto">Mixto</option>
+            <option value="damas">Damas</option>
+            <option value="acs">ACS</option>
+          </select>
+        </div>
+        <div>
+          <label for="comp-filter-dist" class="muted small" style="display:block">Distancia</label>
+          <select id="comp-filter-dist">
+            <option value="todas" selected>Todas</option>
+            <option value="200">200 m</option>
+            <option value="500">500 m</option>
+            <option value="1000">1000 m</option>
+            <option value="2000">2000 m</option>
+          </select>
+        </div>
+        <div>
+          <label for="comp-filter-virada" class="muted small" style="display:block">Virada</label>
+          <select id="comp-filter-virada">
+            <option value="todas" selected>Todas</option>
+            <option value="si">Sí</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+      </div>`;
+
+    const theadRow = `
       <tr>
-        <td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>
-        <td>${fmtDate(r.created_at)}</td>
-        <td>${escapeHtml(r.team_name || "—")}</td>
-        <td>${r.target_distance_meters != null ? r.target_distance_meters + " m" : "—"}</td>
-        <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
-        <td>${r.distance_meters != null ? r.distance_meters.toFixed(0) + " m" : "—"}</td>
-        <td>${r.paladas != null ? r.paladas : "—"}</td>
-      </tr>
-    `
-      )
-      .join("");
+        <th data-sort="id" style="cursor:pointer" title="Ordenar">Id</th>
+        <th data-sort="created_at" style="cursor:pointer" title="Ordenar">Subida</th>
+        <th data-sort="team_name" style="cursor:pointer" title="Ordenar">Equipo</th>
+        <th data-sort="boat_type" style="cursor:pointer" title="Ordenar">Bote</th>
+        <th data-sort="paddlers_count" style="cursor:pointer" title="Ordenar">Palistas</th>
+        <th data-sort="drummer" style="cursor:pointer" title="Ordenar">Drummer</th>
+        <th data-sort="age_category" style="cursor:pointer" title="Ordenar">Edad</th>
+        <th data-sort="team_category" style="cursor:pointer" title="Ordenar">Tipo</th>
+        <th data-sort="target_distance_meters" style="cursor:pointer" title="Ordenar">Meta</th>
+        <th data-sort="virada" style="cursor:pointer" title="Ordenar">Virada</th>
+        <th data-sort="total_seconds" style="cursor:pointer" title="Ordenar">Tiempo</th>
+        <th data-sort="distance_meters" style="cursor:pointer" title="Ordenar">Dist. recorrida</th>
+        <th data-sort="paladas" style="cursor:pointer" title="Ordenar">Paladas</th>
+      </tr>`;
+
     layout(`
       <div class="card">
         <h2 class="card-title">Competencias</h2>
         <p class="muted">Sesiones subidas al finalizar la carrera en la app. Podés abrir cada una para ver gráficos, tabla y mapa (igual que en Entrenamientos).</p>
         ${introBlock}
+        ${filterBar}
         <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Id</th>
-                <th>Subida</th>
-                <th>Equipo</th>
-                <th>Meta</th>
-                <th>Tiempo</th>
-                <th>Dist. recorrida</th>
-                <th>Paladas</th>
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
+          <table class="competencias-table">
+            <thead id="comp-thead">${theadRow}</thead>
+            <tbody id="comp-tbody"></tbody>
           </table>
         </div>
       </div>
     `);
+
+    const state = {
+      sortKey: "created_at",
+      sortDir: "desc",
+    };
+
+    function rowMatchesFilters(r) {
+      const boat = document.getElementById("comp-filter-boat").value;
+      if (boat !== "todos") {
+        const b = (r.boat_type || "").toString().toLowerCase();
+        if (b !== boat) return false;
+      }
+      const paddlers = document.getElementById("comp-filter-paddlers").value;
+      if (paddlers !== "todos") {
+        const n = Number(paddlers);
+        if (r.paddlers_count !== n) return false;
+      }
+      const drummer = document.getElementById("comp-filter-drummer").value;
+      if (drummer === "si" && r.drummer !== true) return false;
+      if (drummer === "no" && r.drummer !== false) return false;
+      const age = document.getElementById("comp-filter-age").value;
+      if (age !== "todos" && (r.age_category || "") !== age) return false;
+      const teamcat = document.getElementById("comp-filter-teamcat").value;
+      if (teamcat !== "todos" && (r.team_category || "") !== teamcat) return false;
+      const dist = document.getElementById("comp-filter-dist").value;
+      if (dist !== "todas") {
+        const d = Number(dist);
+        if (r.target_distance_meters !== d) return false;
+      }
+      const vir = document.getElementById("comp-filter-virada").value;
+      if (vir === "si" && r.virada !== true) return false;
+      if (vir === "no" && r.virada !== false) return false;
+      return true;
+    }
+
+    function renderCompetenciaBody() {
+      const filtered = allRows.filter(rowMatchesFilters);
+      filtered.sort((a, b) => compareCompetenciaRows(state.sortKey, state.sortDir, a, b));
+      const html = filtered
+        .map(
+          (r) => `
+      <tr>
+        <td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>
+        <td>${fmtDate(r.created_at)}</td>
+        <td>${escapeHtml(r.team_name || "—")}</td>
+        <td>${labelCompBoat(r.boat_type)}</td>
+        <td>${r.paddlers_count != null ? r.paddlers_count : "—"}</td>
+        <td>${yn(r.drummer)}</td>
+        <td>${labelCompAge(r.age_category)}</td>
+        <td>${labelCompTeamCat(r.team_category)}</td>
+        <td>${r.target_distance_meters != null ? r.target_distance_meters + " m" : "—"}</td>
+        <td>${yn(r.virada)}</td>
+        <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
+        <td>${r.distance_meters != null ? r.distance_meters.toFixed(0) + " m" : "—"}</td>
+        <td>${r.paladas != null ? r.paladas : "—"}</td>
+      </tr>
+    `
+        )
+        .join("");
+      document.getElementById("comp-tbody").innerHTML =
+        html ||
+        `<tr><td colspan="13" class="muted">Ninguna sesión coincide con los filtros.</td></tr>`;
+    }
+
+    [
+      "comp-filter-boat",
+      "comp-filter-paddlers",
+      "comp-filter-drummer",
+      "comp-filter-age",
+      "comp-filter-teamcat",
+      "comp-filter-dist",
+      "comp-filter-virada",
+    ].forEach((id) => {
+      document.getElementById(id).addEventListener("change", renderCompetenciaBody);
+    });
+
+    document.getElementById("comp-thead").addEventListener("click", (e) => {
+      const th = e.target.closest("th[data-sort]");
+      if (!th) return;
+      const key = th.getAttribute("data-sort");
+      if (!key) return;
+      if (state.sortKey === key) {
+        state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        state.sortKey = key;
+        state.sortDir = key === "created_at" || key === "id" ? "desc" : "asc";
+      }
+      renderCompetenciaBody();
+    });
+
+    renderCompetenciaBody();
   } catch (ex) {
     layout(`
       <div class="card">
@@ -1485,8 +1681,8 @@ async function renderAccount() {
 
     withMembers.forEach(({ entry }) => {
       const tid = entry.team.id;
-      if (entry.role !== "captain" && entry.role !== "coach" && !isPlatformAdmin) return;
-      if (entry.role === "captain" || isPlatformAdmin) {
+      if (!isPlatformAdmin && entry.role !== "captain" && entry.role !== "coach") return;
+      if (isPlatformAdmin || entry.role === "captain") {
         document.querySelectorAll(`.role-select-acc[data-team="${tid}"]`).forEach((sel) => {
           sel.addEventListener("change", async () => {
             const uid = Number(sel.getAttribute("data-user"));

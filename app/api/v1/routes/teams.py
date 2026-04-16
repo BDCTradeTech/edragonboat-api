@@ -167,7 +167,7 @@ def list_team_members(
     out: list[TeamMemberRead] = []
     for m in rows:
         u = db.get(User, m.user_id)
-        if u is None or u.is_platform_admin:
+        if u is None:
             continue
         out.append(
             TeamMemberRead(

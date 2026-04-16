@@ -84,11 +84,51 @@ def _is_competencia_payload(json_payload: str) -> bool:
     return k == "competencia"
 
 
+def _competencia_extras_from_raw(raw: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    bt = raw.get("boatType")
+    if bt is not None:
+        out["boat_type"] = str(bt) if not isinstance(bt, str) else bt
+    pc = raw.get("paddlersCount")
+    if pc is not None:
+        try:
+            out["paddlers_count"] = int(pc)
+        except (TypeError, ValueError):
+            out["paddlers_count"] = None
+    if "drummer" in raw:
+        out["drummer"] = bool(raw.get("drummer"))
+    ac = raw.get("ageCategory")
+    if ac is not None:
+        out["age_category"] = str(ac)
+    tc = raw.get("teamCategory")
+    if tc is not None:
+        out["team_category"] = str(tc)
+    if "virada" in raw:
+        out["virada"] = bool(raw.get("virada"))
+    return out
+
+
 def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
     sk, tgt = _raw_session_kind_and_target(row.json_payload)
     try:
+        raw = json.loads(row.json_payload)
+    except Exception:
+        raw = {}
+    try:
         parsed = LibreSessionCreate.model_validate_json(row.json_payload)
         last = parsed.dataPoints[-1] if parsed.dataPoints else None
+        if sk == "competencia":
+            extras = _competencia_extras_from_raw(raw)
+            if extras.get("boat_type") is None and parsed.boatType is not None:
+                extras["boat_type"] = parsed.boatType
+            if extras.get("paddlers_count") is None and parsed.paddlersCount is not None:
+                extras["paddlers_count"] = parsed.paddlersCount
+        else:
+            extras = {}
+            if parsed.boatType is not None:
+                extras["boat_type"] = parsed.boatType
+            if parsed.paddlersCount is not None:
+                extras["paddlers_count"] = parsed.paddlersCount
         return LibreSessionListItem(
             id=row.id,
             created_at=row.created_at,
@@ -99,8 +139,15 @@ def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
             team_name=parsed.teamName,
             session_kind=sk,
             target_distance_meters=tgt,
+            boat_type=extras.get("boat_type"),
+            paddlers_count=extras.get("paddlers_count"),
+            drummer=extras.get("drummer"),
+            age_category=extras.get("age_category"),
+            team_category=extras.get("team_category"),
+            virada=extras.get("virada"),
         )
     except Exception:
+        extras_e = _competencia_extras_from_raw(raw) if sk == "competencia" else {}
         return LibreSessionListItem(
             id=row.id,
             created_at=row.created_at,
@@ -111,6 +158,12 @@ def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
             team_name=None,
             session_kind=sk,
             target_distance_meters=tgt,
+            boat_type=extras_e.get("boat_type"),
+            paddlers_count=extras_e.get("paddlers_count"),
+            drummer=extras_e.get("drummer"),
+            age_category=extras_e.get("age_category"),
+            team_category=extras_e.get("team_category"),
+            virada=extras_e.get("virada"),
         )
 
 

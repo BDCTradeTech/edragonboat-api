@@ -43,6 +43,13 @@ class LibreSessionListItem(BaseModel):
     """libre | competencia (según JSON)."""
     target_distance_meters: int | None = None
     """Solo competencia: meta de carrera en metros."""
+    boat_type: str | None = None
+    """grande | chico (competencia / libre)."""
+    paddlers_count: int | None = None
+    drummer: bool | None = None
+    age_category: str | None = None
+    team_category: str | None = None
+    virada: bool | None = None
 
 
 class LibreSessionDetailResponse(BaseModel):

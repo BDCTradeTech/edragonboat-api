@@ -49,14 +49,21 @@ export async function apiLogin(email, password) {
 }
 
 export async function apiMe() {
-  const paths = ["/api/v1/profile", "/api/v1/me", "/api/v1/auth/me"];
+  /** Preferir `/me` y `/auth/me` (UserRead completo); `/profile` como alias por compatibilidad con proxies viejos. */
+  const paths = ["/api/v1/me", "/api/v1/auth/me", "/api/v1/profile"];
   let lastText = "";
-  for (const p of paths) {
+  for (let i = 0; i < paths.length; i++) {
+    const p = paths[i];
     const res = await fetch(`${API}${p}`, { headers: authHeaders() });
     lastText = await res.text();
     if (res.ok) {
       try {
-        return JSON.parse(lastText);
+        const me = JSON.parse(lastText);
+        const hasAdminFlag = me && typeof me.is_platform_admin === "boolean";
+        if (!hasAdminFlag && i < paths.length - 1) {
+          continue;
+        }
+        return me;
       } catch {
         throw new Error(lastText || `Error ${res.status}`);
       }
