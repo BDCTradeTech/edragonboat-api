@@ -75,13 +75,9 @@ export async function apiListSessions(teamId) {
   return res.json();
 }
 
-/** Sesiones de competencia (app móvil, POST /api/v1/sessions/competencia). */
-export async function apiListCompetenciaSessions(teamId) {
-  let url = `${API}/api/v1/sessions/competencia`;
-  if (teamId != null && teamId !== "") {
-    url += `?team_id=${encodeURIComponent(String(teamId))}`;
-  }
-  const res = await fetch(url, { headers: authHeaders() });
+/** Sesiones de competencia: listado global (todos los equipos), POST /api/v1/sessions/competencia. */
+export async function apiListCompetenciaSessions() {
+  const res = await fetch(`${API}/api/v1/sessions/competencia`, { headers: authHeaders() });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

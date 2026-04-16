@@ -1260,59 +1260,20 @@ function buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin
 async function renderCompetencias() {
   layout(`<p class="loading-line">Cargando competencias…</p>`);
   try {
-    const teams = await api.apiMyTeams();
-    let teamFilter = sessionStorage.getItem(SESSION_TEAM_FILTER_KEY);
-    let teamIdParam = null;
+    const rows = await api.apiListCompetenciaSessions();
 
-    if (teams.length >= 1) {
-      const valid = teams.some((x) => String(x.team.id) === teamFilter);
-      if (!teamFilter || !valid) {
-        teamFilter = String(teams[0].team.id);
-        sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, teamFilter);
-      }
-      teamIdParam = Number(teamFilter);
-    }
-
-    const rows = await api.apiListCompetenciaSessions(teamIdParam);
-    const currentTeamName =
-      teams.find((x) => String(x.team.id) === teamFilter)?.team?.name || "";
-
-    const filterBlock =
-      teams.length >= 1
-        ? `<div class="session-team-filter">
-            <label for="sel-competencia-team">Equipo</label>
-            <select id="sel-competencia-team">
-              ${teams
-                .map(
-                  (x) =>
-                    `<option value="${x.team.id}" ${String(x.team.id) === teamFilter ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`
-                )
-                .join("")}
-            </select>
-            <p class="muted small">Solo sesiones cuyo <code>teamName</code> coincide con el nombre de este equipo.</p>
-          </div>`
-        : `<p class="muted">Sin equipo: se listan todas tus competencias subidas con esta cuenta.</p>`;
+    const introBlock = `<p class="muted small">Listado global: se muestran las competencias subidas por <strong>todos</strong> los equipos (requiere iniciar sesión).</p>`;
 
     if (!rows.length) {
       layout(`
         <div class="card">
           <h2 class="card-title">Competencias</h2>
           <p class="muted">Carreras registradas desde la app al terminar la distancia y pulsar <strong>Completado</strong> (requiere API con <code>POST /api/v1/sessions/competencia</code>).</p>
-          ${filterBlock}
-          <p>No hay sesiones de competencia para este criterio.</p>
-          <p class="muted">
-            ${
-              teams.length >= 1
-                ? `En la app, el nombre de equipo en la sesión debe coincidir con <strong>${escapeHtml(currentTeamName)}</strong>.`
-                : "Subí una competencia con la app usando esta misma cuenta."
-            }
-          </p>
+          ${introBlock}
+          <p>No hay sesiones de competencia todavía.</p>
+          <p class="muted">Cuando alguien complete una carrera y suba la sesión desde la app, aparecerá aquí.</p>
         </div>
       `);
-      document.getElementById("sel-competencia-team")?.addEventListener("change", (e) => {
-        sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value);
-        route();
-      });
       return;
     }
 
@@ -1335,7 +1296,7 @@ async function renderCompetencias() {
       <div class="card">
         <h2 class="card-title">Competencias</h2>
         <p class="muted">Sesiones subidas al finalizar la carrera en la app. Podés abrir cada una para ver gráficos, tabla y mapa (igual que en Entrenamientos).</p>
-        ${filterBlock}
+        ${introBlock}
         <div class="table-scroll">
           <table>
             <thead>
@@ -1354,10 +1315,6 @@ async function renderCompetencias() {
         </div>
       </div>
     `);
-    document.getElementById("sel-competencia-team")?.addEventListener("change", (e) => {
-      sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value);
-      route();
-    });
   } catch (ex) {
     layout(`
       <div class="card">

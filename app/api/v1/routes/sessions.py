@@ -178,54 +178,15 @@ def list_competencia_sessions(
     current: Annotated[User, Depends(get_current_user)],
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    team_id: int | None = Query(None, description="Filtrar por equipo (teamName en JSON)"),
 ) -> list[LibreSessionListItem]:
-    """Solo sesiones con sessionKind=competencia en el JSON."""
-    base = (
-        select(LibreSessionUpload)
-        .where(LibreSessionUpload.user_id == current.id)
-        .order_by(LibreSessionUpload.created_at.desc())
-    )
-    if team_id is None:
-        cap = min(2000, max(500, (skip + limit) * 10))
-        rows = db.scalars(base.limit(cap)).all()
-        matched = [r for r in rows if _is_competencia_payload(r.json_payload)]
-        page = matched[skip : skip + limit]
-        return [_summarize_row(r) for r in page]
-
-    if not current.is_platform_admin:
-        m = db.scalar(
-            select(TeamMembership).where(
-                TeamMembership.user_id == current.id,
-                TeamMembership.team_id == team_id,
-            )
-        )
-        if m is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Equipo no encontrado o sin acceso",
-            )
-    team = db.get(Team, team_id)
-    if team is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
-    target_name = team.name.strip().casefold()
-
-    member_ids = select(TeamMembership.user_id).where(TeamMembership.team_id == team_id)
-    base = (
-        select(LibreSessionUpload)
-        .where(LibreSessionUpload.user_id.in_(member_ids))
-        .order_by(LibreSessionUpload.created_at.desc())
-    )
-    cap = min(2000, max(500, (skip + limit) * 20))
-    rows = db.scalars(base.limit(cap)).all()
-    matched: list[LibreSessionListItem] = []
-    for r in rows:
-        if not _is_competencia_payload(r.json_payload):
-            continue
-        item = _summarize_row(r)
-        if item.team_name and item.team_name.strip().casefold() == target_name:
-            matched.append(item)
-    return matched[skip : skip + limit]
+    """Listado global: todas las sesiones con sessionKind=competencia, de todos los usuarios (requiere login)."""
+    cap = min(8000, max(2000, (skip + limit) * 25))
+    rows = db.scalars(
+        select(LibreSessionUpload).order_by(LibreSessionUpload.created_at.desc()).limit(cap)
+    ).all()
+    matched = [r for r in rows if _is_competencia_payload(r.json_payload)]
+    page = matched[skip : skip + limit]
+    return [_summarize_row(r) for r in page]
 
 
 @router.get("/libre", response_model=list[LibreSessionListItem])
@@ -297,7 +258,10 @@ def get_libre_session(
     row = db.get(LibreSessionUpload, session_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesi?n no encontrada")
-    if not _can_view_libre_session(db, current, row.user_id):
+    # Competencias: visibles para cualquier usuario autenticado (listado global en el panel).
+    if not _is_competencia_payload(row.json_payload) and not _can_view_libre_session(
+        db, current, row.user_id
+    ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesi?n no encontrada")
     try:
         session_payload: dict[str, Any] = json.loads(row.json_payload)
