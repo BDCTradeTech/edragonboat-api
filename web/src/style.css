@@ -132,6 +132,16 @@ body {
   max-width: 1100px;
 }
 
+/** Vista Competencias: usar todo el ancho disponible junto a la barra lateral. */
+.page-body--wide {
+  max-width: none;
+  width: 100%;
+}
+
+.page-body--wide .competencias-scroll {
+  max-height: min(72vh, 680px);
+}
+
 .login-center {
   min-height: 100vh;
   display: flex;

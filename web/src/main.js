@@ -158,7 +158,7 @@ function buildSessionMapJpegFileName(s, sessionId, fallbackIso) {
 }
 
 /** Shell con menú lateral (solo autenticado). */
-function layout(content, { showNav = true } = {}) {
+function layout(content, { showNav = true, wide = false } = {}) {
   const email = api.getEmail();
   const authed = !!api.getToken();
 
@@ -194,7 +194,7 @@ function layout(content, { showNav = true } = {}) {
             }
           </div>
         </header>
-        <div class="page-body">${content}</div>
+        <div class="page-body${wide ? " page-body--wide" : ""}">${content}</div>
       </div>
     </div>
   `;
@@ -1360,7 +1360,7 @@ function compareCompetenciaRows(sortKey, sortDir, a, b) {
 }
 
 async function renderCompetencias() {
-  layout(`<p class="loading-line">Cargando competencias…</p>`);
+  layout(`<p class="loading-line">Cargando competencias…</p>`, { wide: true });
   try {
     const [allRows, teamCountriesRaw] = await Promise.all([
       api.apiListCompetenciaSessions(),
@@ -1379,7 +1379,9 @@ async function renderCompetencias() {
           <p>No hay sesiones de competencia todavía.</p>
           <p class="muted">Cuando alguien complete una carrera y suba la sesión desde la app, aparecerá aquí.</p>
         </div>
-      `);
+      `,
+        { wide: true },
+      );
       return;
     }
 
@@ -1489,14 +1491,16 @@ async function renderCompetencias() {
         <p class="muted">Sesiones subidas al finalizar la carrera en la app. Podés abrir cada una para ver gráficos, tabla y mapa (igual que en Entrenamientos).</p>
         ${introBlock}
         ${filterBar}
-        <div class="table-scroll">
+        <div class="table-scroll competencias-scroll">
           <table class="competencias-table">
             <thead id="comp-thead">${theadRow}</thead>
             <tbody id="comp-tbody"></tbody>
           </table>
         </div>
       </div>
-    `);
+    `,
+      { wide: true },
+    );
 
     const state = {
       sortKey: "created_at",
@@ -1603,7 +1607,9 @@ async function renderCompetencias() {
         <p class="muted small">Hace falta desplegar la API con <code>GET /api/v1/sessions/competencia</code> (panel v0.2.4+).</p>
         <button type="button" id="btn-retry-comp">Reintentar</button>
       </div>
-    `);
+    `,
+      { wide: true },
+    );
     document.getElementById("btn-retry-comp").addEventListener("click", route);
   }
 }
