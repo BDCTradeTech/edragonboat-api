@@ -39,6 +39,10 @@ class LibreSessionListItem(BaseModel):
     distance_meters: float | None = None
     paladas: int | None = None
     team_name: str | None = None
+    session_kind: str | None = None
+    """libre | competencia (según JSON)."""
+    target_distance_meters: int | None = None
+    """Solo competencia: meta de carrera en metros."""
 
 
 class LibreSessionDetailResponse(BaseModel):

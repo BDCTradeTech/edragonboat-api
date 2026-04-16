@@ -1,5 +1,5 @@
 /**
- * Panel web E-DragonBoat — home, entrenamientos, regatas, equipo, cuenta.
+ * Panel web E-DragonBoat — home, entrenamientos, competencias, equipo, cuenta.
  */
 
 import { Chart, registerables } from "chart.js";
@@ -143,7 +143,7 @@ function layout(content, { showNav = true } = {}) {
       <nav class="nav-links">
         <a class="nav-item" href="#/" data-match="home">Home</a>
         <a class="nav-item" href="#/sessions" data-match="sessions">Entrenamientos</a>
-        <a class="nav-item" href="#/regatas" data-match="regatas">Regatas</a>
+        <a class="nav-item" href="#/competencias" data-match="competencias">Competencias</a>
         <a class="nav-item" href="#/teams" data-match="teams">Equipo</a>
         <a class="nav-item" href="#/cuenta" data-match="cuenta">Cuenta</a>
       </nav>
@@ -194,7 +194,7 @@ function highlightNav() {
   if (hash[0] === "sessions" || hash[0] === "session") key = "sessions";
   else if (hash[0] === "teams") key = "teams";
   else if (hash[0] === "cuenta") key = "cuenta";
-  else if (hash[0] === "regatas") key = "regatas";
+  else if (hash[0] === "regatas" || hash[0] === "competencias") key = "competencias";
 
   document.querySelectorAll(".nav-item").forEach((a) => {
     a.classList.toggle("active", a.getAttribute("data-match") === key);
@@ -214,7 +214,7 @@ function renderHome() {
         <li><strong>Mapas y JPG:</strong> recorrido sobre mapa abierto; podés descargar una imagen con el mapa y un resumen (fecha, equipo, bote, palistas, distancia en km).</li>
         <li><strong>Equipo:</strong> datos del club y roles (capitán, entrenador, palista). El <strong>capitán</strong> puede editar nombre y país del equipo, eliminarlo e <strong>invitar</strong> por email. El <strong>entrenador</strong> ve lo mismo en entrenamientos y plantel, y puede cambiar roles y quitar miembros, pero no invita ni modifica los datos del equipo.</li>
         <li><strong>Cuenta:</strong> tu perfil, contraseña y gestión del plantel según tu rol.</li>
-        <li><strong>Regatas:</strong> listado cuando haya datos publicados por la API.</li>
+        <li><strong>Competencias:</strong> carreras subidas desde la app al pulsar <em>Completado</em>; mismo detalle que entrenamientos (gráficos, mapa).</li>
       </ul>
       <div class="home-actions">
         <a class="btn-inline primary" href="#/sessions">Ir a entrenamientos</a>
@@ -270,7 +270,11 @@ function route() {
     }
     return renderTeamDetail(parts[1]);
   }
-  if (parts[0] === "regatas") return renderRegatas();
+  if (parts[0] === "regatas") {
+    location.hash = "#/competencias";
+    return route();
+  }
+  if (parts[0] === "competencias") return renderCompetencias();
   if (parts[0] === "cuenta") return renderAccount();
   if (parts[0] === "sessions") return renderSessionsList();
   if (!parts.length || parts[0] === "home") return renderHome();
@@ -1253,57 +1257,118 @@ function buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin
   return `<div class="table-scroll"><table>${thead}<tbody>${rows}</tbody></table></div>`;
 }
 
-async function renderRegatas() {
-  layout(`<p class="loading-line">Cargando regatas…</p>`);
-  let rows = [];
-  let apiOk = true;
-  let apiErr = "";
+async function renderCompetencias() {
+  layout(`<p class="loading-line">Cargando competencias…</p>`);
   try {
-    rows = await api.apiListRegatas();
-    if (!Array.isArray(rows)) rows = [];
-  } catch (ex) {
-    apiOk = false;
-    apiErr = humanizeApiError(ex.message);
-  }
-  const rowHtml =
-    !apiOk
-      ? `<tr><td colspan="4" class="muted">—</td></tr>`
-      : rows.length === 0
-        ? `<tr><td colspan="4" class="muted">No hay regatas cargadas. Cuando publiquemos datos por API aparecerán aquí.</td></tr>`
-        : rows
-          .map((r) => {
-            if (r && typeof r === "object") {
-              const id = r.id != null ? escapeHtml(String(r.id)) : "—";
-              const name =
-                r.name != null
-                  ? escapeHtml(String(r.name))
-                  : escapeHtml(JSON.stringify(r));
-              const dt = r.date != null ? escapeHtml(String(r.date)) : "—";
-              const place = r.place != null ? escapeHtml(String(r.place)) : "—";
-              return `<tr><td>${id}</td><td>${name}</td><td>${dt}</td><td>${place}</td></tr>`;
-            }
-            return `<tr><td colspan="4">${escapeHtml(String(r))}</td></tr>`;
-          })
-          .join("");
-  layout(`
-    <div class="card">
-      <h2 class="card-title">Regatas</h2>
-      <p class="muted">Mismo enfoque que Entrenamientos: listado alimentado por la API. En desarrollo.</p>
-      ${
-        !apiOk
-          ? `<p class="msg-error">No se pudo cargar: ${escapeHtml(apiErr)}. Hace falta desplegar la API con <code>GET /api/v1/regatas</code>.</p>`
-          : ""
+    const teams = await api.apiMyTeams();
+    let teamFilter = sessionStorage.getItem(SESSION_TEAM_FILTER_KEY);
+    let teamIdParam = null;
+
+    if (teams.length >= 1) {
+      const valid = teams.some((x) => String(x.team.id) === teamFilter);
+      if (!teamFilter || !valid) {
+        teamFilter = String(teams[0].team.id);
+        sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, teamFilter);
       }
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr><th>ID</th><th>Nombre</th><th>Fecha</th><th>Lugar</th></tr>
-          </thead>
-          <tbody>${rowHtml}</tbody>
-        </table>
+      teamIdParam = Number(teamFilter);
+    }
+
+    const rows = await api.apiListCompetenciaSessions(teamIdParam);
+    const currentTeamName =
+      teams.find((x) => String(x.team.id) === teamFilter)?.team?.name || "";
+
+    const filterBlock =
+      teams.length >= 1
+        ? `<div class="session-team-filter">
+            <label for="sel-competencia-team">Equipo</label>
+            <select id="sel-competencia-team">
+              ${teams
+                .map(
+                  (x) =>
+                    `<option value="${x.team.id}" ${String(x.team.id) === teamFilter ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`
+                )
+                .join("")}
+            </select>
+            <p class="muted small">Solo sesiones cuyo <code>teamName</code> coincide con el nombre de este equipo.</p>
+          </div>`
+        : `<p class="muted">Sin equipo: se listan todas tus competencias subidas con esta cuenta.</p>`;
+
+    if (!rows.length) {
+      layout(`
+        <div class="card">
+          <h2 class="card-title">Competencias</h2>
+          <p class="muted">Carreras registradas desde la app al terminar la distancia y pulsar <strong>Completado</strong> (requiere API con <code>POST /api/v1/sessions/competencia</code>).</p>
+          ${filterBlock}
+          <p>No hay sesiones de competencia para este criterio.</p>
+          <p class="muted">
+            ${
+              teams.length >= 1
+                ? `En la app, el nombre de equipo en la sesión debe coincidir con <strong>${escapeHtml(currentTeamName)}</strong>.`
+                : "Subí una competencia con la app usando esta misma cuenta."
+            }
+          </p>
+        </div>
+      `);
+      document.getElementById("sel-competencia-team")?.addEventListener("change", (e) => {
+        sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value);
+        route();
+      });
+      return;
+    }
+
+    const tableRows = rows
+      .map(
+        (r) => `
+      <tr>
+        <td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>
+        <td>${fmtDate(r.created_at)}</td>
+        <td>${escapeHtml(r.team_name || "—")}</td>
+        <td>${r.target_distance_meters != null ? r.target_distance_meters + " m" : "—"}</td>
+        <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
+        <td>${r.distance_meters != null ? r.distance_meters.toFixed(0) + " m" : "—"}</td>
+        <td>${r.paladas != null ? r.paladas : "—"}</td>
+      </tr>
+    `
+      )
+      .join("");
+    layout(`
+      <div class="card">
+        <h2 class="card-title">Competencias</h2>
+        <p class="muted">Sesiones subidas al finalizar la carrera en la app. Podés abrir cada una para ver gráficos, tabla y mapa (igual que en Entrenamientos).</p>
+        ${filterBlock}
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Id</th>
+                <th>Subida</th>
+                <th>Equipo</th>
+                <th>Meta</th>
+                <th>Tiempo</th>
+                <th>Dist. recorrida</th>
+                <th>Paladas</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  `);
+    `);
+    document.getElementById("sel-competencia-team")?.addEventListener("change", (e) => {
+      sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value);
+      route();
+    });
+  } catch (ex) {
+    layout(`
+      <div class="card">
+        <h2 class="card-title">Competencias</h2>
+        <p class="msg-error">Error al cargar: ${escapeHtml(humanizeApiError(ex.message))}</p>
+        <p class="muted small">Hace falta desplegar la API con <code>GET /api/v1/sessions/competencia</code> (panel v0.2.4+).</p>
+        <button type="button" id="btn-retry-comp">Reintentar</button>
+      </div>
+    `);
+    document.getElementById("btn-retry-comp").addEventListener("click", route);
+  }
 }
 
 async function renderAccount() {
