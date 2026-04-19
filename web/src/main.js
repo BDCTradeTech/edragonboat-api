@@ -73,6 +73,9 @@ function yn(v) {
   return "—";
 }
 
+/** Claves de punto que no se listan en "Muestras por segundo" (privacidad / ruido en tabla). */
+const HIDDEN_DATA_POINT_KEYS = new Set(["latitude", "longitude", "locationAccuracyM"]);
+
 /** Fecha de inicio de sesión: dd/mm/aaaa y hora (local). */
 function fmtSessionStartMap(iso) {
   if (!iso) return "—";
@@ -100,15 +103,15 @@ function boatTypeLabelEsp(bt) {
 
 /** Resumen encima del mapa (pantalla y export JPG). */
 function buildSessionMapSummaryHtml(s, last) {
-  const km =
+  const meters =
     last != null && typeof last.distanceMeters === "number" && Number.isFinite(last.distanceMeters)
-      ? (last.distanceMeters / 1000).toFixed(2)
+      ? Math.round(last.distanceMeters)
       : null;
   const team = s.teamName ? escapeHtml(s.teamName) : "—";
   const boat = boatTypeLabelEsp(s.boatType);
   const paddlers = s.paddlersCount != null ? escapeHtml(String(s.paddlersCount)) : "—";
   const fechaInicio = escapeHtml(fmtSessionStartMap(s.sessionStartTime));
-  const distHtml = km != null ? `${escapeHtml(km)} km` : "—";
+  const distHtml = meters != null ? `${escapeHtml(String(meters))} m` : "—";
   return `
     <div class="session-map-summary-grid">
       <div><span class="sms-label">Fecha / inicio</span><span class="sms-val">${fechaInicio}</span></div>
@@ -237,7 +240,7 @@ function renderHome() {
       </p>
       <ul class="home-features">
         <li><strong>Entrenamientos:</strong> sesiones subidas desde la app, filtradas por tu equipo; detalle con resumen, tablas, gráficos (distancia, velocidad, SPM, paladas) y mapa del recorrido.</li>
-        <li><strong>Mapas y JPG:</strong> recorrido sobre mapa abierto; podés descargar una imagen con el mapa y un resumen (fecha, equipo, bote, palistas, distancia en km).</li>
+        <li><strong>Mapas y JPG:</strong> recorrido sobre mapa (mapa o satélite); podés descargar una imagen con el mapa y un resumen (fecha, equipo, bote, palistas, distancia en m).</li>
         <li><strong>Equipo:</strong> datos del club y roles (capitán, entrenador, palista). El <strong>capitán</strong> puede editar nombre y país del equipo, eliminarlo e <strong>invitar</strong> por email. El <strong>entrenador</strong> ve lo mismo en entrenamientos y plantel, y puede cambiar roles y quitar miembros, pero no invita ni modifica los datos del equipo.</li>
         <li><strong>Cuenta:</strong> tu perfil, contraseña y gestión del plantel según tu rol.</li>
         <li><strong>Competencias:</strong> carreras subidas desde la app al pulsar <em>Completado</em>; mismo detalle que entrenamientos (gráficos, mapa).</li>
@@ -483,7 +486,7 @@ async function renderSessionsList() {
             <thead>
               <tr>
                 <th>Id</th>
-                <th>Subida</th>
+                <th>Fecha</th>
                 <th>Equipo (sesión)</th>
                 <th>Tiempo</th>
                 <th>Dist.</th>
@@ -520,16 +523,7 @@ function formatCellVal(v) {
 
 /** Columnas del JSON de cada punto: orden conocido + resto alfabético. */
 function dataPointColumnOrder(keys) {
-  const preferred = [
-    "second",
-    "distanceMeters",
-    "speedKmh",
-    "paladas",
-    "spm",
-    "latitude",
-    "longitude",
-    "locationAccuracyM",
-  ];
+  const preferred = ["second", "distanceMeters", "speedKmh", "paladas", "spm", "strokePeakAccelerationMs2"];
   const rest = keys.filter((k) => !preferred.includes(k)).sort();
   return preferred.filter((k) => keys.includes(k)).concat(rest);
 }
@@ -555,7 +549,11 @@ function buildDynamicDataPointsTable(points) {
   if (!points || !points.length)
     return `<p class="muted">Sin puntos de muestreo.</p>`;
   const keySet = new Set();
-  points.forEach((p) => Object.keys(p).forEach((k) => keySet.add(k)));
+  points.forEach((p) =>
+    Object.keys(p).forEach((k) => {
+      if (!HIDDEN_DATA_POINT_KEYS.has(k)) keySet.add(k);
+    })
+  );
   const cols = dataPointColumnOrder([...keySet]);
   const th = cols.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
   const body = points
@@ -572,6 +570,7 @@ function numericKeysFromPoints(points) {
   for (const p of points || []) {
     for (const [k, v] of Object.entries(p)) {
       if (k === "second") continue;
+      if (HIDDEN_DATA_POINT_KEYS.has(k)) continue;
       if (typeof v === "number" && Number.isFinite(v)) keys.add(k);
     }
   }
@@ -680,11 +679,11 @@ function wireExploreChart(points) {
   const y2 = document.getElementById("explore-y2");
   const keys = numericKeysFromPoints(points);
   if (!y1 || !keys.length) return;
-  if (keys.includes("distanceMeters")) y1.value = "distanceMeters";
+  if (keys.includes("speedKmh")) y1.value = "speedKmh";
   else y1.value = keys[0];
   if (y2) {
     const second =
-      keys.find((k) => k !== y1.value && (k === "speedKmh" || k === "spm")) ||
+      keys.find((k) => k !== y1.value && k === "spm") ||
       keys.find((k) => k !== y1.value);
     y2.value = second || "";
   }
@@ -709,37 +708,9 @@ function initSessionCharts(dataPoints) {
     },
   };
 
-  const elDist = document.getElementById("chart-dist");
   const elSpeed = document.getElementById("chart-speed");
   const elSpm = document.getElementById("chart-spm");
-  const elPal = document.getElementById("chart-pal");
-  if (!elDist || !elSpeed || !elSpm || !elPal) return;
-
-  chartInstances.push(
-    new Chart(elDist, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Distancia (m)",
-            data: dataPoints.map((p) => p.distanceMeters),
-            borderColor: "#1565c0",
-            backgroundColor: "rgba(21, 101, 192, 0.12)",
-            fill: true,
-            tension: 0.2,
-          },
-        ],
-      },
-      options: {
-        ...common,
-        scales: {
-          ...common.scales,
-          y: { title: { display: true, text: "Metros" } },
-        },
-      },
-    })
-  );
+  if (!elSpeed || !elSpm) return;
 
   chartInstances.push(
     new Chart(elSpeed, {
@@ -788,30 +759,6 @@ function initSessionCharts(dataPoints) {
       },
     })
   );
-
-  chartInstances.push(
-    new Chart(elPal, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Paladas",
-            data: dataPoints.map((p) => p.paladas),
-            borderColor: "#6a1b9a",
-            tension: 0.2,
-          },
-        ],
-      },
-      options: {
-        ...common,
-        scales: {
-          ...common.scales,
-          y: { title: { display: true, text: "Paladas" } },
-        },
-      },
-    })
-  );
 }
 
 function extractTrackLatLng(points) {
@@ -843,11 +790,28 @@ function initSessionMap(points) {
     el._edbMap = null;
   }
   el.innerHTML = "";
-  const map = L.map(el);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 19,
-  }).addTo(map);
+  });
+  const satellite = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      attribution: "Tiles &copy; Esri — Earthstar Geographics, Maxar",
+      maxZoom: 19,
+    }
+  );
+  const map = L.map(el, { layers: [osm] });
+  L.control
+    .layers(
+      {
+        Mapa: osm,
+        Satélite: satellite,
+      },
+      {},
+      { position: "topright" }
+    )
+    .addTo(map);
   const latlngs = track.map(([a, b]) => L.latLng(a, b));
   const line = L.polyline(latlngs, { color: "#0d47a1", weight: 5, opacity: 0.88 }).addTo(map);
   map.fitBounds(line.getBounds(), { padding: [40, 40], maxZoom: 17 });
@@ -877,7 +841,6 @@ async function renderSessionDetail(id) {
         <div class="stat">Tiempo total<strong>${s.totalSeconds != null ? s.totalSeconds + " s" : "—"}</strong></div>
         <div class="stat">Distancia final<strong>${last ? last.distanceMeters.toFixed(0) + " m" : "—"}</strong></div>
         <div class="stat">Paladas<strong>${last ? last.paladas : "—"}</strong></div>
-        <div class="stat">Muestras (1 Hz)<strong>${s.dataPoints ? s.dataPoints.length : 0}</strong></div>
       </div>
     `;
 
@@ -908,10 +871,8 @@ async function renderSessionDetail(id) {
           </div>
           <div id="panel-graficos" class="tab-panel" role="tabpanel">
             <div class="chart-grid">
-              <div class="chart-box"><h4>Distancia acumulada</h4><div class="chart-canvas-wrap"><canvas id="chart-dist"></canvas></div></div>
               <div class="chart-box"><h4>Velocidad</h4><div class="chart-canvas-wrap"><canvas id="chart-speed"></canvas></div></div>
               <div class="chart-box"><h4>Ritmo (SPM)</h4><div class="chart-canvas-wrap"><canvas id="chart-spm"></canvas></div></div>
-              <div class="chart-box"><h4>Paladas</h4><div class="chart-canvas-wrap"><canvas id="chart-pal"></canvas></div></div>
             </div>
             ${exploreBlock}
           </div>`;
@@ -948,7 +909,7 @@ async function renderSessionDetail(id) {
           <h2 class="card-title" style="margin:0">Sesión #${data.id}</h2>
           ${deleteBtn}
         </div>
-        <p class="muted">Subida: ${fmtDate(data.created_at)}</p>
+        <p class="muted">Fecha: ${fmtDate(data.created_at)}</p>
         ${isPaddler ? `<p class="muted small">Como <strong>palista</strong> solo ves el resumen y el mapa.</p>` : ""}
         <div class="tabs" id="session-tabs">
           <div class="tab-list" role="tablist">
@@ -1362,13 +1323,33 @@ function compareCompetenciaRows(sortKey, sortDir, a, b) {
 async function renderCompetencias() {
   layout(`<p class="loading-line">Cargando competencias…</p>`, { wide: true });
   try {
-    const [allRows, teamCountriesRaw] = await Promise.all([
+    const [allRows, teamCountriesRaw, me, myTeams] = await Promise.all([
       api.apiListCompetenciaSessions(),
       api.apiListTeamCountries().catch(() => []),
+      api.apiMe(),
+      api.apiMyTeams(),
     ]);
     const teamCountries = Array.isArray(teamCountriesRaw) ? teamCountriesRaw : [];
 
-    const introBlock = `<p class="muted small">Listado global: se muestran las competencias subidas por <strong>todos</strong> los equipos (requiere iniciar sesión).</p>`;
+    const isPlatformAdmin = me.is_platform_admin === true;
+    const myUserId = me.id != null ? Number(me.id) : null;
+    const myTeamNameKeys = new Set(
+      (myTeams || [])
+        .map((x) => (x.team && x.team.name ? String(x.team.name).trim().toLowerCase() : ""))
+        .filter(Boolean)
+    );
+
+    /** Detalle de sesión: solo mismo equipo (nombre en JSON), quien subió, o administrador. */
+    function canOpenCompetenciaDetail(r) {
+      if (isPlatformAdmin) return true;
+      if (myUserId != null && r.uploaded_by_user_id != null && Number(r.uploaded_by_user_id) === myUserId) {
+        return true;
+      }
+      const n = (r.team_name || "").trim().toLowerCase();
+      return Boolean(n && myTeamNameKeys.has(n));
+    }
+
+    const introBlock = `<p class="muted small">Listado global: se muestran las competencias subidas por <strong>todos</strong> los equipos (requiere iniciar sesión). Podés abrir el detalle solo de las sesiones de <strong>tu equipo</strong> (o las que subiste vos).</p>`;
 
     if (!allRows.length) {
       layout(`
@@ -1470,7 +1451,7 @@ async function renderCompetencias() {
     const theadRow = `
       <tr>
         <th data-sort="id" style="cursor:pointer" title="Ordenar">Id</th>
-        <th data-sort="created_at" style="cursor:pointer" title="Ordenar">Subida</th>
+        <th data-sort="created_at" style="cursor:pointer" title="Ordenar">Fecha</th>
         <th data-sort="team_country" style="cursor:pointer" title="Ordenar">País</th>
         <th data-sort="team_name" style="cursor:pointer" title="Ordenar">Equipo</th>
         <th data-sort="boat_type" style="cursor:pointer" title="Ordenar">Bote</th>
@@ -1482,7 +1463,6 @@ async function renderCompetencias() {
         <th data-sort="virada" style="cursor:pointer" title="Ordenar">Virada</th>
         <th data-sort="total_seconds" style="cursor:pointer" title="Ordenar">Tiempo</th>
         <th data-sort="distance_meters" style="cursor:pointer" title="Ordenar">Dist. recorrida</th>
-        <th data-sort="paladas" style="cursor:pointer" title="Ordenar">Paladas</th>
       </tr>`;
 
     layout(`
@@ -1546,9 +1526,14 @@ async function renderCompetencias() {
       filtered.sort((a, b) => compareCompetenciaRows(state.sortKey, state.sortDir, a, b));
       const html = filtered
         .map(
-          (r) => `
+          (r) => {
+        const canOpen = canOpenCompetenciaDetail(r);
+        const idCell = canOpen
+          ? `<td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>`
+          : `<td><span class="muted" title="Solo podés abrir el detalle de tu equipo">#${r.id}</span></td>`;
+        return `
       <tr>
-        <td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>
+        ${idCell}
         <td>${fmtDate(r.created_at)}</td>
         <td>${escapeHtml(r.team_country || "—")}</td>
         <td>${escapeHtml(r.team_name || "—")}</td>
@@ -1561,14 +1546,14 @@ async function renderCompetencias() {
         <td>${yn(r.virada)}</td>
         <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
         <td>${r.distance_meters != null ? r.distance_meters.toFixed(0) + " m" : "—"}</td>
-        <td>${r.paladas != null ? r.paladas : "—"}</td>
       </tr>
-    `
+    `;
+          }
         )
         .join("");
       document.getElementById("comp-tbody").innerHTML =
         html ||
-        `<tr><td colspan="14" class="muted">Ninguna sesión coincide con los filtros.</td></tr>`;
+        `<tr><td colspan="13" class="muted">Ninguna sesión coincide con los filtros.</td></tr>`;
     }
 
     [

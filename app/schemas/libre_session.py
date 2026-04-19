@@ -14,6 +14,8 @@ class LibreDataPoint(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     locationAccuracyM: float | None = None
+    # Máximo |a_Y| (m/s²) en la palada; null si no hubo palada en ese intervalo de muestra.
+    strokePeakAccelerationMs2: float | None = None
 
 
 class LibreSessionCreate(BaseModel):
@@ -34,6 +36,8 @@ class LibreSessionUploaded(BaseModel):
 class LibreSessionListItem(BaseModel):
     id: int
     created_at: datetime
+    """Usuario que subió la sesión (para permisos en panel web)."""
+    uploaded_by_user_id: int | None = None
     session_start_time: str | None = None
     total_seconds: int | None = None
     distance_meters: float | None = None

@@ -111,7 +111,39 @@ def _competencia_extras_from_raw(raw: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
+def _team_country_lookup_map(db: Session) -> dict[str, str | None]:
+    """Nombre de equipo (casefold) → país según tabla teams (si el JSON no trajera país)."""
+    rows = db.scalars(select(Team)).all()
+    out: dict[str, str | None] = {}
+    for t in rows:
+        key = t.name.strip().casefold()
+        c = (t.country or "").strip() or None
+        if key not in out:
+            out[key] = c
+    return out
+
+
+def _can_view_competencia_session(db: Session, current: User, row: LibreSessionUpload) -> bool:
+    if current.is_platform_admin:
+        return True
+    if row.user_id == current.id:
+        return True
+    key = _session_team_name_key(row.json_payload)
+    if key is None:
+        return False
+    memberships = db.scalars(select(TeamMembership).where(TeamMembership.user_id == current.id)).all()
+    for m in memberships:
+        team = db.get(Team, m.team_id)
+        if team is not None and team.name.strip().casefold() == key:
+            return True
+    return False
+
+
+def _summarize_row(
+    row: LibreSessionUpload,
+    *,
+    team_country_lookup: dict[str, str | None] | None = None,
+) -> LibreSessionListItem:
     sk, tgt = _raw_session_kind_and_target(row.json_payload)
     try:
         raw = json.loads(row.json_payload)
@@ -132,9 +164,15 @@ def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
                 extras["boat_type"] = parsed.boatType
             if parsed.paddlersCount is not None:
                 extras["paddlers_count"] = parsed.paddlersCount
+        tc_row: str | None = extras.get("team_country")
+        if sk == "competencia" and team_country_lookup is not None and not tc_row:
+            tn = parsed.teamName if parsed else None
+            if tn and str(tn).strip():
+                tc_row = team_country_lookup.get(str(tn).strip().casefold())
         return LibreSessionListItem(
             id=row.id,
             created_at=row.created_at,
+            uploaded_by_user_id=row.user_id,
             session_start_time=parsed.sessionStartTime,
             total_seconds=parsed.totalSeconds,
             distance_meters=last.distanceMeters if last else None,
@@ -148,13 +186,19 @@ def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
             age_category=extras.get("age_category"),
             team_category=extras.get("team_category"),
             virada=extras.get("virada"),
-            team_country=extras.get("team_country"),
+            team_country=tc_row,
         )
     except Exception:
         extras_e = _competencia_extras_from_raw(raw) if sk == "competencia" else {}
+        tc_e: str | None = extras_e.get("team_country")
+        if sk == "competencia" and team_country_lookup is not None and not tc_e:
+            tn = raw.get("teamName")
+            if tn and str(tn).strip():
+                tc_e = team_country_lookup.get(str(tn).strip().casefold())
         return LibreSessionListItem(
             id=row.id,
             created_at=row.created_at,
+            uploaded_by_user_id=row.user_id,
             session_start_time=None,
             total_seconds=None,
             distance_meters=None,
@@ -168,7 +212,7 @@ def _summarize_row(row: LibreSessionUpload) -> LibreSessionListItem:
             age_category=extras_e.get("age_category"),
             team_category=extras_e.get("team_category"),
             virada=extras_e.get("virada"),
-            team_country=extras_e.get("team_country"),
+            team_country=tc_e,
         )
 
 
@@ -244,7 +288,8 @@ def list_competencia_sessions(
     ).all()
     matched = [r for r in rows if _is_competencia_payload(r.json_payload)]
     page = matched[skip : skip + limit]
-    return [_summarize_row(r) for r in page]
+    country_lookup = _team_country_lookup_map(db)
+    return [_summarize_row(r, team_country_lookup=country_lookup) for r in page]
 
 
 @router.get("/libre", response_model=list[LibreSessionListItem])
@@ -316,10 +361,10 @@ def get_libre_session(
     row = db.get(LibreSessionUpload, session_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesi?n no encontrada")
-    # Competencias: visibles para cualquier usuario autenticado (listado global en el panel).
-    if not _is_competencia_payload(row.json_payload) and not _can_view_libre_session(
-        db, current, row.user_id
-    ):
+    if _is_competencia_payload(row.json_payload):
+        if not _can_view_competencia_session(db, current, row):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesi?n no encontrada")
+    elif not _can_view_libre_session(db, current, row.user_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesi?n no encontrada")
     try:
         session_payload: dict[str, Any] = json.loads(row.json_payload)
