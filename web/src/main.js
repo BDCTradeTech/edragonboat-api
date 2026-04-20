@@ -7,7 +7,7 @@ import { toJpeg } from "html-to-image";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import * as api from "./api.js";
-import { countrySelectOptionsHtml } from "./countries.js";
+import { countrySelectOptionsHtml, countryCellHtml } from "./countries.js";
 import panelPkg from "../package.json";
 
 Chart.register(...registerables);
@@ -76,7 +76,7 @@ function yn(v) {
 /** Claves de punto que no se listan en "Muestras por segundo" (privacidad / ruido en tabla). */
 const HIDDEN_DATA_POINT_KEYS = new Set(["latitude", "longitude", "locationAccuracyM"]);
 
-/** Fecha de inicio de sesión: dd/mm/aaaa y hora (local). */
+/** Fecha/hora de sesión para resumen y mapa: dd/mm/aaaa y hh:mm (local). */
 function fmtSessionStartMap(iso) {
   if (!iso) return "—";
   try {
@@ -114,7 +114,7 @@ function buildSessionMapSummaryHtml(s, last) {
   const distHtml = meters != null ? `${escapeHtml(String(meters))} m` : "—";
   return `
     <div class="session-map-summary-grid">
-      <div><span class="sms-label">Fecha / inicio</span><span class="sms-val">${fechaInicio}</span></div>
+      <div><span class="sms-label">Fecha</span><span class="sms-val">${fechaInicio}</span></div>
       <div><span class="sms-label">Equipo</span><span class="sms-val">${team}</span></div>
       <div><span class="sms-label">Bote</span><span class="sms-val">${boat}</span></div>
       <div><span class="sms-label">Palistas</span><span class="sms-val">${paddlers}</span></div>
@@ -463,9 +463,23 @@ async function renderSessionsList() {
       return;
     }
 
-    const tableRows = rows
-      .map(
-        (r) => `
+    const theadRow = `
+              <tr>
+                <th data-sort="id" class="th-sortable" title="Ordenar">Id</th>
+                <th data-sort="created_at" class="th-sortable" title="Ordenar">Fecha</th>
+                <th data-sort="team_name" class="th-sortable" title="Ordenar">Equipo</th>
+                <th data-sort="total_seconds" class="th-sortable" title="Ordenar">Tiempo</th>
+                <th data-sort="distance_meters" class="th-sortable" title="Ordenar">Distancia</th>
+                <th data-sort="paladas" class="th-sortable" title="Ordenar">Paladas</th>
+              </tr>`;
+
+    const sortState = { sortKey: "created_at", sortDir: "desc" };
+
+    function renderSessionsTableBody() {
+      const sorted = [...rows].sort((a, b) => compareSessionRows(sortState.sortKey, sortState.sortDir, a, b));
+      const tableRows = sorted
+        .map(
+          (r) => `
       <tr>
         <td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>
         <td>${fmtDate(r.created_at)}</td>
@@ -475,29 +489,38 @@ async function renderSessionsList() {
         <td>${r.paladas != null ? r.paladas : "—"}</td>
       </tr>
     `
-      )
-      .join("");
+        )
+        .join("");
+      const tbody = document.getElementById("sessions-tbody");
+      if (tbody) tbody.innerHTML = tableRows;
+    }
+
     layout(`
       <div class="card">
         <h2 class="card-title">Entrenamientos libres</h2>
         ${filterBlock}
         <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Id</th>
-                <th>Fecha</th>
-                <th>Equipo (sesión)</th>
-                <th>Tiempo</th>
-                <th>Dist.</th>
-                <th>Paladas</th>
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
+          <table class="sessions-list-table">
+            <thead id="sessions-thead">${theadRow}</thead>
+            <tbody id="sessions-tbody"></tbody>
           </table>
         </div>
       </div>
     `);
+    renderSessionsTableBody();
+    document.getElementById("sessions-thead")?.addEventListener("click", (e) => {
+      const th = e.target.closest("th[data-sort]");
+      if (!th) return;
+      const key = th.getAttribute("data-sort");
+      if (!key) return;
+      if (sortState.sortKey === key) {
+        sortState.sortDir = sortState.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortState.sortKey = key;
+        sortState.sortDir = key === "created_at" || key === "id" ? "desc" : "asc";
+      }
+      renderSessionsTableBody();
+    });
     document.getElementById("sel-session-team")?.addEventListener("change", (e) => {
       sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value);
       route();
@@ -519,6 +542,16 @@ function formatCellVal(v) {
     return Number.isInteger(v) ? String(v) : String(Math.round(v * 1000) / 1000);
   if (typeof v === "object") return escapeHtml(JSON.stringify(v));
   return escapeHtml(String(v));
+}
+
+/** Encabezados legibles en la tabla de muestras (claves JSON sin cambiar). */
+function dataPointColumnLabel(key) {
+  const m = {
+    second: "Segundos",
+    distanceMeters: "Metros",
+    speedKmh: "Velocidad (Km/h)",
+  };
+  return m[key] ?? key;
 }
 
 /** Columnas del JSON de cada punto: orden conocido + resto alfabético. */
@@ -555,7 +588,7 @@ function buildDynamicDataPointsTable(points) {
     })
   );
   const cols = dataPointColumnOrder([...keySet]);
-  const th = cols.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+  const th = cols.map((c) => `<th>${escapeHtml(dataPointColumnLabel(c))}</th>`).join("");
   const body = points
     .map((p) => {
       const tds = cols.map((c) => `<td>${formatCellVal(p[c])}</td>`).join("");
@@ -586,7 +619,7 @@ function buildExploreControlsHtml(points) {
   return `
     <div class="explore-chart card-inset">
       <h4>Comparar métricas numéricas</h4>
-      <p class="muted small">Elegí una o dos series respecto al tiempo (segundo).</p>
+      <p class="muted small">Eje inferior: segundos. Eje superior: metros recorridos (cuando hay <code>distanceMeters</code>). Elegí una o dos series en Y.</p>
       <div class="explore-controls">
         <label>Eje Y (izquierda)
           <select id="explore-y1">${opts}</select>
@@ -624,6 +657,16 @@ function renderExploreChart(points) {
 
   const labels = points.map((p) => p.second);
   const ds1 = points.map((p) => (typeof p[y1Key] === "number" ? p[y1Key] : null));
+  const hasDistance = points.some(
+    (p) => typeof p.distanceMeters === "number" && Number.isFinite(p.distanceMeters)
+  );
+
+  const lineDataset = {
+    borderWidth: 2,
+    pointRadius: 0,
+    pointHoverRadius: 0,
+    tension: 0.2,
+  };
 
   const datasets = [
     {
@@ -632,17 +675,39 @@ function renderExploreChart(points) {
       borderColor: "#1565c0",
       backgroundColor: "rgba(21, 101, 192, 0.08)",
       yAxisID: "y1",
-      tension: 0.2,
+      xAxisID: "x",
+      ...lineDataset,
     },
   ];
 
   const scales = {
-    x: { title: { display: true, text: "Segundo" }, ticks: { maxTicksLimit: 14 } },
+    x: {
+      title: { display: true, text: "Segundo" },
+      ticks: { maxTicksLimit: 14 },
+    },
     y1: {
       position: "left",
       title: { display: true, text: y1Key },
     },
   };
+
+  if (hasDistance) {
+    scales.x1 = {
+      type: "category",
+      position: "top",
+      display: true,
+      grid: { drawOnChartArea: false },
+      title: { display: true, text: "Metros" },
+      ticks: {
+        maxTicksLimit: 14,
+        callback(tickValue) {
+          const p = points[tickValue];
+          if (!p || p.distanceMeters == null || !Number.isFinite(p.distanceMeters)) return "";
+          return String(Math.round(p.distanceMeters));
+        },
+      },
+    };
+  }
 
   if (y2Key && y2Key !== y1Key) {
     const ds2 = points.map((p) => (typeof p[y2Key] === "number" ? p[y2Key] : null));
@@ -651,7 +716,8 @@ function renderExploreChart(points) {
       data: ds2,
       borderColor: "#e65100",
       yAxisID: "y2",
-      tension: 0.2,
+      xAxisID: "x",
+      ...lineDataset,
     });
     scales.y2 = {
       position: "right",
@@ -666,7 +732,11 @@ function renderExploreChart(points) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
       plugins: { legend: { display: true, position: "bottom" } },
+      elements: {
+        point: { radius: 0, hoverRadius: 0 },
+      },
       scales,
     },
   });
@@ -702,10 +772,21 @@ function initSessionCharts(dataPoints) {
   const common = {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
     plugins: { legend: { display: false } },
+    elements: {
+      point: { radius: 0, hoverRadius: 0 },
+    },
     scales: {
       x: { title: { display: true, text: "Segundo" }, ticks: { maxTicksLimit: 12 } },
     },
+  };
+
+  const lineDs = {
+    borderWidth: 2,
+    pointRadius: 0,
+    pointHoverRadius: 0,
+    tension: 0.2,
   };
 
   const elSpeed = document.getElementById("chart-speed");
@@ -722,7 +803,7 @@ function initSessionCharts(dataPoints) {
             label: "Velocidad km/h",
             data: dataPoints.map((p) => p.speedKmh),
             borderColor: "#e65100",
-            tension: 0.2,
+            ...lineDs,
           },
         ],
       },
@@ -746,7 +827,7 @@ function initSessionCharts(dataPoints) {
             label: "SPM",
             data: dataPoints.map((p) => p.spm),
             borderColor: "#2e7d32",
-            tension: 0.2,
+            ...lineDs,
           },
         ],
       },
@@ -801,12 +882,27 @@ function initSessionMap(points) {
       maxZoom: 19,
     }
   );
+  const topo = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+    attribution:
+      'Mapa: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, relieve: <a href="https://opentopomap.org/">OpenTopoMap</a>',
+    maxZoom: 17,
+  });
+  const cartoVoyager = L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="https://carto.com/">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 20,
+    }
+  );
   const map = L.map(el, { layers: [osm] });
   L.control
     .layers(
       {
-        Mapa: osm,
+        "Mapa (OSM)": osm,
         Satélite: satellite,
+        "Relieve (OpenTopoMap)": topo,
+        "Calles (Carto Voyager)": cartoVoyager,
       },
       {},
       { position: "topright" }
@@ -837,7 +933,7 @@ async function renderSessionDetail(id) {
       s.dataPoints && s.dataPoints.length ? s.dataPoints[s.dataPoints.length - 1] : null;
     const stats = `
       <div class="stats">
-        <div class="stat">Inicio<strong>${escapeHtml(s.sessionStartTime || "—")}</strong></div>
+        <div class="stat">Fecha<strong>${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</strong></div>
         <div class="stat">Tiempo total<strong>${s.totalSeconds != null ? s.totalSeconds + " s" : "—"}</strong></div>
         <div class="stat">Distancia final<strong>${last ? last.distanceMeters.toFixed(0) + " m" : "—"}</strong></div>
         <div class="stat">Paladas<strong>${last ? last.paladas : "—"}</strong></div>
@@ -852,7 +948,7 @@ async function renderSessionDetail(id) {
             <button type="button" class="tab-btn" data-tab="mapas" role="tab">Mapas</button>`
       : `
             <button type="button" class="tab-btn active" data-tab="resumen" role="tab">Resumen</button>
-            <button type="button" class="tab-btn" data-tab="tabla" role="tab">Tablas y JSON</button>
+            <button type="button" class="tab-btn" data-tab="tabla" role="tab">Datos</button>
             <button type="button" class="tab-btn" data-tab="graficos" role="tab">Gráficos</button>
             <button type="button" class="tab-btn" data-tab="mapas" role="tab">Mapas</button>
             <button type="button" class="tab-btn" data-tab="json" role="tab">JSON completo</button>`;
@@ -1300,6 +1396,22 @@ function buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin
   return `<div class="table-scroll"><table>${thead}<tbody>${rows}</tbody></table></div>`;
 }
 
+function compareSessionRows(sortKey, sortDir, a, b) {
+  const dir = sortDir === "asc" ? 1 : -1;
+  const va = a[sortKey];
+  const vb = b[sortKey];
+  if (va == null && vb == null) return 0;
+  if (va == null) return 1;
+  if (vb == null) return -1;
+  if (sortKey === "created_at") {
+    const ta = new Date(va).getTime();
+    const tb = new Date(vb).getTime();
+    return (ta - tb) * dir;
+  }
+  if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
+  return String(va).localeCompare(String(vb), "es") * dir;
+}
+
 function compareCompetenciaRows(sortKey, sortDir, a, b) {
   const dir = sortDir === "asc" ? 1 : -1;
   const va = a[sortKey];
@@ -1450,19 +1562,18 @@ async function renderCompetencias() {
 
     const theadRow = `
       <tr>
-        <th data-sort="id" style="cursor:pointer" title="Ordenar">Id</th>
-        <th data-sort="created_at" style="cursor:pointer" title="Ordenar">Fecha</th>
-        <th data-sort="team_country" style="cursor:pointer" title="Ordenar">País</th>
-        <th data-sort="team_name" style="cursor:pointer" title="Ordenar">Equipo</th>
-        <th data-sort="boat_type" style="cursor:pointer" title="Ordenar">Bote</th>
-        <th data-sort="paddlers_count" style="cursor:pointer" title="Ordenar">Palistas</th>
-        <th data-sort="drummer" style="cursor:pointer" title="Ordenar">Drummer</th>
-        <th data-sort="age_category" style="cursor:pointer" title="Ordenar">Edad</th>
-        <th data-sort="team_category" style="cursor:pointer" title="Ordenar">Tipo</th>
-        <th data-sort="target_distance_meters" style="cursor:pointer" title="Ordenar">Meta</th>
-        <th data-sort="virada" style="cursor:pointer" title="Ordenar">Virada</th>
-        <th data-sort="total_seconds" style="cursor:pointer" title="Ordenar">Tiempo</th>
-        <th data-sort="distance_meters" style="cursor:pointer" title="Ordenar">Dist. recorrida</th>
+        <th data-sort="id" class="th-sortable" title="Ordenar">Id</th>
+        <th data-sort="created_at" class="th-sortable" title="Ordenar">Fecha</th>
+        <th data-sort="target_distance_meters" class="th-sortable" title="Ordenar">Meta</th>
+        <th data-sort="boat_type" class="th-sortable" title="Ordenar">Bote</th>
+        <th data-sort="age_category" class="th-sortable" title="Ordenar">Edad</th>
+        <th data-sort="team_category" class="th-sortable" title="Ordenar">Tipo</th>
+        <th data-sort="team_name" class="th-sortable" title="Ordenar">Equipo</th>
+        <th data-sort="team_country" class="th-sortable" title="Ordenar">País</th>
+        <th data-sort="paddlers_count" class="th-sortable" title="Ordenar">Palistas</th>
+        <th data-sort="drummer" class="th-sortable" title="Ordenar">Drummer</th>
+        <th data-sort="virada" class="th-sortable" title="Ordenar">Virada</th>
+        <th data-sort="total_seconds" class="th-sortable" title="Ordenar">Tiempo</th>
       </tr>`;
 
     layout(`
@@ -1483,8 +1594,8 @@ async function renderCompetencias() {
     );
 
     const state = {
-      sortKey: "created_at",
-      sortDir: "desc",
+      sortKey: "total_seconds",
+      sortDir: "asc",
     };
 
     function rowMatchesFilters(r) {
@@ -1535,17 +1646,16 @@ async function renderCompetencias() {
       <tr>
         ${idCell}
         <td>${fmtDate(r.created_at)}</td>
-        <td>${escapeHtml(r.team_country || "—")}</td>
-        <td>${escapeHtml(r.team_name || "—")}</td>
+        <td>${r.target_distance_meters != null ? r.target_distance_meters + " m" : "—"}</td>
         <td>${labelCompBoat(r.boat_type)}</td>
-        <td>${r.paddlers_count != null ? r.paddlers_count : "—"}</td>
-        <td>${yn(r.drummer)}</td>
         <td>${labelCompAge(r.age_category)}</td>
         <td>${labelCompTeamCat(r.team_category)}</td>
-        <td>${r.target_distance_meters != null ? r.target_distance_meters + " m" : "—"}</td>
+        <td>${escapeHtml(r.team_name || "—")}</td>
+        <td>${countryCellHtml(r.team_country)}</td>
+        <td>${r.paddlers_count != null ? r.paddlers_count : "—"}</td>
+        <td>${yn(r.drummer)}</td>
         <td>${yn(r.virada)}</td>
         <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
-        <td>${r.distance_meters != null ? r.distance_meters.toFixed(0) + " m" : "—"}</td>
       </tr>
     `;
           }
@@ -1553,7 +1663,7 @@ async function renderCompetencias() {
         .join("");
       document.getElementById("comp-tbody").innerHTML =
         html ||
-        `<tr><td colspan="13" class="muted">Ninguna sesión coincide con los filtros.</td></tr>`;
+        `<tr><td colspan="12" class="muted">Ninguna sesión coincide con los filtros.</td></tr>`;
     }
 
     [

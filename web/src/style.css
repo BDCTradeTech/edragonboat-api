@@ -142,6 +142,22 @@ body {
   max-height: min(72vh, 680px);
 }
 
+th.th-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.th-sortable:hover {
+  text-decoration: underline;
+}
+
+.country-flag {
+  margin-right: 0.2em;
+  font-size: 1.15em;
+  line-height: 1;
+  vertical-align: middle;
+}
+
 .login-center {
   min-height: 100vh;
   display: flex;
