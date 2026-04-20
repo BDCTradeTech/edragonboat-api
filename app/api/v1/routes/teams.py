@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,11 +19,36 @@ from app.schemas.team import (
     TeamMemberCreate,
     TeamMemberRead,
     TeamMemberRoleUpdate,
+    TeamMemberRosterUpdate,
     TeamRead,
     TeamUpdate,
 )
 
 router = APIRouter()
+
+
+def _age_years(birth: date) -> int:
+    today = date.today()
+    age = today.year - birth.year
+    if (today.month, today.day) < (birth.month, birth.day):
+        age -= 1
+    return age
+
+
+def _member_read(m: TeamMembership, u: User) -> TeamMemberRead:
+    age = _age_years(m.birth_date) if m.birth_date else None
+    return TeamMemberRead(
+        user_id=u.id,
+        email=u.email,
+        full_name=u.full_name,
+        role=m.role,
+        document_number=m.document_number,
+        birth_date=m.birth_date,
+        age_years=age,
+        height_cm=m.height_cm,
+        weight_kg=m.weight_kg,
+        preferred_side=m.preferred_side,
+    )
 
 
 def _invite_email_key(email: str) -> str:
@@ -180,14 +206,7 @@ def list_team_members(
         u = db.get(User, m.user_id)
         if u is None:
             continue
-        out.append(
-            TeamMemberRead(
-                user_id=u.id,
-                email=u.email,
-                full_name=u.full_name,
-                role=m.role,
-            )
-        )
+        out.append(_member_read(m, u))
     return sorted(out, key=lambda x: (x.role != TeamRole.captain, x.email))
 
 
@@ -243,13 +262,8 @@ def add_team_member(
             temp_password=INVITE_DEFAULT_PASSWORD,
         )
 
-    return TeamMemberRead(
-        user_id=target.id,
-        email=target.email,
-        full_name=target.full_name,
-        role=m.role,
-        account_created=account_created,
-        invite_email_sent=email_sent,
+    return _member_read(m, target).model_copy(
+        update={"account_created": account_created, "invite_email_sent": email_sent}
     )
 
 
@@ -290,9 +304,10 @@ def update_member_role(
                     )
             m.role = body.role
         db.commit()
+        db.refresh(m)
         u = db.get(User, user_id)
         assert u is not None
-        return TeamMemberRead(user_id=u.id, email=u.email, full_name=u.full_name, role=m.role)
+        return _member_read(m, u)
 
     actor = _require_captain_or_coach(db, current, team_id)
     _non_captain_roles(body.role)
@@ -314,9 +329,47 @@ def update_member_role(
             )
     m.role = body.role
     db.commit()
+    db.refresh(m)
     u = db.get(User, user_id)
     assert u is not None
-    return TeamMemberRead(user_id=u.id, email=u.email, full_name=u.full_name, role=m.role)
+    return _member_read(m, u)
+
+
+@router.patch("/{team_id}/members/{user_id}/roster", response_model=TeamMemberRead)
+def update_member_roster(
+    team_id: int,
+    user_id: int,
+    body: TeamMemberRosterUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+) -> TeamMemberRead:
+    _require_captain_coach_or_platform_admin(db, current, team_id)
+    m = _membership(db, user_id, team_id)
+    if m is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Miembro no encontrado")
+    data = body.model_dump(exclude_unset=True)
+    if "document_number" in data:
+        dn = data["document_number"]
+        m.document_number = None if dn is None else str(dn).strip() or None
+    if "birth_date" in data:
+        m.birth_date = data["birth_date"]
+    if "height_cm" in data:
+        m.height_cm = data["height_cm"]
+    if "weight_kg" in data:
+        m.weight_kg = data["weight_kg"]
+    if "preferred_side" in data:
+        ps = data["preferred_side"]
+        if ps is not None and ps not in ("right", "left", "either"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="preferred_side debe ser right, left o either",
+            )
+        m.preferred_side = ps
+    db.commit()
+    db.refresh(m)
+    u = db.get(User, user_id)
+    assert u is not None
+    return _member_read(m, u)
 
 
 @router.delete("/{team_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

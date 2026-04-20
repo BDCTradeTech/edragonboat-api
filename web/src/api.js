@@ -221,6 +221,17 @@ export async function apiPatchMemberRole(teamId, userId, role) {
   return res.json();
 }
 
+/** Datos de plantel (documento, nacimiento, medidas, lado) en la membresía. */
+export async function apiPatchMemberRoster(teamId, userId, body) {
+  const res = await fetch(`${API}/api/v1/teams/${teamId}/members/${userId}/roster`, {
+    method: "PATCH",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function apiRemoveMember(teamId, userId) {
   const res = await fetch(`${API}/api/v1/teams/${teamId}/members/${userId}`, {
     method: "DELETE",

@@ -151,11 +151,20 @@ th.th-sortable:hover {
   text-decoration: underline;
 }
 
-.country-flag {
-  margin-right: 0.2em;
-  font-size: 1.15em;
-  line-height: 1;
+.country-flag-img {
+  margin-right: 0.35em;
   vertical-align: middle;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.plantel-table input[type="text"],
+.plantel-table input[type="number"],
+.plantel-table input[type="date"],
+.plantel-table select {
+  max-width: 100%;
+  font-size: 0.9rem;
 }
 
 .login-center {

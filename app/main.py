@@ -41,6 +41,35 @@ def _migrate_sqlite_teams_country() -> None:
             conn.execute(text("ALTER TABLE teams ADD COLUMN country VARCHAR(100)"))
 
 
+def _migrate_team_membership_roster() -> None:
+    try:
+        cols = [c["name"] for c in inspect(engine).get_columns("team_memberships")]
+    except Exception:
+        return
+    dialect = engine.dialect.name
+    with engine.begin() as conn:
+        if "document_number" not in cols:
+            conn.execute(text("ALTER TABLE team_memberships ADD COLUMN document_number VARCHAR(80)"))
+        if "birth_date" not in cols:
+            conn.execute(text("ALTER TABLE team_memberships ADD COLUMN birth_date DATE"))
+        if "height_cm" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE team_memberships ADD COLUMN height_cm "
+                    + ("REAL" if dialect == "sqlite" else "DOUBLE PRECISION")
+                )
+            )
+        if "weight_kg" not in cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE team_memberships ADD COLUMN weight_kg "
+                    + ("REAL" if dialect == "sqlite" else "DOUBLE PRECISION")
+                )
+            )
+        if "preferred_side" not in cols:
+            conn.execute(text("ALTER TABLE team_memberships ADD COLUMN preferred_side VARCHAR(20)"))
+
+
 def _migrate_users_platform_admin() -> None:
     try:
         cols = [c["name"] for c in inspect(engine).get_columns("users")]
@@ -88,6 +117,7 @@ async def lifespan(app: FastAPI):
 
     Base.metadata.create_all(bind=engine)
     _migrate_sqlite_teams_country()
+    _migrate_team_membership_roster()
     _migrate_users_platform_admin()
     _bootstrap_platform_admin_emails()
     yield

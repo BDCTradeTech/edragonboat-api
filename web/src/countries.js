@@ -79,7 +79,10 @@ export function countryCellHtml(countryName) {
     }
   }
   if (!code) code = getCountryCodeFromSpanishName(text);
-  const flag = code ? `<span class="country-flag" aria-hidden="true">${flagEmojiFromIso2(code)}</span> ` : "";
+  const lc = code ? String(code).toLowerCase() : "";
+  const flag = lc
+    ? `<img class="country-flag-img" src="https://flagcdn.com/16x12/${lc}.png" width="16" height="12" alt="" loading="lazy" decoding="async" /> `
+    : "";
   return `${flag}${escapeHtml(display)}`;
 }
 

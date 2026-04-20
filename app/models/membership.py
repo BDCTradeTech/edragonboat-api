@@ -1,7 +1,7 @@
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -24,6 +24,11 @@ class TeamMembership(Base):
         Enum(TeamRole, native_enum=False, length=20),
         nullable=False,
     )
+    document_number: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    preferred_side: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship("User", back_populates="memberships")

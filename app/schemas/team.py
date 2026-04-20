@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel, EmailStr, Field
 
 from app.models.membership import TeamRole
@@ -33,6 +35,12 @@ class TeamMemberRead(BaseModel):
     role: TeamRole
     account_created: bool = False
     invite_email_sent: bool = False
+    document_number: str | None = None
+    birth_date: date | None = None
+    age_years: int | None = None
+    height_cm: float | None = None
+    weight_kg: float | None = None
+    preferred_side: str | None = None
 
 
 class TeamMemberCreate(BaseModel):
@@ -43,3 +51,11 @@ class TeamMemberCreate(BaseModel):
 
 class TeamMemberRoleUpdate(BaseModel):
     role: TeamRole
+
+
+class TeamMemberRosterUpdate(BaseModel):
+    document_number: str | None = Field(None, max_length=80)
+    birth_date: date | None = None
+    height_cm: float | None = Field(None, ge=0, le=400)
+    weight_kg: float | None = Field(None, ge=0, le=400)
+    preferred_side: str | None = None

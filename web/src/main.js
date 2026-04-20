@@ -177,9 +177,9 @@ function layout(content, { showNav = true, wide = false } = {}) {
       <div class="nav-brand">E-DragonBoat</div>
       <nav class="nav-links">
         <a class="nav-item" href="#/" data-match="home">Home</a>
+        <a class="nav-item" href="#/teams" data-match="teams">Equipo</a>
         <a class="nav-item" href="#/sessions" data-match="sessions">Entrenamientos</a>
         <a class="nav-item" href="#/competencias" data-match="competencias">Competencias</a>
-        <a class="nav-item" href="#/teams" data-match="teams">Equipo</a>
         <a class="nav-item" href="#/cuenta" data-match="cuenta">Cuenta</a>
       </nav>
       <div class="nav-footer">
@@ -248,7 +248,7 @@ function renderHome() {
         <li><strong>Entrenamientos:</strong> sesiones subidas desde la app, filtradas por tu equipo; detalle con resumen, tablas, gráficos (distancia, velocidad, SPM, paladas) y mapa del recorrido.</li>
         <li><strong>Mapas y JPG:</strong> recorrido sobre mapa (mapa o satélite); podés descargar una imagen con el mapa y un resumen (fecha, equipo, bote, palistas, distancia en m).</li>
         <li><strong>Equipo:</strong> datos del club y roles (capitán, entrenador, palista). El <strong>capitán</strong> puede editar nombre y país del equipo, eliminarlo e <strong>invitar</strong> por email. El <strong>entrenador</strong> ve lo mismo en entrenamientos y plantel, y puede cambiar roles y quitar miembros, pero no invita ni modifica los datos del equipo.</li>
-        <li><strong>Cuenta:</strong> tu perfil, contraseña y gestión del plantel según tu rol.</li>
+        <li><strong>Cuenta:</strong> tu perfil, contraseña e idioma. El plantel está en <strong>Equipo</strong>.</li>
         <li><strong>Competencias:</strong> carreras subidas desde la app al pulsar <em>Completado</em>; mismo detalle que entrenamientos (gráficos, mapa).</li>
       </ul>
       <div class="home-actions">
@@ -749,7 +749,19 @@ function renderExploreChart(points) {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      plugins: { legend: { display: true, position: "bottom" } },
+      plugins: {
+        legend: {
+          display: true,
+          position: "bottom",
+          labels: {
+            usePointStyle: true,
+            pointStyle: "circle",
+            boxWidth: 8,
+            boxHeight: 8,
+            padding: 12,
+          },
+        },
+      },
       elements: {
         point: { radius: 0, hoverRadius: 0 },
       },
@@ -968,7 +980,7 @@ async function renderSessionDetail(id) {
           </div>
           <div id="panel-graficos" class="tab-panel" role="tabpanel">
             <div class="chart-grid">
-              <div class="chart-box"><h4>Velocidad</h4><div class="chart-canvas-wrap"><canvas id="chart-speed"></canvas></div></div>
+              <div class="chart-box"><h4>Velocidad (km/h)</h4><div class="chart-canvas-wrap"><canvas id="chart-speed"></canvas></div></div>
               <div class="chart-box"><h4>Ritmo (SPM)</h4><div class="chart-canvas-wrap"><canvas id="chart-spm"></canvas></div></div>
             </div>
             ${exploreBlock}
@@ -1153,8 +1165,8 @@ async function renderTeamsList() {
         <h2 class="card-title">${isPlatformAdmin ? "Todos los equipos" : "Mi equipo"}</h2>
         <p class="muted">${
           isPlatformAdmin
-            ? "Vista de administrador: podés abrir cualquier equipo y gestionar planteles en Cuenta. Los demás usuarios no te ven en sus planteles."
-            : "Un usuario solo puede tener <strong>un</strong> equipo. En la ficha del equipo el capitán puede cambiar nombre, país y eliminar el equipo. En <a class=\"link\" href=\"#/cuenta\">Cuenta</a>, el capitán o el entrenador gestionan el plantel; solo el capitán invita."
+            ? "Vista de administrador: podés abrir cualquier equipo y gestionar el plantel en la ficha del equipo. Los demás usuarios no te ven en sus planteles."
+            : "Un usuario solo puede tener <strong>un</strong> equipo. En la ficha del equipo el capitán puede cambiar nombre, país y eliminar el equipo; el capitán o el entrenador gestionan el plantel y solo el capitán invita."
         }</p>
         <div class="table-scroll">
           <table>
@@ -1237,18 +1249,62 @@ async function renderTeamDetail(id) {
   }
   layout(`<p class="loading-line">Cargando equipo…</p>`);
   try {
-    const [team, myTeams, me] = await Promise.all([
+    const [team, myTeams, me, members] = await Promise.all([
       api.apiGetTeam(teamId),
       api.apiMyTeams(),
       api.apiMe(),
+      api.apiListMembers(teamId),
     ]);
     const myEntry = myTeams.find((t) => t.team.id === teamId);
     const myRole = myEntry?.role;
-    const isCaptain = myRole === "captain" || me.is_platform_admin === true;
+    const isPlatformAdmin = me.is_platform_admin === true;
+    const isCaptain = myRole === "captain" || isPlatformAdmin;
+    const isCoach = myRole === "coach";
     const countryOptsEdit = countrySelectOptionsHtml(team.country || "");
 
-    const cuentaHint = `
-      <p class="muted">El <strong>plantel</strong> y las <strong>invitaciones</strong> (solo capitán) se gestionan en <a class="link" href="#/cuenta">Cuenta</a>.</p>`;
+    const roleLine =
+      myRole != null
+        ? roleLabel(myRole)
+        : isPlatformAdmin
+          ? "Administrador (plataforma)"
+          : "—";
+
+    let inviteBlock = "";
+    if (myRole === "captain" || isPlatformAdmin) {
+      inviteBlock = `
+        <details class="disclosure-card" style="margin-top:0.75rem">
+          <summary class="disclosure-summary">
+            <span>Invitar al equipo</span>
+            <span class="disclosure-chev" aria-hidden="true"></span>
+          </summary>
+          <div class="disclosure-body">
+            <p class="muted small">Podés invitar por email aunque no tengan cuenta: se crea el usuario con contraseña <strong>12345678</strong> (que deberían cambiar en Cuenta). Si el servidor tiene SMTP, reciben un correo con el acceso.</p>
+            <form id="form-invite-${teamId}">
+              <label for="inv-name-${teamId}">Nombre (opcional)</label>
+              <input id="inv-name-${teamId}" type="text" maxlength="200" autocomplete="name" />
+              <label for="inv-email-${teamId}">Email</label>
+              <input id="inv-email-${teamId}" type="email" required autocomplete="email" />
+              <label for="inv-role-${teamId}">Rol</label>
+              <select id="inv-role-${teamId}">
+                <option value="coach">Entrenador</option>
+                <option value="paddler" selected>Palista</option>
+              </select>
+              <button type="submit">Invitar</button>
+              <p id="inv-err-${teamId}" class="msg-error"></p>
+            </form>
+          </div>
+        </details>`;
+    } else if (isCoach) {
+      inviteBlock = `<p class="muted small">Solo el <strong>capitán</strong> puede invitar nuevas personas al equipo.</p>`;
+    }
+
+    const plantelCard = `
+      <div class="card" style="margin-top:1rem">
+        <h3 style="margin-top:0">Plantel</h3>
+        <p class="muted small">Datos del plantel se guardan en el servidor. El capitán y el entrenador pueden editar filas y roles.</p>
+        ${buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, teamId)}
+        ${inviteBlock}
+      </div>`;
 
     const editBlock = isCaptain
       ? `
@@ -1275,11 +1331,48 @@ async function renderTeamDetail(id) {
       <p><a class="link" href="#/teams">← Mi equipo</a></p>
       <div class="card">
         <h2 class="card-title">${escapeHtml(team.name)}</h2>
-        <p class="muted">País: ${escapeHtml(team.country || "—")} · Tu rol: <strong>${roleLabel(myRole || "")}</strong></p>
+        <p class="muted">País: ${escapeHtml(team.country || "—")} · Tu rol: <strong>${escapeHtml(roleLine)}</strong></p>
         ${editBlock}
-        ${cuentaHint}
+        ${plantelCard}
       </div>
     `);
+
+    wireTeamPlantelPage(teamId, {
+      canChangeRoles: isPlatformAdmin || myRole === "captain",
+      canRemoveMember: isPlatformAdmin || myRole === "captain" || myRole === "coach",
+    });
+
+    document.getElementById(`form-invite-${teamId}`)?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById(`inv-err-${teamId}`);
+      errEl.textContent = "";
+      errEl.classList.remove("msg-ok");
+      errEl.classList.add("msg-error");
+      try {
+        const result = await api.apiAddMember(
+          teamId,
+          document.getElementById(`inv-email-${teamId}`).value.trim(),
+          document.getElementById(`inv-role-${teamId}`).value,
+          document.getElementById(`inv-name-${teamId}`)?.value || ""
+        );
+        errEl.classList.remove("msg-error");
+        errEl.classList.add("msg-ok");
+        let msg = "Listo: ya está en el equipo.";
+        if (result.account_created) {
+          msg = result.invite_email_sent
+            ? "Cuenta nueva creada y email enviado con la contraseña provisional."
+            : "Cuenta nueva creada (contraseña 12345678). No se envió email: configurá SMTP en el servidor.";
+        }
+        errEl.textContent = msg;
+        document.getElementById(`inv-email-${teamId}`).value = "";
+        const nameIn = document.getElementById(`inv-name-${teamId}`);
+        if (nameIn) nameIn.value = "";
+        location.hash = `#/teams/${teamId}`;
+        route();
+      } catch (ex) {
+        errEl.textContent = humanizeApiError(ex.message) || String(ex.message);
+      }
+    });
 
     if (isCaptain) {
       document.getElementById("form-edit-team").addEventListener("submit", async (e) => {
@@ -1322,18 +1415,76 @@ async function renderTeamDetail(id) {
   }
 }
 
-/** Plantel en Cuenta: capitán gestiona roles; entrenador solo quita palistas; admin de plataforma ve todos los equipos y todos los roles. */
-function buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, teamId) {
+function rosterBirthInputValue(iso) {
+  if (!iso) return "";
+  const s = String(iso);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  try {
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    const da = String(d.getDate()).padStart(2, "0");
+    return `${y}-${mo}-${da}`;
+  } catch {
+    return "";
+  }
+}
+
+function preferredSideLabel(side) {
+  if (side === "right") return "Derecho";
+  if (side === "left") return "Izquierdo";
+  if (side === "either") return "Indistinto";
+  return "—";
+}
+
+function preferredSideOptionsHtml(m) {
+  const v = m.preferred_side || "";
+  return `
+    <option value="">—</option>
+    <option value="right" ${v === "right" ? "selected" : ""}>Derecho</option>
+    <option value="left" ${v === "left" ? "selected" : ""}>Izquierdo</option>
+    <option value="either" ${v === "either" ? "selected" : ""}>Indistinto</option>`;
+}
+
+function rosterCellsHtml(m, canEditRoster) {
+  if (canEditRoster) {
+    return `
+        <td><input class="roster-doc" type="text" value="${escapeHtml(m.document_number || "")}" maxlength="80" /></td>
+        <td><input class="roster-birth" type="date" value="${rosterBirthInputValue(m.birth_date)}" /></td>
+        <td class="muted roster-age">${m.age_years != null ? m.age_years : "—"}</td>
+        <td><input class="roster-h" type="number" step="0.1" min="0" placeholder="cm" value="${m.height_cm != null ? escapeHtml(String(m.height_cm)) : ""}" /></td>
+        <td><input class="roster-w" type="number" step="0.1" min="0" placeholder="kg" value="${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : ""}" /></td>
+        <td><select class="roster-side">${preferredSideOptionsHtml(m)}</select></td>`;
+  }
+  return `
+        <td>${escapeHtml(m.document_number || "—")}</td>
+        <td>${m.birth_date ? escapeHtml(rosterBirthInputValue(m.birth_date)) : "—"}</td>
+        <td>${m.age_years != null ? m.age_years : "—"}</td>
+        <td>${m.height_cm != null ? escapeHtml(String(m.height_cm)) : "—"}</td>
+        <td>${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : "—"}</td>
+        <td>${preferredSideLabel(m.preferred_side)}</td>`;
+}
+
+/** Plantel en ficha Equipo: datos personales persistidos en membresía; roles como antes. */
+function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, teamId) {
   const canManage = isCaptain || isCoach || isPlatformAdmin;
+  const canEditRoster = canManage;
+  const saveBtn = (uid) =>
+    canEditRoster
+      ? `<button type="button" class="secondary btn-sm btn-roster-save" data-team="${teamId}" data-user="${uid}">Guardar</button> `
+      : "";
   const thead = canManage
-    ? `<thead><tr><th>Email</th><th>Nombre</th><th>Rol</th><th>Gestión</th></tr></thead>`
-    : `<thead><tr><th>Email</th><th>Nombre</th><th>Rol</th></tr></thead>`;
+    ? `<thead><tr><th>Email</th><th>Nombre</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th><th>Gestión</th></tr></thead>`
+    : `<thead><tr><th>Email</th><th>Nombre</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th></tr></thead>`;
   const rows = members
     .map((m) => {
+      const rc = rosterCellsHtml(m, canEditRoster);
       if (!canManage) {
         return `<tr>
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
+          ${rc}
           <td>${roleLabel(m.role)}</td>
         </tr>`;
       }
@@ -1341,15 +1492,17 @@ function buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin
         return `<tr>
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
+          ${rc}
           <td>${roleLabel(m.role)}</td>
           <td class="actions-cell">
+            ${saveBtn(m.user_id)}
             <select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="Rol">
               <option value="captain" ${m.role === "captain" ? "selected" : ""}>Capitán</option>
               <option value="coach" ${m.role === "coach" ? "selected" : ""}>Entrenador</option>
               <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>Palista</option>
             </select>
             <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}" ${
-              m.role === "captain" ? "disabled title=\"Promové a otro capitán antes de quitar\"" : ""
+              m.role === "captain" ? 'disabled title="Promové a otro capitán antes de quitar"' : ""
             }>Quitar</button>
           </td>
         </tr>`;
@@ -1358,24 +1511,28 @@ function buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin
         return `<tr>
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
+          ${rc}
           <td>${roleLabel(m.role)}</td>
-          <td class="muted">—</td>
+          <td class="actions-cell">${saveBtn(m.user_id)}<span class="muted">—</span></td>
         </tr>`;
       }
       if (isCoach && m.role === "coach") {
         return `<tr>
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
+          ${rc}
           <td>${roleLabel(m.role)}</td>
-          <td class="muted">Solo el capitán gestiona entrenadores</td>
+          <td class="actions-cell">${saveBtn(m.user_id)}<span class="muted">Solo el capitán gestiona entrenadores</span></td>
         </tr>`;
       }
       if (isCaptain) {
         return `<tr>
           <td>${escapeHtml(m.email)}</td>
           <td>${escapeHtml(m.full_name || "—")}</td>
+          ${rc}
           <td>${roleLabel(m.role)}</td>
           <td class="actions-cell">
+            ${saveBtn(m.user_id)}
             <select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="Rol">
               <option value="coach" ${m.role === "coach" ? "selected" : ""}>Entrenador</option>
               <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>Palista</option>
@@ -1387,14 +1544,82 @@ function buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin
       return `<tr>
         <td>${escapeHtml(m.email)}</td>
         <td>${escapeHtml(m.full_name || "—")}</td>
+        ${rc}
         <td>${roleLabel(m.role)}</td>
         <td class="actions-cell">
+          ${saveBtn(m.user_id)}
           <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">Quitar</button>
         </td>
       </tr>`;
     })
     .join("");
-  return `<div class="table-scroll"><table>${thead}<tbody>${rows}</tbody></table></div>`;
+  return `<div class="table-scroll"><table class="plantel-table">${thead}<tbody>${rows}</tbody></table></div>`;
+}
+
+function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember }) {
+  document.querySelectorAll(`.btn-roster-save[data-team="${teamId}"]`).forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const uid = Number(btn.getAttribute("data-user"));
+      const tr = btn.closest("tr");
+      if (!tr) return;
+      const doc = tr.querySelector(".roster-doc")?.value?.trim() ?? "";
+      const birthRaw = tr.querySelector(".roster-birth")?.value || "";
+      const hRaw = tr.querySelector(".roster-h")?.value ?? "";
+      const wRaw = tr.querySelector(".roster-w")?.value ?? "";
+      const sideRaw = tr.querySelector(".roster-side")?.value ?? "";
+      const body = {
+        document_number: doc || null,
+        birth_date: birthRaw ? birthRaw : null,
+        height_cm: hRaw === "" ? null : Number(hRaw),
+        weight_kg: wRaw === "" ? null : Number(wRaw),
+        preferred_side: sideRaw || null,
+      };
+      if (body.height_cm != null && (Number.isNaN(body.height_cm) || body.height_cm < 0)) {
+        alert("Altura inválida.");
+        return;
+      }
+      if (body.weight_kg != null && (Number.isNaN(body.weight_kg) || body.weight_kg < 0)) {
+        alert("Peso inválido.");
+        return;
+      }
+      try {
+        await api.apiPatchMemberRoster(teamId, uid, body);
+        location.hash = `#/teams/${teamId}`;
+        route();
+      } catch (ex) {
+        alert(humanizeApiError(ex.message) || String(ex.message));
+      }
+    });
+  });
+  if (canChangeRoles) {
+    document.querySelectorAll(`.role-select-acc[data-team="${teamId}"]`).forEach((sel) => {
+      sel.addEventListener("change", async () => {
+        const uid = Number(sel.getAttribute("data-user"));
+        try {
+          await api.apiPatchMemberRole(teamId, uid, sel.value);
+          location.hash = `#/teams/${teamId}`;
+          route();
+        } catch (ex) {
+          alert(ex.message || "Error al cambiar rol");
+        }
+      });
+    });
+  }
+  if (canRemoveMember) {
+    document.querySelectorAll(`.btn-remove-acc[data-team="${teamId}"]`).forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const uid = Number(btn.getAttribute("data-user"));
+        if (!confirm("¿Quitar a esta persona del equipo?")) return;
+        try {
+          await api.apiRemoveMember(teamId, uid);
+          location.hash = `#/teams/${teamId}`;
+          route();
+        } catch (ex) {
+          alert(ex.message || "Error");
+        }
+      });
+    });
+  }
 }
 
 function compareSessionRows(sortKey, sortDir, a, b) {
@@ -1570,10 +1795,10 @@ async function renderCompetencias() {
         <th data-sort="paddlers_count" class="th-sortable" title="Ordenar">Palistas</th>
         <th data-sort="age_category" class="th-sortable" title="Ordenar">Edad</th>
         <th data-sort="team_category" class="th-sortable" title="Ordenar">Tipo</th>
-        <th data-sort="team_name" class="th-sortable" title="Ordenar">Equipo</th>
-        <th data-sort="team_country" class="th-sortable" title="Ordenar">País</th>
         <th data-sort="drummer" class="th-sortable" title="Ordenar">Drummer</th>
         <th data-sort="virada" class="th-sortable" title="Ordenar">Virada</th>
+        <th data-sort="team_name" class="th-sortable" title="Ordenar">Equipo</th>
+        <th data-sort="team_country" class="th-sortable" title="Ordenar">País</th>
         <th data-sort="total_seconds" class="th-sortable" title="Ordenar">Tiempo</th>
       </tr>`;
 
@@ -1652,10 +1877,10 @@ async function renderCompetencias() {
         <td>${r.paddlers_count != null ? r.paddlers_count : "—"}</td>
         <td>${labelCompAge(r.age_category)}</td>
         <td>${labelCompTeamCat(r.team_category)}</td>
-        <td>${escapeHtml(r.team_name || "—")}</td>
-        <td>${countryCellHtml(r.team_country)}</td>
         <td>${yn(r.drummer)}</td>
         <td>${yn(r.virada)}</td>
+        <td>${escapeHtml(r.team_name || "—")}</td>
+        <td>${countryCellHtml(r.team_country)}</td>
         <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
       </tr>
     `;
@@ -1714,65 +1939,17 @@ async function renderAccount() {
   layout(`<p class="loading-line">Cargando perfil…</p>`);
   try {
     const [me, teams] = await Promise.all([api.apiMe(), api.apiMyTeams()]);
-    const withMembers = await Promise.all(
-      teams.map(async (entry) => ({
-        entry,
-        members: await api.apiListMembers(entry.team.id),
-      }))
-    );
 
     const isPlatformAdmin = me.is_platform_admin === true;
-
-    const plantelBlocks = withMembers
-      .map(({ entry, members }) => {
-        const tid = entry.team.id;
-        const isCaptain = entry.role === "captain" || isPlatformAdmin;
-        const isCoach = entry.role === "coach";
-        const canManageRoster = isCaptain || isCoach;
-        let inviteBlock = "";
-        if (isCaptain) {
-          inviteBlock = `
-        <details class="disclosure-card" style="margin-top:0.75rem">
-          <summary class="disclosure-summary">
-            <span>Invitar al equipo</span>
-            <span class="disclosure-chev" aria-hidden="true"></span>
-          </summary>
-          <div class="disclosure-body">
-            <p class="muted small">Podés invitar por email aunque no tengan cuenta: se crea el usuario con contraseña <strong>12345678</strong> (que deberían cambiar en Cuenta). Si el servidor tiene SMTP, reciben un correo con el acceso.</p>
-            <form id="form-invite-${tid}">
-              <label for="inv-name-${tid}">Nombre (opcional)</label>
-              <input id="inv-name-${tid}" type="text" maxlength="200" autocomplete="name" />
-              <label for="inv-email-${tid}">Email</label>
-              <input id="inv-email-${tid}" type="email" required autocomplete="email" />
-              <label for="inv-role-${tid}">Rol</label>
-              <select id="inv-role-${tid}">
-                <option value="coach">Entrenador</option>
-                <option value="paddler" selected>Palista</option>
-              </select>
-              <button type="submit">Invitar</button>
-              <p id="inv-err-${tid}" class="msg-error"></p>
-            </form>
-          </div>
-        </details>`;
-        } else if (isCoach) {
-          inviteBlock = `<p class="muted small">Solo el <strong>capitán</strong> puede invitar nuevas personas al equipo.</p>`;
-        } else {
-          inviteBlock = `<p class="muted small">El <strong>capitán</strong> o el <strong>entrenador</strong> gestionan el plantel; las invitaciones las envía solo el capitán.</p>`;
-        }
-
-        return `
-      <div class="card" style="margin-top:1rem">
-        <h3 style="margin-top:0">Plantel — ${escapeHtml(entry.team.name)}</h3>
-        <p class="muted small">Tu rol: <strong>${roleLabel(entry.role)}</strong>${isPlatformAdmin ? " · <strong>Administrador</strong>" : ""}</p>
-        ${buildAccountPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, tid)}
-        ${inviteBlock}
-      </div>`;
-      })
-      .join("");
 
     const noTeamMsg =
       teams.length === 0 && !isPlatformAdmin
         ? `<div class="card" style="margin-top:1rem"><p class="muted">No tenés equipo. Podés crear uno en <a class="link" href="#/teams/new">Equipo</a>.</p></div>`
+        : "";
+
+    const plantelHint =
+      teams.length > 0
+        ? `<p class="muted" style="margin-top:1rem">El <strong>plantel</strong> y las invitaciones están en <a class="link" href="#/teams">Equipo</a> → abrí tu equipo.</p>`
         : "";
 
     layout(`
@@ -1811,7 +1988,7 @@ async function renderAccount() {
         </select>
       </div>
       ${noTeamMsg}
-      ${plantelBlocks}
+      ${plantelHint}
     `);
 
     document.getElementById("sel-ui-lang")?.addEventListener("change", (e) => {
@@ -1845,73 +2022,6 @@ async function renderAccount() {
       }
     });
 
-    withMembers.forEach(({ entry }) => {
-      const tid = entry.team.id;
-      if (entry.role !== "captain" && !isPlatformAdmin) return;
-      const form = document.getElementById(`form-invite-${tid}`);
-      if (!form) return;
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const errEl = document.getElementById(`inv-err-${tid}`);
-        errEl.textContent = "";
-        errEl.classList.remove("msg-ok");
-        errEl.classList.add("msg-error");
-        try {
-          const result = await api.apiAddMember(
-            tid,
-            document.getElementById(`inv-email-${tid}`).value.trim(),
-            document.getElementById(`inv-role-${tid}`).value,
-            document.getElementById(`inv-name-${tid}`)?.value || ""
-          );
-          errEl.classList.remove("msg-error");
-          errEl.classList.add("msg-ok");
-          let msg = "Listo: ya está en el equipo.";
-          if (result.account_created) {
-            msg = result.invite_email_sent
-              ? "Cuenta nueva creada y email enviado con la contraseña provisional."
-              : "Cuenta nueva creada (contraseña 12345678). No se envió email: configurá SMTP en el servidor.";
-          }
-          errEl.textContent = msg;
-          document.getElementById(`inv-email-${tid}`).value = "";
-          const nameIn = document.getElementById(`inv-name-${tid}`);
-          if (nameIn) nameIn.value = "";
-        } catch (ex) {
-          errEl.textContent = humanizeApiError(ex.message) || String(ex.message);
-        }
-      });
-    });
-
-    withMembers.forEach(({ entry }) => {
-      const tid = entry.team.id;
-      if (!isPlatformAdmin && entry.role !== "captain" && entry.role !== "coach") return;
-      if (isPlatformAdmin || entry.role === "captain") {
-        document.querySelectorAll(`.role-select-acc[data-team="${tid}"]`).forEach((sel) => {
-          sel.addEventListener("change", async () => {
-            const uid = Number(sel.getAttribute("data-user"));
-            try {
-              await api.apiPatchMemberRole(tid, uid, sel.value);
-              location.hash = "#/cuenta";
-              route();
-            } catch (ex) {
-              alert(ex.message || "Error al cambiar rol");
-            }
-          });
-        });
-      }
-      document.querySelectorAll(`.btn-remove-acc[data-team="${tid}"]`).forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const uid = Number(btn.getAttribute("data-user"));
-          if (!confirm("¿Quitar a esta persona del equipo?")) return;
-          try {
-            await api.apiRemoveMember(tid, uid);
-            location.hash = "#/cuenta";
-            route();
-          } catch (ex) {
-            alert(ex.message || "Error");
-          }
-        });
-      });
-    });
   } catch (ex) {
     layout(
       `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p></div>`
