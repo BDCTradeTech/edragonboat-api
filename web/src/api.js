@@ -162,6 +162,29 @@ export async function apiDeleteTeam(teamId) {
   if (!res.ok) throw new Error(await res.text());
 }
 
+export async function apiUploadTeamLogo(teamId, file) {
+  const t = getToken();
+  if (!t) throw new Error("No hay sesión");
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API}/api/v1/teams/${teamId}/logo`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${t}` },
+    body: form,
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function apiDeleteTeamLogo(teamId) {
+  const res = await fetch(`${API}/api/v1/teams/${teamId}/logo`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function apiUpdateTeam(teamId, body) {
   const res = await fetch(`${API}/api/v1/teams/${teamId}`, {
     method: "PATCH",

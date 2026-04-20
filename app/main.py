@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -27,6 +28,21 @@ class PanelInviteMemberBody(BaseModel):
     email: EmailStr
     role: TeamRole
     full_name: str | None = Field(None, max_length=200)
+
+
+def _migrate_teams_logo_file() -> None:
+    try:
+        cols = [c["name"] for c in inspect(engine).get_columns("teams")]
+    except Exception:
+        return
+    if "logo_file" in cols:
+        return
+    dialect = engine.dialect.name
+    with engine.begin() as conn:
+        if dialect == "sqlite":
+            conn.execute(text("ALTER TABLE teams ADD COLUMN logo_file VARCHAR(255)"))
+        else:
+            conn.execute(text("ALTER TABLE teams ADD COLUMN logo_file VARCHAR(255)"))
 
 
 def _migrate_sqlite_teams_country() -> None:
@@ -116,10 +132,13 @@ async def lifespan(app: FastAPI):
     import app.models.user  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _migrate_teams_logo_file()
     _migrate_sqlite_teams_country()
     _migrate_team_membership_roster()
     _migrate_users_platform_admin()
     _bootstrap_platform_admin_emails()
+    data_dir = Path(get_settings().data_dir)
+    (data_dir / "team_logos").mkdir(parents=True, exist_ok=True)
     yield
 
 

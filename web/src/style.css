@@ -647,6 +647,96 @@ pre.json {
   border-radius: 0;
 }
 
+/* Filtro día + Graficar alineados */
+.session-day-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+
+.session-day-filter-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.session-day-map-btn {
+  flex-shrink: 0;
+}
+
+/* Mapa del día: proporción vertical tipo Instagram (9:16) */
+.session-map-export-root--ig-story {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+  aspect-ratio: 9 / 16;
+  max-height: min(88vh, 920px);
+  min-height: 480px;
+}
+
+.session-map-export-root--ig-story .session-map-host--ig {
+  flex: 1;
+  min-height: 0;
+  height: auto !important;
+  margin-top: 0;
+}
+
+.map-sf-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.map-sf-marker-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #102a43;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #0d47a1;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+}
+
+.team-list-head,
+.team-detail-head {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.team-detail-head {
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.team-logo-thumb,
+.team-logo-preview {
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.team-logo-preview--header {
+  width: 72px;
+  height: 72px;
+}
+
+.team-logo-row {
+  margin: 0.5rem 0;
+}
+
 .map-export-hint {
   margin: 0.65rem 0 0.35rem;
 }

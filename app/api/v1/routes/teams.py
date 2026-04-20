@@ -1,7 +1,10 @@
 from datetime import date
+from io import BytesIO
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -25,6 +28,37 @@ from app.schemas.team import (
 )
 
 router = APIRouter()
+
+
+def _team_logo_disk_path(team_id: int) -> Path:
+    return Path(get_settings().data_dir) / "team_logos" / f"{team_id}.png"
+
+
+def _team_read(team: Team) -> TeamRead:
+    return TeamRead(
+        id=team.id,
+        name=team.name,
+        country=team.country,
+        logo_url=f"/api/v1/teams/{team.id}/logo" if team.logo_file else None,
+    )
+
+
+def _process_uploaded_logo(raw: bytes) -> bytes:
+    from PIL import Image
+
+    im = Image.open(BytesIO(raw))
+    if im.mode in ("RGBA", "P"):
+        if im.mode == "P":
+            im = im.convert("RGBA")
+        bg = Image.new("RGB", im.size, (255, 255, 255))
+        bg.paste(im, mask=im.split()[3])
+        im = bg
+    else:
+        im = im.convert("RGB")
+    im.thumbnail((512, 512), Image.Resampling.LANCZOS)
+    out = BytesIO()
+    im.save(out, format="PNG", optimize=True)
+    return out.getvalue()
 
 
 def _age_years(birth: date) -> int:
@@ -152,7 +186,7 @@ def create_team(
     db.add(membership)
     db.commit()
     db.refresh(team)
-    return MyTeamRead(team=TeamRead.model_validate(team), role=TeamRole.captain)
+    return MyTeamRead(team=_team_read(team), role=TeamRole.captain)
 
 
 @router.get("/me", response_model=list[MyTeamRead])
@@ -166,7 +200,7 @@ def my_teams(
         for team in teams:
             m = _membership(db, current.id, team.id)
             role = m.role if m is not None else TeamRole.paddler
-            out.append(MyTeamRead(team=TeamRead.model_validate(team), role=role))
+            out.append(MyTeamRead(team=_team_read(team), role=role))
         return out
     rows = db.scalars(
         select(TeamMembership).where(TeamMembership.user_id == current.id)
@@ -176,7 +210,7 @@ def my_teams(
         team = db.get(Team, m.team_id)
         if team is None:
             continue
-        out.append(MyTeamRead(team=TeamRead.model_validate(team), role=m.role))
+        out.append(MyTeamRead(team=_team_read(team), role=m.role))
     return out
 
 
@@ -430,8 +464,78 @@ def delete_team(
     team = db.get(Team, team_id)
     if team is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
+    logo_path = _team_logo_disk_path(team_id)
+    if logo_path.is_file():
+        logo_path.unlink()
     db.delete(team)
     db.commit()
+
+
+@router.get("/{team_id}/logo")
+def get_team_logo_image(
+    team_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> FileResponse:
+    """Logo público (para etiqueta img en el panel)."""
+    team = db.get(Team, team_id)
+    if team is None or not team.logo_file:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sin logo")
+    path = _team_logo_disk_path(team_id)
+    if not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sin logo")
+    return FileResponse(path, media_type="image/png")
+
+
+@router.post("/{team_id}/logo", response_model=TeamRead)
+async def upload_team_logo(
+    team_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+    file: UploadFile = File(...),
+) -> TeamRead:
+    _require_captain_or_platform_admin(db, current, team_id)
+    team = db.get(Team, team_id)
+    if team is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
+    ct = (file.content_type or "").lower()
+    if ct not in ("image/png", "image/jpeg", "image/jpg"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Formato admitido: PNG o JPEG (fondo blanco o transparente recomendado)",
+        )
+    raw = await file.read()
+    if len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Máximo 5 MB")
+    try:
+        processed = _process_uploaded_logo(raw)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Imagen inválida o corrupta")
+    path = _team_logo_disk_path(team_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(processed)
+    team.logo_file = f"{team_id}.png"
+    db.commit()
+    db.refresh(team)
+    return _team_read(team)
+
+
+@router.delete("/{team_id}/logo", response_model=TeamRead)
+def delete_team_logo(
+    team_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+) -> TeamRead:
+    _require_captain_or_platform_admin(db, current, team_id)
+    team = db.get(Team, team_id)
+    if team is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
+    path = _team_logo_disk_path(team_id)
+    if path.is_file():
+        path.unlink()
+    team.logo_file = None
+    db.commit()
+    db.refresh(team)
+    return _team_read(team)
 
 
 @router.patch("/{team_id}", response_model=TeamRead)
@@ -440,7 +544,7 @@ def update_team(
     body: TeamUpdate,
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
-) -> Team:
+) -> TeamRead:
     _require_captain_or_platform_admin(db, current, team_id)
     team = db.get(Team, team_id)
     if team is None:
@@ -453,7 +557,7 @@ def update_team(
         team.country = str(c).strip() if c and str(c).strip() else None
     db.commit()
     db.refresh(team)
-    return team
+    return _team_read(team)
 
 
 @router.get("/{team_id}", response_model=TeamRead)
@@ -461,9 +565,9 @@ def get_team(
     team_id: int,
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
-) -> Team:
+) -> TeamRead:
     _require_team_access(db, current, team_id)
     team = db.get(Team, team_id)
     if team is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
-    return team
+    return _team_read(team)

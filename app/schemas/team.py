@@ -19,8 +19,7 @@ class TeamRead(BaseModel):
     id: int
     name: str
     country: str | None = None
-
-    model_config = {"from_attributes": True}
+    logo_url: str | None = None
 
 
 class MyTeamRead(BaseModel):

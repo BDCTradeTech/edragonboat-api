@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     secret_key: str = "DEV_ONLY_CHANGE_ME_USE_LONG_RANDOM_STRING"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 días
     database_url: str = "sqlite:///./edragonboat.db"
+    # Archivos subidos (logos de equipo, etc.)
+    data_dir: str = "data"
     # Orígenes CORS separados por coma. Para * usar solo en dev (credenciales + * puede fallar).
     cors_origins: str = (
         "https://app.edragonboat.com,http://localhost:5173,http://127.0.0.1:5173"

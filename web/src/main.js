@@ -204,6 +204,7 @@ function layout(content, { showNav = true, wide = false } = {}) {
       <nav class="nav-links">
         <a class="nav-item" href="#/" data-match="home">Home</a>
         <a class="nav-item" href="#/teams" data-match="teams">Equipo</a>
+        <a class="nav-item" href="#/rutinas" data-match="rutinas">Rutinas</a>
         <a class="nav-item" href="#/sessions" data-match="sessions">Entrenamientos</a>
         <a class="nav-item" href="#/competencias" data-match="competencias">Competencias</a>
         <a class="nav-item" href="#/cuenta" data-match="cuenta">Cuenta</a>
@@ -254,6 +255,7 @@ function highlightNav() {
   let key = "home";
   if (hash[0] === "sessions" || hash[0] === "session") key = "sessions";
   else if (hash[0] === "teams") key = "teams";
+  else if (hash[0] === "rutinas") key = "rutinas";
   else if (hash[0] === "cuenta") key = "cuenta";
   else if (hash[0] === "regatas" || hash[0] === "competencias") key = "competencias";
 
@@ -340,6 +342,7 @@ function route() {
   }
   if (parts[0] === "competencias") return renderCompetencias();
   if (parts[0] === "cuenta") return renderAccount();
+  if (parts[0] === "rutinas") return renderRutinas();
   if (parts[0] === "sessions") return renderSessionsList();
   if (!parts.length || parts[0] === "home") return renderHome();
   return renderHome();
@@ -553,12 +556,12 @@ async function renderSessionsList() {
       <div class="card">
         <h2 class="card-title">Entrenamientos libres</h2>
         ${filterBlock}
-        <div class="session-day-filter" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin:0.75rem 0">
-          <div>
+        <div class="session-day-filter">
+          <div class="session-day-filter-fields">
             <label for="sel-session-day">Día</label>
             <select id="sel-session-day">${dayOpts}</select>
           </div>
-          <button type="button" class="secondary" id="btn-session-day-map">Graficar</button>
+          <button type="button" class="secondary session-day-map-btn" id="btn-session-day-map">Graficar</button>
         </div>
         <div class="table-scroll">
           <table class="sessions-list-table">
@@ -569,9 +572,9 @@ async function renderSessionsList() {
       </div>
       <div id="sessions-day-map-panel" class="card" style="margin-top:1rem;display:none" data-day-key="">
         <h3 class="card-title" style="margin-top:0">Mapa del día</h3>
-        <div id="sessions-day-map-export-root" class="session-map-export-root">
+        <div id="sessions-day-map-export-root" class="session-map-export-root session-map-export-root--ig-story">
           <div id="sessions-day-summary" class="session-map-export-summary"></div>
-          <div id="sessions-day-map" class="session-map-host" role="region" aria-label="Mapa combinado del día"></div>
+          <div id="sessions-day-map" class="session-map-host session-map-host--ig" role="region" aria-label="Mapa combinado del día"></div>
         </div>
         <p class="muted small map-export-hint">Descargá el mapa con el resumen del día (JPG).</p>
         <button type="button" class="secondary btn-sm" id="btn-sessions-day-map-jpg">Descargar Mapa (JPG)</button>
@@ -612,6 +615,9 @@ async function renderSessionsList() {
       if (!panel || !sumEl || !mapEl) return;
       panel.style.display = "block";
       panel.dataset.dayKey = dayKey;
+      const dayRows = rows.filter((r) => localDateKeyFromIso(r.created_at) === dayKey);
+      const teamNameForExport = dayRows[0]?.team_name || "";
+      panel.dataset.teamNameForExport = teamNameForExport;
       sumEl.innerHTML = `<p class="muted">Cargando mapa…</p>`;
       mapEl.innerHTML = "";
       try {
@@ -631,7 +637,7 @@ async function renderSessionsList() {
             }
           }
         }
-        sumEl.innerHTML = buildAggDayMapSummaryHtml(dayKey, totalM, loaded.length);
+        sumEl.innerHTML = buildAggDayMapSummaryHtml(dayKey, totalM, loaded.length, teamNameForExport);
         initMultiSessionDayMap(loaded, mapEl);
       } catch (ex) {
         sumEl.innerHTML = `<p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p>`;
@@ -643,6 +649,7 @@ async function renderSessionsList() {
       const panel = document.getElementById("sessions-day-map-panel");
       const dayKey = panel?.dataset?.dayKey;
       if (!dayKey) return;
+      const teamName = panel?.dataset?.teamNameForExport || "";
       const mapEl = document.getElementById("sessions-day-map");
       await new Promise((r) => requestAnimationFrame(r));
       await new Promise((r) => requestAnimationFrame(r));
@@ -655,21 +662,33 @@ async function renderSessionsList() {
       }
       const root = document.getElementById("sessions-day-map-export-root");
       if (!root) return;
+      const prev = root.getAttribute("style") || "";
+      root.style.width = "1080px";
+      root.style.height = "1920px";
+      root.style.maxWidth = "none";
+      root.style.marginLeft = "auto";
+      root.style.marginRight = "auto";
       try {
+        if (mapEl?._edbMap) mapEl._edbMap.invalidateSize();
+        await new Promise((r) => setTimeout(r, 350));
         const dataUrl = await toJpeg(root, {
           quality: 0.92,
-          pixelRatio: 2,
+          pixelRatio: 1,
           cacheBust: true,
         });
         const a = document.createElement("a");
         a.href = dataUrl;
-        a.download = `mapa-dia_${fmtDateDdMmYyFromYmdKey(dayKey)}.jpg`;
+        a.download = `${safeMapJpgTeamSegment(teamName)}-${fmtDateDdMmYyFromYmdKey(dayKey)}.jpg`;
         a.click();
       } catch (e) {
         console.error(e);
         alert(
           "No se pudo generar el JPG (a veces por las teselas del mapa). Esperá a que cargue el mapa y reintentá, o usá captura de pantalla."
         );
+      } finally {
+        if (prev) root.setAttribute("style", prev);
+        else root.removeAttribute("style");
+        if (mapEl?._edbMap) setTimeout(() => mapEl._edbMap.invalidateSize(), 100);
       }
     });
   } catch (ex) {
@@ -1022,17 +1041,34 @@ function extractTrackLatLng(points) {
   return out;
 }
 
-const MULTI_TRACK_COLORS = ["#0d47a1", "#c62828", "#2e7d32", "#6a1b9a", "#ef6c00", "#00838f"];
+/** Colores en degradé (sesiones cercanas = tonos parecidos); cada sesión tiene un matiz distinto. */
+function hslGradientTrackColors(n) {
+  if (n <= 0) return [];
+  const h0 = 215;
+  const h1 = 12;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    const h = Math.round(h0 + (h1 - h0) * t);
+    out.push(`hsl(${h}, 88%, 42%)`);
+  }
+  return out;
+}
 
-function buildAggDayMapSummaryHtml(dayYmdKey, totalMeters, sessionCount) {
+function buildAggDayMapSummaryHtml(dayYmdKey, totalMeters, sessionCount, teamName) {
   const fecha = fmtDateDdMmYyFromYmdKey(dayYmdKey);
   const dist =
     totalMeters != null && Number.isFinite(totalMeters)
       ? `${escapeHtml(formatIntEsThousands(totalMeters))} m`
       : "—";
   const ses = formatIntEsThousands(sessionCount);
+  const tn = teamName && String(teamName).trim();
+  const equipoRow = tn
+    ? `<div><span class="sms-label">Equipo</span><span class="sms-val">${escapeHtml(tn)}</span></div>`
+    : "";
   return `
     <div class="session-map-summary-grid">
+      ${equipoRow}
       <div><span class="sms-label">Fecha</span><span class="sms-val">${escapeHtml(fecha)}</span></div>
       <div><span class="sms-label">Distancia total</span><span class="sms-val">${dist}</span></div>
       <div><span class="sms-label">Sesiones</span><span class="sms-val">${escapeHtml(ses)}</span></div>
@@ -1056,7 +1092,7 @@ function initMultiSessionDayMap(loaded, mapHostEl) {
   for (let i = 0; i < loaded.length; i++) {
     const pts = extractTrackLatLng(loaded[i].dataPoints);
     if (pts.length === 0) continue;
-    layers.push({ pts, color: MULTI_TRACK_COLORS[i % MULTI_TRACK_COLORS.length] });
+    layers.push({ pts });
   }
 
   if (layers.length === 0) {
@@ -1065,6 +1101,8 @@ function initMultiSessionDayMap(loaded, mapHostEl) {
     mapHostEl.classList.add("session-map-empty");
     return;
   }
+
+  const colors = hslGradientTrackColors(layers.length);
 
   const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -1090,13 +1128,30 @@ function initMultiSessionDayMap(loaded, mapHostEl) {
     .addTo(map);
 
   let groupBounds = null;
-  for (const { pts, color } of layers) {
+  for (let i = 0; i < layers.length; i++) {
+    const { pts } = layers[i];
+    const color = colors[i];
     const latlngs = pts.map(([a, b]) => L.latLng(a, b));
-    const line = L.polyline(latlngs, { color, weight: 5, opacity: 0.88 }).addTo(map);
+    const line = L.polyline(latlngs, { color, weight: 5, opacity: 0.9 }).addTo(map);
     const lb = line.getBounds();
     groupBounds = groupBounds == null ? lb : groupBounds.extend(lb);
   }
-  if (groupBounds) map.fitBounds(groupBounds, { padding: [40, 40], maxZoom: 17 });
+
+  const firstLayer = layers[0];
+  const lastLayer = layers[layers.length - 1];
+  const startPt = firstLayer.pts[0];
+  const endPt = lastLayer.pts[lastLayer.pts.length - 1];
+  const sfIcon = (letter) =>
+    L.divIcon({
+      className: "map-sf-marker",
+      html: `<span class="map-sf-marker-inner">${letter}</span>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+    });
+  L.marker([startPt[0], startPt[1]], { icon: sfIcon("S"), zIndexOffset: 2000 }).addTo(map);
+  L.marker([endPt[0], endPt[1]], { icon: sfIcon("F"), zIndexOffset: 2000 }).addTo(map);
+
+  if (groupBounds) map.fitBounds(groupBounds, { padding: [48, 48], maxZoom: 17 });
   mapHostEl._edbMap = map;
   setTimeout(() => map.invalidateSize(), 200);
 }
@@ -1493,10 +1548,15 @@ async function renderTeamsList() {
     } else {
       const x = list[0];
       topCardHtml = `
-      <div class="card">
+      <div class="card team-card-with-logo">
+        <div class="team-list-head">
+          ${x.team.logo_url ? `<img src="${api.API}${x.team.logo_url}" alt="" class="team-logo-thumb" width="64" height="64" />` : ""}
+          <div>
         <h2 class="card-title">${escapeHtml(x.team.name)}</h2>
         <p class="muted">País: ${escapeHtml(x.team.country || "—")} · Tu rol: <strong>${roleLabel(x.role)}</strong></p>
         <p><a class="link" href="#/teams/${x.team.id}">Configurar equipo</a></p>
+          </div>
+        </div>
       </div>`;
     }
 
@@ -1647,6 +1707,13 @@ async function renderTeamDetail(id) {
           ? "Administrador (plataforma)"
           : "—";
 
+    const logoPreview = team.logo_url
+      ? `<img src="${api.API}${team.logo_url}" alt="" class="team-logo-preview" width="112" height="112" />`
+      : `<span class="muted">Sin logo</span>`;
+    const logoDeleteBtn = team.logo_url
+      ? `<button type="button" class="secondary btn-sm" id="btn-team-logo-delete">Quitar logo</button>`
+      : "";
+
     const editBlock = isCaptain
       ? `
       <div class="card sub-card">
@@ -1660,6 +1727,15 @@ async function renderTeamDetail(id) {
           <p id="edit-err" class="msg-error"></p>
         </form>
       </div>
+      <div class="card sub-card">
+        <h3>Logo del equipo</h3>
+        <p class="muted small">Recomendado: imagen <strong>cuadrada 512×512 px</strong>, <strong>PNG</strong> (fondo blanco o transparente) o JPEG. Se normaliza a PNG de hasta 512 px de lado.</p>
+        <div class="team-logo-row">${logoPreview}</div>
+        <label for="team-logo-file">Archivo (PNG o JPEG)</label>
+        <input type="file" id="team-logo-file" accept="image/png,image/jpeg" />
+        <p style="margin-top:0.5rem"><button type="button" class="secondary btn-sm" id="btn-team-logo-upload">Subir logo</button> ${logoDeleteBtn}</p>
+        <p id="logo-err" class="msg-error"></p>
+      </div>
       <div class="card sub-card danger-zone">
         <h3>Eliminar equipo</h3>
         <p class="muted">Quita el equipo y las membresías. Los entrenamientos ya subidos no se borran.</p>
@@ -1672,8 +1748,13 @@ async function renderTeamDetail(id) {
       `
       <p><a class="link" href="#/teams">← Equipo</a></p>
       <div class="card">
+        <div class="team-detail-head">
+          ${team.logo_url ? `<img src="${api.API}${team.logo_url}" alt="" class="team-logo-preview team-logo-preview--header" width="72" height="72" />` : ""}
+          <div>
         <h2 class="card-title">${escapeHtml(team.name)}</h2>
         <p class="muted">País: ${escapeHtml(team.country || "—")} · Tu rol: <strong>${escapeHtml(roleLine)}</strong></p>
+          </div>
+        </div>
         ${editBlock}
       </div>
     `,
@@ -1711,6 +1792,34 @@ async function renderTeamDetail(id) {
           route();
         } catch (ex) {
           errEl.textContent = humanizeApiError(ex.message);
+        }
+      });
+
+      document.getElementById("btn-team-logo-upload")?.addEventListener("click", async () => {
+        const input = document.getElementById("team-logo-file");
+        const f = input?.files?.[0];
+        const err = document.getElementById("logo-err");
+        if (err) err.textContent = "";
+        if (!f) {
+          alert("Elegí un archivo PNG o JPEG.");
+          return;
+        }
+        try {
+          await api.apiUploadTeamLogo(teamId, f);
+          route();
+        } catch (ex) {
+          if (err) err.textContent = humanizeApiError(ex.message) || String(ex.message);
+        }
+      });
+      document.getElementById("btn-team-logo-delete")?.addEventListener("click", async () => {
+        const err = document.getElementById("logo-err");
+        if (err) err.textContent = "";
+        if (!confirm("¿Quitar el logo del equipo?")) return;
+        try {
+          await api.apiDeleteTeamLogo(teamId);
+          route();
+        } catch (ex) {
+          if (err) err.textContent = humanizeApiError(ex.message) || String(ex.message);
         }
       });
     }
@@ -2246,6 +2355,15 @@ async function renderCompetencias() {
   }
 }
 
+function renderRutinas() {
+  layout(`
+    <div class="card">
+      <h2 class="card-title">Rutinas</h2>
+      <p class="muted">Próximamente: rutinas de entrenamiento y planificación para el equipo.</p>
+    </div>
+  `);
+}
+
 async function renderAccount() {
   layout(`<p class="loading-line">Cargando perfil…</p>`);
   try {
@@ -2256,11 +2374,6 @@ async function renderAccount() {
     const noTeamMsg =
       teams.length === 0 && !isPlatformAdmin
         ? `<div class="card" style="margin-top:1rem"><p class="muted">No tenés equipo. Podés crear uno en <a class="link" href="#/teams/new">Equipo</a>.</p></div>`
-        : "";
-
-    const plantelHint =
-      teams.length > 0
-        ? `<p class="muted" style="margin-top:1rem">El <strong>plantel</strong> y las invitaciones están en <a class="link" href="#/teams">Equipo</a> → abrí tu equipo.</p>`
         : "";
 
     layout(`
@@ -2299,7 +2412,6 @@ async function renderAccount() {
         </select>
       </div>
       ${noTeamMsg}
-      ${plantelHint}
     `);
 
     document.getElementById("sel-ui-lang")?.addEventListener("change", (e) => {
