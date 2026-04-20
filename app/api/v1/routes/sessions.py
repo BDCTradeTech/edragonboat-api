@@ -123,6 +123,25 @@ def _team_country_lookup_map(db: Session) -> dict[str, str | None]:
     return out
 
 
+def _team_logo_url_lookup_map(db: Session) -> dict[str, str]:
+    """Nombre de equipo (casefold) → ruta relativa del logo (solo equipos con logo_file)."""
+    rows = db.scalars(select(Team)).all()
+    out: dict[str, str] = {}
+    for t in rows:
+        key = t.name.strip().casefold()
+        if key not in out and t.logo_file:
+            out[key] = f"/api/v1/teams/{t.id}/logo"
+    return out
+
+
+def _team_logo_url_for_name(
+    team_logo_lookup: dict[str, str] | None, team_name: str | None
+) -> str | None:
+    if not team_logo_lookup or team_name is None or not str(team_name).strip():
+        return None
+    return team_logo_lookup.get(str(team_name).strip().casefold())
+
+
 def _can_view_competencia_session(db: Session, current: User, row: LibreSessionUpload) -> bool:
     if current.is_platform_admin:
         return True
@@ -143,6 +162,7 @@ def _summarize_row(
     row: LibreSessionUpload,
     *,
     team_country_lookup: dict[str, str | None] | None = None,
+    team_logo_lookup: dict[str, str] | None = None,
 ) -> LibreSessionListItem:
     sk, tgt = _raw_session_kind_and_target(row.json_payload)
     try:
@@ -169,6 +189,7 @@ def _summarize_row(
             tn = parsed.teamName if parsed else None
             if tn and str(tn).strip():
                 tc_row = team_country_lookup.get(str(tn).strip().casefold())
+        logo_row = _team_logo_url_for_name(team_logo_lookup, parsed.teamName)
         return LibreSessionListItem(
             id=row.id,
             created_at=row.created_at,
@@ -187,6 +208,7 @@ def _summarize_row(
             team_category=extras.get("team_category"),
             virada=extras.get("virada"),
             team_country=tc_row,
+            team_logo_url=logo_row,
         )
     except Exception:
         extras_e = _competencia_extras_from_raw(raw) if sk == "competencia" else {}
@@ -195,6 +217,7 @@ def _summarize_row(
             tn = raw.get("teamName")
             if tn and str(tn).strip():
                 tc_e = team_country_lookup.get(str(tn).strip().casefold())
+        logo_e = _team_logo_url_for_name(team_logo_lookup, raw.get("teamName"))
         return LibreSessionListItem(
             id=row.id,
             created_at=row.created_at,
@@ -213,6 +236,7 @@ def _summarize_row(
             team_category=extras_e.get("team_category"),
             virada=extras_e.get("virada"),
             team_country=tc_e,
+            team_logo_url=logo_e,
         )
 
 
@@ -289,7 +313,11 @@ def list_competencia_sessions(
     matched = [r for r in rows if _is_competencia_payload(r.json_payload)]
     page = matched[skip : skip + limit]
     country_lookup = _team_country_lookup_map(db)
-    return [_summarize_row(r, team_country_lookup=country_lookup) for r in page]
+    logo_lookup = _team_logo_url_lookup_map(db)
+    return [
+        _summarize_row(r, team_country_lookup=country_lookup, team_logo_lookup=logo_lookup)
+        for r in page
+    ]
 
 
 @router.get("/libre", response_model=list[LibreSessionListItem])
@@ -311,7 +339,8 @@ def list_libre_sessions(
         rows = db.scalars(base.limit(cap)).all()
         libre_rows = [r for r in rows if not _is_competencia_payload(r.json_payload)]
         page = libre_rows[skip : skip + limit]
-        return [_summarize_row(r) for r in page]
+        logo_lookup = _team_logo_url_lookup_map(db)
+        return [_summarize_row(r, team_logo_lookup=logo_lookup) for r in page]
 
     if not current.is_platform_admin:
         m = db.scalar(
@@ -341,11 +370,12 @@ def list_libre_sessions(
 
     cap = min(2000, max(500, (skip + limit) * 20))
     rows = db.scalars(base.limit(cap)).all()
+    logo_lookup = _team_logo_url_lookup_map(db)
     matched: list[LibreSessionListItem] = []
     for r in rows:
         if _is_competencia_payload(r.json_payload):
             continue
-        item = _summarize_row(r)
+        item = _summarize_row(r, team_logo_lookup=logo_lookup)
         if item.team_name and item.team_name.strip().casefold() == target_name:
             matched.append(item)
     return matched[skip : skip + limit]
@@ -379,11 +409,17 @@ def get_libre_session(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="JSON de sesi?n inv?lido en el servidor",
         )
+    logo_lookup = _team_logo_url_lookup_map(db)
+    tn = session_payload.get("teamName")
+    team_logo_url = _team_logo_url_for_name(
+        logo_lookup, str(tn).strip() if tn is not None else None
+    )
     return {
         "id": row.id,
         "created_at": row.created_at,
         "uploaded_by_user_id": row.user_id,
         "can_delete": _can_delete_libre_session(db, current, row),
+        "team_logo_url": team_logo_url,
         "session": session_payload,
     }
 

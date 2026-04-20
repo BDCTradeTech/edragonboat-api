@@ -56,6 +56,8 @@ class LibreSessionListItem(BaseModel):
     virada: bool | None = None
     team_country: str | None = None
     """País del equipo (código o nombre según la app / equipo en API)."""
+    team_logo_url: str | None = None
+    """URL relativa del logo si existe un equipo en la API con el mismo nombre que team_name y tiene logo."""
 
 
 class LibreSessionDetailResponse(BaseModel):

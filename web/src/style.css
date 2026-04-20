@@ -619,6 +619,49 @@ pre.json {
   border-bottom: 1px solid var(--border);
 }
 
+.session-map-summary-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.session-map-summary-head .session-map-summary-grid {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-map-summary-logo-wrap {
+  flex-shrink: 0;
+}
+
+.session-map-summary-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #fff;
+  display: block;
+}
+
+.competencia-team-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.competencia-team-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #fff;
+  flex-shrink: 0;
+}
+
 .session-map-summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
@@ -728,35 +771,35 @@ pre.json {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #102a43;
+  border: 1.5px solid #102a43;
   font-weight: 800;
-  font-size: 0.9rem;
+  font-size: 0.65rem;
   color: #0d47a1;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 }
 
 .map-sf-marker-inner--finish {
-  padding: 4px;
+  padding: 2px;
   font-size: 0;
   line-height: 0;
 }
 
 .map-sf-marker-inner--finish .map-sf-marker-checker {
   display: block;
-  width: 22px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background-color: #fff;
   background-image: linear-gradient(45deg, #111 25%, transparent 25%),
     linear-gradient(-45deg, #111 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, #111 75%),
     linear-gradient(-45deg, transparent 75%, #111 75%);
-  background-size: 8px 8px;
-  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+  background-size: 5px 5px;
+  background-position: 0 0, 0 3px, 3px -3px, -3px 0px;
 }
 
 .team-list-head,

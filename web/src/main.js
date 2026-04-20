@@ -134,8 +134,15 @@ function formatIntEsThousands(n) {
   return Math.round(n).toLocaleString("es-AR", { maximumFractionDigits: 0 });
 }
 
+/** Logo en resumen de mapa (pantalla y export JPG). `relativeUrl` ej. /api/v1/teams/1/logo */
+function mapSummaryLogoHtml(relativeUrl) {
+  if (!relativeUrl || typeof relativeUrl !== "string") return "";
+  const src = `${api.API}${relativeUrl}`;
+  return `<div class="session-map-summary-logo-wrap"><img src="${src}" alt="" class="session-map-summary-logo" width="48" height="48" crossorigin="anonymous" decoding="async" /></div>`;
+}
+
 /** Resumen encima del mapa (pantalla y export JPG). */
-function buildSessionMapSummaryHtml(s, last) {
+function buildSessionMapSummaryHtml(s, last, teamLogoUrl) {
   const meters =
     last != null && typeof last.distanceMeters === "number" && Number.isFinite(last.distanceMeters)
       ? Math.round(last.distanceMeters)
@@ -145,13 +152,17 @@ function buildSessionMapSummaryHtml(s, last) {
   const paddlers = s.paddlersCount != null ? escapeHtml(String(s.paddlersCount)) : "—";
   const fechaInicio = escapeHtml(fmtSessionStartMap(s.sessionStartTime));
   const distHtml = meters != null ? `${escapeHtml(String(meters))} m` : "—";
+  const logoBlock = mapSummaryLogoHtml(teamLogoUrl);
   return `
-    <div class="session-map-summary-grid">
-      <div><span class="sms-label">Fecha</span><span class="sms-val">${fechaInicio}</span></div>
-      <div><span class="sms-label">Equipo</span><span class="sms-val">${team}</span></div>
-      <div><span class="sms-label">Bote</span><span class="sms-val">${boat}</span></div>
-      <div><span class="sms-label">Palistas</span><span class="sms-val">${paddlers}</span></div>
-      <div><span class="sms-label">Distancia</span><span class="sms-val">${distHtml}</span></div>
+    <div class="session-map-summary-head">
+      ${logoBlock}
+      <div class="session-map-summary-grid">
+        <div><span class="sms-label">Fecha</span><span class="sms-val">${fechaInicio}</span></div>
+        <div><span class="sms-label">Equipo</span><span class="sms-val">${team}</span></div>
+        <div><span class="sms-label">Bote</span><span class="sms-val">${boat}</span></div>
+        <div><span class="sms-label">Palistas</span><span class="sms-val">${paddlers}</span></div>
+        <div><span class="sms-label">Distancia</span><span class="sms-val">${distHtml}</span></div>
+      </div>
     </div>
   `;
 }
@@ -645,7 +656,14 @@ async function renderSessionsList() {
             }
           }
         }
-        sumEl.innerHTML = buildAggDayMapSummaryHtml(dayKey, totalM, loaded.length, teamNameForExport);
+        const dayLogoUrl = dayRows.find((r) => r.team_logo_url)?.team_logo_url || null;
+        sumEl.innerHTML = buildAggDayMapSummaryHtml(
+          dayKey,
+          totalM,
+          loaded.length,
+          teamNameForExport,
+          dayLogoUrl
+        );
         initMultiSessionDayMap(loaded, mapEl);
       } catch (ex) {
         sumEl.innerHTML = `<p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p>`;
@@ -1027,8 +1045,8 @@ function leafletStartIcon() {
   return L.divIcon({
     className: "map-sf-marker",
     html: '<span class="map-sf-marker-inner">S</span>',
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
   });
 }
 
@@ -1037,8 +1055,8 @@ function leafletFinishIcon() {
     className: "map-sf-marker",
     html:
       '<span class="map-sf-marker-inner map-sf-marker-inner--finish"><span class="map-sf-marker-checker" aria-hidden="true"></span></span>',
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
   });
 }
 
@@ -1093,7 +1111,7 @@ function hslGradientTrackColors(n) {
   return out;
 }
 
-function buildAggDayMapSummaryHtml(dayYmdKey, totalMeters, sessionCount, teamName) {
+function buildAggDayMapSummaryHtml(dayYmdKey, totalMeters, sessionCount, teamName, teamLogoUrl) {
   const fecha = fmtDateDdMmYyFromYmdKey(dayYmdKey);
   const dist =
     totalMeters != null && Number.isFinite(totalMeters)
@@ -1104,12 +1122,16 @@ function buildAggDayMapSummaryHtml(dayYmdKey, totalMeters, sessionCount, teamNam
   const equipoRow = tn
     ? `<div><span class="sms-label">Equipo</span><span class="sms-val">${escapeHtml(tn)}</span></div>`
     : "";
+  const logoBlock = mapSummaryLogoHtml(teamLogoUrl);
   return `
-    <div class="session-map-summary-grid">
-      ${equipoRow}
-      <div><span class="sms-label">Fecha</span><span class="sms-val">${escapeHtml(fecha)}</span></div>
-      <div><span class="sms-label">Distancia total</span><span class="sms-val">${dist}</span></div>
-      <div><span class="sms-label">Sesiones</span><span class="sms-val">${escapeHtml(ses)}</span></div>
+    <div class="session-map-summary-head">
+      ${logoBlock}
+      <div class="session-map-summary-grid">
+        ${equipoRow}
+        <div><span class="sms-label">Fecha</span><span class="sms-val">${escapeHtml(fecha)}</span></div>
+        <div><span class="sms-label">Distancia total</span><span class="sms-val">${dist}</span></div>
+        <div><span class="sms-label">Sesiones</span><span class="sms-val">${escapeHtml(ses)}</span></div>
+      </div>
     </div>
   `;
 }
@@ -1259,7 +1281,7 @@ async function renderSessionDetail(id) {
       </div>
     `;
 
-    const sessionMapSummaryHtml = buildSessionMapSummaryHtml(s, last);
+    const sessionMapSummaryHtml = buildSessionMapSummaryHtml(s, last, data.team_logo_url);
 
     const tabButtons = isPaddler
       ? `
@@ -2318,7 +2340,11 @@ async function renderCompetencias() {
         <td>${labelCompTeamCat(r.team_category)}</td>
         <td>${yn(r.drummer)}</td>
         <td>${yn(r.virada)}</td>
-        <td>${escapeHtml(r.team_name || "—")}</td>
+        <td class="competencia-team-cell">${
+          r.team_logo_url
+            ? `<img class="competencia-team-logo" src="${api.API}${r.team_logo_url}" width="18" height="18" alt="" crossorigin="anonymous" loading="lazy" decoding="async" /> `
+            : ""
+        }${escapeHtml(r.team_name || "—")}</td>
         <td>${countryCellHtml(r.team_country)}</td>
         <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
       </tr>
