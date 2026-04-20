@@ -1048,56 +1048,24 @@ function addStartFinishMarkers(map, startLatLng, endLatLng) {
 }
 
 /**
- * Exporta el mismo bloque que se ve en pantalla (resumen + mapa sin franja vacía).
- * Escala a 1080 px de ancho y reparte alto entre resumen y mapa como en el layout flex.
+ * Exporta el mismo bloque que se ve en pantalla (resumen + mapa).
+ * No redimensiona el contenedor ni llama a invalidateSize: cambiar el tamaño del mapa
+ * hace que Leaflet recalcule zoom/centro y el JPG deja de coincidir con lo visible.
  */
-async function exportVerticalMapJpeg(rootEl, mapHostEl, fileName) {
+async function exportVerticalMapJpeg(rootEl, _mapHostEl, fileName) {
   const prevRoot = rootEl.getAttribute("style") || "";
-  const prevMap = mapHostEl?.getAttribute("style") || "";
   try {
-    const w0 = rootEl.offsetWidth || rootEl.getBoundingClientRect().width;
-    const h0 = Math.max(
-      rootEl.offsetHeight,
-      rootEl.scrollHeight,
-      rootEl.getBoundingClientRect().height
-    );
-    const targetW = 1080;
-    const scale = Math.max(w0, 1) > 0 ? targetW / w0 : 1;
-    const targetH = Math.max(Math.round(h0 * scale), 160);
+    await new Promise((r) => requestAnimationFrame(r));
+    await new Promise((r) => requestAnimationFrame(r));
+    await new Promise((r) => setTimeout(r, 150));
 
     rootEl.style.background = "#ffffff";
     rootEl.style.boxSizing = "border-box";
-    rootEl.style.width = `${targetW}px`;
-    rootEl.style.height = `${targetH}px`;
-    rootEl.style.maxWidth = "none";
-    rootEl.style.aspectRatio = "auto";
-    rootEl.style.display = "flex";
-    rootEl.style.flexDirection = "column";
-    rootEl.style.overflow = "hidden";
 
-    const summaryEl = rootEl.querySelector(".session-map-export-summary");
-    await new Promise((r) => requestAnimationFrame(r));
-    await new Promise((r) => requestAnimationFrame(r));
-    const sumH = summaryEl ? summaryEl.offsetHeight : 0;
-    const mapH = Math.max(100, targetH - sumH);
-
-    if (mapHostEl) {
-      mapHostEl.style.flex = "0 0 auto";
-      mapHostEl.style.height = `${mapH}px`;
-      mapHostEl.style.minHeight = `${mapH}px`;
-      mapHostEl.style.width = "100%";
-    }
-
-    if (mapHostEl?._edbMap) {
-      mapHostEl._edbMap.invalidateSize();
-      await new Promise((r) => setTimeout(r, 500));
-    }
-
+    const pixelRatio = Math.min(2, Math.max(1.25, window.devicePixelRatio || 1));
     const dataUrl = await toJpeg(rootEl, {
       quality: 0.92,
-      pixelRatio: 1,
-      width: targetW,
-      height: targetH,
+      pixelRatio,
       cacheBust: true,
       backgroundColor: "#ffffff",
     });
@@ -1108,11 +1076,6 @@ async function exportVerticalMapJpeg(rootEl, mapHostEl, fileName) {
   } finally {
     if (prevRoot) rootEl.setAttribute("style", prevRoot);
     else rootEl.removeAttribute("style");
-    if (mapHostEl) {
-      if (prevMap) mapHostEl.setAttribute("style", prevMap);
-      else mapHostEl.removeAttribute("style");
-    }
-    if (mapHostEl?._edbMap) setTimeout(() => mapHostEl._edbMap.invalidateSize(), 150);
   }
 }
 

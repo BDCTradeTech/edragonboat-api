@@ -55,7 +55,12 @@ def _bytes_look_like_png_or_jpeg(raw: bytes) -> bool:
 
 def _process_uploaded_logo(raw: bytes) -> bytes:
     """Normaliza a PNG RGB 512 px; tolera JPEG/PNG con EXIF, CMYK, LA, paleta, etc."""
-    from PIL import Image, ImageFile, ImageOps
+    try:
+        from PIL import Image, ImageFile, ImageOps
+    except ImportError as e:
+        raise ValueError(
+            "Falta el paquete Pillow en el servidor. Instalá: pip install Pillow"
+        ) from e
 
     ImageFile.LOAD_TRUNCATED_IMAGES = True
     try:
