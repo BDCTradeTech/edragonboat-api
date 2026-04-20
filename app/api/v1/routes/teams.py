@@ -43,25 +43,61 @@ def _team_read(team: Team) -> TeamRead:
     )
 
 
+def _bytes_look_like_png_or_jpeg(raw: bytes) -> bool:
+    if len(raw) < 12:
+        return False
+    if raw[:8] == b"\x89PNG\r\n\x1a\n":
+        return True
+    if raw[:2] == b"\xff\xd8":
+        return True
+    return False
+
+
 def _process_uploaded_logo(raw: bytes) -> bytes:
+    """Normaliza a PNG RGB 512 px; tolera JPEG/PNG con EXIF, CMYK, LA, paleta, etc."""
     from PIL import Image, ImageFile, ImageOps
 
     ImageFile.LOAD_TRUNCATED_IMAGES = True
+    try:
+        Image.MAX_IMAGE_PIXELS = 30_000_000
+    except Exception:
+        pass
+
+    if not raw or len(raw) < 24:
+        raise ValueError("Archivo vacío o demasiado pequeño.")
+
     buf = BytesIO(raw)
     try:
         im = Image.open(buf)
         im.load()
-    except OSError as e:
-        raise ValueError("No se pudo abrir la imagen (formato no soportado o archivo dañado).") from e
-    im = ImageOps.exif_transpose(im)
-    if im.mode in ("RGBA", "P"):
-        if im.mode == "P":
-            im = im.convert("RGBA")
-        bg = Image.new("RGB", im.size, (255, 255, 255))
-        bg.paste(im, mask=im.split()[3])
-        im = bg
-    else:
-        im = im.convert("RGB")
+    except Exception as e:
+        raise ValueError(f"No se pudo abrir la imagen. Usá PNG o JPEG (error: {e!s})") from e
+
+    try:
+        im = ImageOps.exif_transpose(im)
+    except Exception:
+        pass
+
+    def _to_rgb_on_white(src: Image.Image) -> Image.Image:
+        if src.mode == "RGB":
+            return src
+        if src.mode == "RGBA":
+            bg = Image.new("RGB", src.size, (255, 255, 255))
+            bg.paste(src, mask=src.split()[3])
+            return bg
+        if src.mode == "LA":
+            bg = Image.new("RGB", src.size, (255, 255, 255))
+            bg.paste(src.convert("RGBA"), mask=src.split()[1])
+            return bg
+        if src.mode == "P":
+            return _to_rgb_on_white(src.convert("RGBA"))
+        if src.mode == "CMYK":
+            return src.convert("RGB")
+        if src.mode in ("I", "I;16", "F", "L", "1"):
+            return src.convert("RGB")
+        return src.convert("RGB")
+
+    im = _to_rgb_on_white(im)
     im.thumbnail((512, 512), Image.Resampling.LANCZOS)
     out = BytesIO()
     im.save(out, format="PNG", optimize=True)
@@ -504,21 +540,23 @@ async def upload_team_logo(
     team = db.get(Team, team_id)
     if team is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
-    ct = (file.content_type or "").lower()
-    if ct not in ("image/png", "image/jpeg", "image/jpg"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato admitido: PNG o JPEG (fondo blanco o transparente recomendado)",
-        )
     raw = await file.read()
     if len(raw) > 5 * 1024 * 1024:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Máximo 5 MB")
+    if not _bytes_look_like_png_or_jpeg(raw):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Solo se aceptan archivos PNG o JPEG (los primeros bytes del archivo no coinciden).",
+        )
     try:
         processed = _process_uploaded_logo(raw)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Imagen inválida o corrupta")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No se pudo procesar la imagen: {e!s}",
+        ) from e
     path = _team_logo_disk_path(team_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(processed)

@@ -683,8 +683,40 @@ pre.json {
 .session-map-export-root--ig-story .session-map-host--ig {
   flex: 1;
   min-height: 0;
-  height: auto !important;
+  height: auto;
   margin-top: 0;
+}
+
+/* Barra Rutinas: equipo alineado con botón Nueva rutina */
+.rutinas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin: 0.75rem 0;
+}
+
+.rutinas-toolbar .rutinas-team-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.rutinas-toolbar .rutinas-new-btn {
+  margin-top: 1.25rem;
+  flex-shrink: 0;
+}
+
+.rutina-ex-order-cell {
+  white-space: nowrap;
+}
+
+.rutina-ex-order-cell .btn-sm {
+  margin: 0 0.1rem;
+  min-width: 2rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
 }
 
 .map-sf-marker {

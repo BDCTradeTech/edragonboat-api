@@ -346,6 +346,7 @@ function route() {
   if (parts[0] === "rutinas") {
     if (!parts[1]) return renderRutinasHub();
     if (parts[1] === "new") return renderRutinasNew();
+    if (parts[2] === "view" && /^\d+$/.test(parts[1])) return renderRutinasViewer(parts[1]);
     if (/^\d+$/.test(parts[1])) return renderRutinasEditor(parts[1]);
     location.hash = "#/rutinas";
     return route();
@@ -1046,33 +1047,72 @@ function addStartFinishMarkers(map, startLatLng, endLatLng) {
   L.marker(endLatLng, { icon: leafletFinishIcon(), zIndexOffset: 2000 }).addTo(map);
 }
 
-/** Exporta JPG 1080×1920 (vertical) manteniendo proporción al fijar ancho/alto del nodo y opciones de toJpeg. */
+/**
+ * Exporta el mismo bloque que se ve en pantalla (resumen + mapa sin franja vacía).
+ * Escala a 1080 px de ancho y reparte alto entre resumen y mapa como en el layout flex.
+ */
 async function exportVerticalMapJpeg(rootEl, mapHostEl, fileName) {
-  const prev = rootEl.getAttribute("style") || "";
-  rootEl.style.width = "1080px";
-  rootEl.style.height = "1920px";
-  rootEl.style.maxWidth = "none";
-  rootEl.style.aspectRatio = "auto";
+  const prevRoot = rootEl.getAttribute("style") || "";
+  const prevMap = mapHostEl?.getAttribute("style") || "";
   try {
+    const w0 = rootEl.offsetWidth || rootEl.getBoundingClientRect().width;
+    const h0 = Math.max(
+      rootEl.offsetHeight,
+      rootEl.scrollHeight,
+      rootEl.getBoundingClientRect().height
+    );
+    const targetW = 1080;
+    const scale = Math.max(w0, 1) > 0 ? targetW / w0 : 1;
+    const targetH = Math.max(Math.round(h0 * scale), 160);
+
+    rootEl.style.background = "#ffffff";
+    rootEl.style.boxSizing = "border-box";
+    rootEl.style.width = `${targetW}px`;
+    rootEl.style.height = `${targetH}px`;
+    rootEl.style.maxWidth = "none";
+    rootEl.style.aspectRatio = "auto";
+    rootEl.style.display = "flex";
+    rootEl.style.flexDirection = "column";
+    rootEl.style.overflow = "hidden";
+
+    const summaryEl = rootEl.querySelector(".session-map-export-summary");
+    await new Promise((r) => requestAnimationFrame(r));
+    await new Promise((r) => requestAnimationFrame(r));
+    const sumH = summaryEl ? summaryEl.offsetHeight : 0;
+    const mapH = Math.max(100, targetH - sumH);
+
+    if (mapHostEl) {
+      mapHostEl.style.flex = "0 0 auto";
+      mapHostEl.style.height = `${mapH}px`;
+      mapHostEl.style.minHeight = `${mapH}px`;
+      mapHostEl.style.width = "100%";
+    }
+
     if (mapHostEl?._edbMap) {
       mapHostEl._edbMap.invalidateSize();
-      await new Promise((r) => setTimeout(r, 450));
+      await new Promise((r) => setTimeout(r, 500));
     }
+
     const dataUrl = await toJpeg(rootEl, {
       quality: 0.92,
       pixelRatio: 1,
-      width: 1080,
-      height: 1920,
+      width: targetW,
+      height: targetH,
       cacheBust: true,
+      backgroundColor: "#ffffff",
     });
     const a = document.createElement("a");
     a.href = dataUrl;
     a.download = fileName;
     a.click();
   } finally {
-    if (prev) rootEl.setAttribute("style", prev);
+    if (prevRoot) rootEl.setAttribute("style", prevRoot);
     else rootEl.removeAttribute("style");
-    if (mapHostEl?._edbMap) setTimeout(() => mapHostEl._edbMap.invalidateSize(), 120);
+    if (mapHostEl) {
+      if (prevMap) mapHostEl.setAttribute("style", prevMap);
+      else mapHostEl.removeAttribute("style");
+    }
+    if (mapHostEl?._edbMap) setTimeout(() => mapHostEl._edbMap.invalidateSize(), 150);
   }
 }
 
@@ -2446,6 +2486,7 @@ async function renderRutinasHub() {
       <tr>
         <td>${escapeHtml(r.name)}</td>
         <td>${r.exercises?.length ?? 0}</td>
+        <td><a class="link" href="#/rutinas/${r.id}/view">Ver rutina</a></td>
         <td><a class="link" href="#/rutinas/${r.id}">Editar</a></td>
         <td><button type="button" class="secondary btn-sm btn-rutina-del" data-id="${r.id}">Borrar</button></td>
       </tr>`
@@ -2457,17 +2498,17 @@ async function renderRutinasHub() {
       <div class="card">
         <h2 class="card-title">Rutinas</h2>
         <p class="muted small">Elegí el equipo y gestioná rutinas de entrenamiento (ejercicios por tiempo, distancia o paladas).</p>
-        <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin:0.75rem 0">
-          <div>
+        <div class="rutinas-toolbar">
+          <div class="rutinas-team-field">
             <label for="sel-rutinas-team">Equipo</label>
             <select id="sel-rutinas-team">${teamOpts}</select>
           </div>
-          <a class="btn-inline primary" href="#/rutinas/new">Nueva rutina</a>
+          <a class="btn-inline primary rutinas-new-btn" href="#/rutinas/new">Nueva rutina</a>
         </div>
         <div class="table-scroll">
           <table class="sessions-list-table">
-            <thead><tr><th>Nombre</th><th>Ejercicios</th><th></th><th></th></tr></thead>
-            <tbody>${rows || `<tr><td colspan="4" class="muted">No hay rutinas. Creá una con <strong>Nueva rutina</strong>.</td></tr>`}</tbody>
+            <thead><tr><th>Nombre</th><th>Ejercicios</th><th>Ver</th><th>Editar</th><th>Borrar</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="5" class="muted">No hay rutinas. Creá una con <strong>Nueva rutina</strong>.</td></tr>`}</tbody>
           </table>
         </div>
       </div>
@@ -2554,6 +2595,43 @@ async function renderRutinasNew() {
   }
 }
 
+async function renderRutinasViewer(id) {
+  layout(`<p class="loading-line">Cargando rutina…</p>`);
+  try {
+    const data = await api.apiGetRoutine(id);
+    const rows = (data.exercises || [])
+      .map(
+        (ex) => `
+      <tr>
+        <td>${escapeHtml(routineKindLabel(ex.kind))}</td>
+        <td>${escapeHtml(String(ex.value))}</td>
+        <td>${escapeHtml(routineMetricLabel(ex.metric))}</td>
+      </tr>`
+      )
+      .join("");
+    layout(
+      `
+      <p><a class="link" href="#/rutinas">← Rutinas</a></p>
+      <div class="card" style="max-width:720px">
+        <h2 class="card-title">${escapeHtml(data.name)}</h2>
+        <p class="muted small">Solo lectura · <a class="link" href="#/rutinas/${Number(id)}">Editar rutina</a></p>
+        <div class="table-scroll">
+          <table class="sessions-list-table">
+            <thead><tr><th>Tipo</th><th>Valor</th><th>Medida</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="3" class="muted">Sin ejercicios.</td></tr>`}</tbody>
+          </table>
+        </div>
+      </div>
+    `,
+      { wide: true }
+    );
+  } catch (ex) {
+    layout(
+      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/rutinas">Volver</a></p></div>`
+    );
+  }
+}
+
 async function renderRutinasEditor(id) {
   layout(`<p class="loading-line">Cargando rutina…</p>`);
   try {
@@ -2566,15 +2644,20 @@ async function renderRutinasEditor(id) {
 
     function tableHtml() {
       if (!exercises.length) {
-        return `<tr><td colspan="4" class="muted">Todavía no agregaste ejercicios.</td></tr>`;
+        return `<tr><td colspan="5" class="muted">Todavía no agregaste ejercicios.</td></tr>`;
       }
+      const last = exercises.length - 1;
       return exercises
         .map(
           (ex, idx) => `
         <tr>
           <td>${escapeHtml(routineKindLabel(ex.kind))}</td>
-          <td>${escapeHtml(routineMetricLabel(ex.metric))}</td>
           <td>${escapeHtml(String(ex.value))}</td>
+          <td>${escapeHtml(routineMetricLabel(ex.metric))}</td>
+          <td class="rutina-ex-order-cell">
+            <button type="button" class="secondary btn-sm btn-ex-up" data-i="${idx}" ${idx === 0 ? "disabled" : ""} title="Subir">↑</button>
+            <button type="button" class="secondary btn-sm btn-ex-down" data-i="${idx}" ${idx === last ? "disabled" : ""} title="Bajar">↓</button>
+          </td>
           <td><button type="button" class="secondary btn-sm btn-ex-del" data-i="${idx}">Quitar</button></td>
         </tr>`
         )
@@ -2594,10 +2677,10 @@ async function renderRutinasEditor(id) {
         <label for="routine-name">Nombre</label>
         <input id="routine-name" type="text" maxlength="200" value="${escapeHtml(data.name)}" />
         <h3 class="subheading" style="margin-top:1rem">Ejercicios</h3>
-        <p class="muted small">Agregá de a uno: tipo de bloque, medida y valor.</p>
+        <p class="muted small">Agregá de a uno: tipo, medida y valor. Podés reordenar con ↑ ↓.</p>
         <div class="table-scroll">
-          <table class="sessions-list-table">
-            <thead><tr><th>Tipo</th><th>Medida</th><th>Valor</th><th></th></tr></thead>
+          <table class="sessions-list-table rutina-ex-table">
+            <thead><tr><th>Tipo</th><th>Valor</th><th>Medida</th><th>Orden</th><th></th></tr></thead>
             <tbody id="rutina-ex-tbody">${tableHtml()}</tbody>
           </table>
         </div>
@@ -2648,11 +2731,34 @@ async function renderRutinasEditor(id) {
     });
 
     document.getElementById("rutina-ex-tbody")?.addEventListener("click", (e) => {
-      const b = e.target.closest(".btn-ex-del");
-      if (!b) return;
-      const i = Number(b.getAttribute("data-i"));
-      exercises.splice(i, 1);
-      render();
+      const up = e.target.closest(".btn-ex-up");
+      const down = e.target.closest(".btn-ex-down");
+      const del = e.target.closest(".btn-ex-del");
+      if (up && !up.disabled) {
+        const i = Number(up.getAttribute("data-i"));
+        if (i > 0) {
+          const t = exercises[i - 1];
+          exercises[i - 1] = exercises[i];
+          exercises[i] = t;
+          render();
+        }
+        return;
+      }
+      if (down && !down.disabled) {
+        const i = Number(down.getAttribute("data-i"));
+        if (i < exercises.length - 1) {
+          const t = exercises[i + 1];
+          exercises[i + 1] = exercises[i];
+          exercises[i] = t;
+          render();
+        }
+        return;
+      }
+      if (del) {
+        const i = Number(del.getAttribute("data-i"));
+        exercises.splice(i, 1);
+        render();
+      }
     });
 
     document.getElementById("btn-save-routine")?.addEventListener("click", async () => {
