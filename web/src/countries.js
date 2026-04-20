@@ -68,9 +68,19 @@ export function flagEmojiFromIso2(code) {
 export function countryCellHtml(countryName) {
   const text = countryName != null && String(countryName).trim() !== "" ? String(countryName).trim() : "";
   if (!text) return "—";
-  const code = getCountryCodeFromSpanishName(text);
+  let code = null;
+  let display = text;
+  if (/^[A-Za-z]{2}$/.test(text)) {
+    const up = text.toUpperCase();
+    const nameEs = countries.getName(up, "es");
+    if (nameEs) {
+      code = up;
+      display = nameEs;
+    }
+  }
+  if (!code) code = getCountryCodeFromSpanishName(text);
   const flag = code ? `<span class="country-flag" aria-hidden="true">${flagEmojiFromIso2(code)}</span> ` : "";
-  return `${flag}${escapeHtml(text)}`;
+  return `${flag}${escapeHtml(display)}`;
 }
 
 /** Genera <option>… para un <select>; value = nombre para guardar en API. */

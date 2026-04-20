@@ -8,6 +8,12 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import * as api from "./api.js";
 import { countrySelectOptionsHtml, countryCellHtml } from "./countries.js";
+import {
+  UI_LANGUAGES,
+  applyDocumentLang,
+  getStoredUiLang,
+  setStoredUiLang,
+} from "./locale.js";
 import panelPkg from "../package.json";
 
 Chart.register(...registerables);
@@ -265,6 +271,8 @@ function humanizeApiError(text) {
 
 function route() {
   destroyCharts();
+  applyDocumentLang(getStoredUiLang());
+
   const hash = location.hash.replace(/^#\/?/, "") || "/";
   const parts = hash.split("/").filter(Boolean);
 
@@ -544,14 +552,20 @@ function formatCellVal(v) {
   return escapeHtml(String(v));
 }
 
-/** Encabezados legibles en la tabla de muestras (claves JSON sin cambiar). */
-function dataPointColumnLabel(key) {
+/** Etiquetas legibles para claves de métricas (tablas y ejes de gráficos). */
+function metricLabelForKey(key) {
   const m = {
-    second: "Segundos",
-    distanceMeters: "Metros",
-    speedKmh: "Velocidad (Km/h)",
+    second: "Tiempo (segundos)",
+    distanceMeters: "Distancia (metros)",
+    speedKmh: "Velocidad (km/h)",
+    spm: "SPM",
+    paladas: "Paladas",
   };
   return m[key] ?? key;
+}
+
+function dataPointColumnLabel(key) {
+  return metricLabelForKey(key);
 }
 
 /** Columnas del JSON de cada punto: orden conocido + resto alfabético. */
@@ -615,11 +629,13 @@ function numericKeysFromPoints(points) {
 function buildExploreControlsHtml(points) {
   const keys = numericKeysFromPoints(points);
   if (keys.length === 0) return "";
-  const opts = keys.map((k) => `<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join("");
+  const opts = keys
+    .map((k) => `<option value="${escapeHtml(k)}">${escapeHtml(metricLabelForKey(k))}</option>`)
+    .join("");
   return `
     <div class="explore-chart card-inset">
       <h4>Comparar métricas numéricas</h4>
-      <p class="muted small">Eje inferior: segundos. Eje superior: metros recorridos (cuando hay <code>distanceMeters</code>). Elegí una o dos series en Y.</p>
+      <p class="muted small">Eje inferior: tiempo (segundos). Eje superior: distancia en metros (cuando hay <code>distanceMeters</code>). Elegí una o dos series en Y.</p>
       <div class="explore-controls">
         <label>Eje Y (izquierda)
           <select id="explore-y1">${opts}</select>
@@ -670,7 +686,7 @@ function renderExploreChart(points) {
 
   const datasets = [
     {
-      label: y1Key,
+      label: metricLabelForKey(y1Key),
       data: ds1,
       borderColor: "#1565c0",
       backgroundColor: "rgba(21, 101, 192, 0.08)",
@@ -682,12 +698,12 @@ function renderExploreChart(points) {
 
   const scales = {
     x: {
-      title: { display: true, text: "Segundo" },
+      title: { display: true, text: "Tiempo (segundos)" },
       ticks: { maxTicksLimit: 14 },
     },
     y1: {
       position: "left",
-      title: { display: true, text: y1Key },
+      title: { display: true, text: metricLabelForKey(y1Key) },
     },
   };
 
@@ -697,7 +713,7 @@ function renderExploreChart(points) {
       position: "top",
       display: true,
       grid: { drawOnChartArea: false },
-      title: { display: true, text: "Metros" },
+      title: { display: true, text: "Distancia (metros)" },
       ticks: {
         maxTicksLimit: 14,
         callback(tickValue) {
@@ -712,7 +728,7 @@ function renderExploreChart(points) {
   if (y2Key && y2Key !== y1Key) {
     const ds2 = points.map((p) => (typeof p[y2Key] === "number" ? p[y2Key] : null));
     datasets.push({
-      label: y2Key,
+      label: metricLabelForKey(y2Key),
       data: ds2,
       borderColor: "#e65100",
       yAxisID: "y2",
@@ -721,7 +737,7 @@ function renderExploreChart(points) {
     });
     scales.y2 = {
       position: "right",
-      title: { display: true, text: y2Key },
+      title: { display: true, text: metricLabelForKey(y2Key) },
       grid: { drawOnChartArea: false },
     };
   }
@@ -778,7 +794,7 @@ function initSessionCharts(dataPoints) {
       point: { radius: 0, hoverRadius: 0 },
     },
     scales: {
-      x: { title: { display: true, text: "Segundo" }, ticks: { maxTicksLimit: 12 } },
+      x: { title: { display: true, text: "Tiempo (segundos)" }, ticks: { maxTicksLimit: 12 } },
     },
   };
 
@@ -800,7 +816,7 @@ function initSessionCharts(dataPoints) {
         labels,
         datasets: [
           {
-            label: "Velocidad km/h",
+            label: "Velocidad (km/h)",
             data: dataPoints.map((p) => p.speedKmh),
             borderColor: "#e65100",
             ...lineDs,
@@ -811,7 +827,7 @@ function initSessionCharts(dataPoints) {
         ...common,
         scales: {
           ...common.scales,
-          y: { title: { display: true, text: "km/h" } },
+          y: { title: { display: true, text: "Velocidad (km/h)" } },
         },
       },
     })
@@ -882,27 +898,12 @@ function initSessionMap(points) {
       maxZoom: 19,
     }
   );
-  const topo = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
-    attribution:
-      'Mapa: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, relieve: <a href="https://opentopomap.org/">OpenTopoMap</a>',
-    maxZoom: 17,
-  });
-  const cartoVoyager = L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="https://carto.com/">CARTO</a>',
-      subdomains: "abcd",
-      maxZoom: 20,
-    }
-  );
   const map = L.map(el, { layers: [osm] });
   L.control
     .layers(
       {
-        "Mapa (OSM)": osm,
+        Mapa: osm,
         Satélite: satellite,
-        "Relieve (OpenTopoMap)": topo,
-        "Calles (Carto Voyager)": cartoVoyager,
       },
       {},
       { position: "topright" }
@@ -1566,11 +1567,11 @@ async function renderCompetencias() {
         <th data-sort="created_at" class="th-sortable" title="Ordenar">Fecha</th>
         <th data-sort="target_distance_meters" class="th-sortable" title="Ordenar">Meta</th>
         <th data-sort="boat_type" class="th-sortable" title="Ordenar">Bote</th>
+        <th data-sort="paddlers_count" class="th-sortable" title="Ordenar">Palistas</th>
         <th data-sort="age_category" class="th-sortable" title="Ordenar">Edad</th>
         <th data-sort="team_category" class="th-sortable" title="Ordenar">Tipo</th>
         <th data-sort="team_name" class="th-sortable" title="Ordenar">Equipo</th>
         <th data-sort="team_country" class="th-sortable" title="Ordenar">País</th>
-        <th data-sort="paddlers_count" class="th-sortable" title="Ordenar">Palistas</th>
         <th data-sort="drummer" class="th-sortable" title="Ordenar">Drummer</th>
         <th data-sort="virada" class="th-sortable" title="Ordenar">Virada</th>
         <th data-sort="total_seconds" class="th-sortable" title="Ordenar">Tiempo</th>
@@ -1648,11 +1649,11 @@ async function renderCompetencias() {
         <td>${fmtDate(r.created_at)}</td>
         <td>${r.target_distance_meters != null ? r.target_distance_meters + " m" : "—"}</td>
         <td>${labelCompBoat(r.boat_type)}</td>
+        <td>${r.paddlers_count != null ? r.paddlers_count : "—"}</td>
         <td>${labelCompAge(r.age_category)}</td>
         <td>${labelCompTeamCat(r.team_category)}</td>
         <td>${escapeHtml(r.team_name || "—")}</td>
         <td>${countryCellHtml(r.team_country)}</td>
-        <td>${r.paddlers_count != null ? r.paddlers_count : "—"}</td>
         <td>${yn(r.drummer)}</td>
         <td>${yn(r.virada)}</td>
         <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
@@ -1798,9 +1799,25 @@ async function renderAccount() {
           </form>
         </div>
       </details>
+      <div class="card narrow" style="margin-top:1rem">
+        <h3 style="margin-top:0">Idioma</h3>
+        <p class="muted small">Preferencia guardada en este navegador (por defecto: inglés).</p>
+        <label for="sel-ui-lang">Idioma</label>
+        <select id="sel-ui-lang">
+          ${UI_LANGUAGES.map(
+            (o) =>
+              `<option value="${escapeHtml(o.code)}"${getStoredUiLang() === o.code ? " selected" : ""}>${escapeHtml(o.label)}</option>`
+          ).join("")}
+        </select>
+      </div>
       ${noTeamMsg}
       ${plantelBlocks}
     `);
+
+    document.getElementById("sel-ui-lang")?.addEventListener("change", (e) => {
+      setStoredUiLang(e.target.value);
+      applyDocumentLang(e.target.value);
+    });
 
     document.getElementById("form-change-password").addEventListener("submit", async (e) => {
       e.preventDefault();
