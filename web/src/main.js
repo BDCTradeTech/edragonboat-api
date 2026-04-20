@@ -107,6 +107,26 @@ function boatTypeLabelEsp(bt) {
   return escapeHtml(String(bt));
 }
 
+/** Clave local YYYY-MM-DD para agrupar por día. */
+function localDateKeyFromIso(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function fmtDateDdMmYyFromYmdKey(ymd) {
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return "—";
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dd = String(d).padStart(2, "0");
+  const mm = String(m).padStart(2, "0");
+  const yy = String(y).slice(-2);
+  return `${dd}${mm}${yy}`;
+}
+
 /** Resumen encima del mapa (pantalla y export JPG). */
 function buildSessionMapSummaryHtml(s, last) {
   const meters =
@@ -412,6 +432,12 @@ function renderRegister() {
   });
 }
 
+function sessionSortTimeMs(sess) {
+  const raw = sess.sessionStartTime || sess.created_at || "";
+  const t = new Date(raw).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
 async function renderSessionsList() {
   layout(`<p class="loading-line">Cargando entrenamientos…</p>`);
   try {
@@ -503,10 +529,31 @@ async function renderSessionsList() {
       if (tbody) tbody.innerHTML = tableRows;
     }
 
-    layout(`
+    const dayKeys = [
+      ...new Set(rows.map((r) => localDateKeyFromIso(r.created_at)).filter(Boolean)),
+    ].sort((a, b) => b.localeCompare(a));
+    const dayOpts =
+      dayKeys.length > 0
+        ? dayKeys
+            .map(
+              (k) =>
+                `<option value="${escapeHtml(k)}">${escapeHtml(fmtDateDdMmYyFromYmdKey(k))}</option>`
+            )
+            .join("")
+        : `<option value="">— Sin fechas —</option>`;
+
+    layout(
+      `
       <div class="card">
         <h2 class="card-title">Entrenamientos libres</h2>
         ${filterBlock}
+        <div class="session-day-filter" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin:0.75rem 0">
+          <div>
+            <label for="sel-session-day">Día con entrenamientos</label>
+            <select id="sel-session-day">${dayOpts}</select>
+          </div>
+          <button type="button" class="secondary" id="btn-session-day-map">Graficar</button>
+        </div>
         <div class="table-scroll">
           <table class="sessions-list-table">
             <thead id="sessions-thead">${theadRow}</thead>
@@ -514,7 +561,14 @@ async function renderSessionsList() {
           </table>
         </div>
       </div>
-    `);
+      <div id="sessions-day-map-panel" class="card" style="margin-top:1rem;display:none">
+        <h3 class="card-title" style="margin-top:0">Mapa del día</h3>
+        <div id="sessions-day-summary" class="session-map-export-summary"></div>
+        <div id="sessions-day-map" class="session-map-host" role="region" aria-label="Mapa combinado del día"></div>
+      </div>
+    `,
+      { wide: true }
+    );
     renderSessionsTableBody();
     document.getElementById("sessions-thead")?.addEventListener("click", (e) => {
       const th = e.target.closest("th[data-sort]");
@@ -532,6 +586,46 @@ async function renderSessionsList() {
     document.getElementById("sel-session-team")?.addEventListener("change", (e) => {
       sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value);
       route();
+    });
+
+    document.getElementById("btn-session-day-map")?.addEventListener("click", async () => {
+      const sel = document.getElementById("sel-session-day");
+      const dayKey = sel?.value;
+      if (!dayKey || !dayKeys.length) return;
+      const ids = rows
+        .filter((r) => localDateKeyFromIso(r.created_at) === dayKey)
+        .map((r) => r.id);
+      if (!ids.length) return;
+      const panel = document.getElementById("sessions-day-map-panel");
+      const sumEl = document.getElementById("sessions-day-summary");
+      const mapEl = document.getElementById("sessions-day-map");
+      if (!panel || !sumEl || !mapEl) return;
+      panel.style.display = "block";
+      sumEl.innerHTML = `<p class="muted">Cargando mapa…</p>`;
+      mapEl.innerHTML = "";
+      try {
+        const fetched = await Promise.all(ids.map((id) => api.apiGetSession(id)));
+        const loaded = fetched.map((d) => ({
+          session: d.session,
+          dataPoints: d.session.dataPoints || [],
+        }));
+        loaded.sort((a, b) => sessionSortTimeMs(a.session) - sessionSortTimeMs(b.session));
+        let totalM = 0;
+        for (const L of loaded) {
+          const pts = L.dataPoints;
+          if (pts && pts.length) {
+            const last = pts[pts.length - 1];
+            if (typeof last.distanceMeters === "number" && Number.isFinite(last.distanceMeters)) {
+              totalM += last.distanceMeters;
+            }
+          }
+        }
+        sumEl.innerHTML = buildAggDayMapSummaryHtml(dayKey, totalM, loaded.length);
+        initMultiSessionDayMap(loaded, mapEl);
+      } catch (ex) {
+        sumEl.innerHTML = `<p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p>`;
+        mapEl.innerHTML = "";
+      }
     });
   } catch (ex) {
     layout(`
@@ -883,6 +977,84 @@ function extractTrackLatLng(points) {
   return out;
 }
 
+const MULTI_TRACK_COLORS = ["#0d47a1", "#c62828", "#2e7d32", "#6a1b9a", "#ef6c00", "#00838f"];
+
+function buildAggDayMapSummaryHtml(dayYmdKey, totalMeters, sessionCount) {
+  const fecha = fmtDateDdMmYyFromYmdKey(dayYmdKey);
+  const dist =
+    totalMeters != null && Number.isFinite(totalMeters)
+      ? `${escapeHtml(String(Math.round(totalMeters)))} m`
+      : "—";
+  return `
+    <div class="session-map-summary-grid">
+      <div><span class="sms-label">Fecha</span><span class="sms-val">${escapeHtml(fecha)}</span></div>
+      <div><span class="sms-label">Distancia total (día)</span><span class="sms-val">${dist}</span></div>
+      <div><span class="sms-label">Sesiones</span><span class="sms-val">${escapeHtml(String(sessionCount))}</span></div>
+    </div>
+  `;
+}
+
+/**
+ * Varios entrenamientos en un mapa: una polilínea por sesión, orden de sesiones por horario.
+ * @param {Array<{ session: object, dataPoints: array }>} loaded
+ */
+function initMultiSessionDayMap(loaded, mapHostEl) {
+  if (mapHostEl._edbMap) {
+    mapHostEl._edbMap.remove();
+    mapHostEl._edbMap = null;
+  }
+  mapHostEl.innerHTML = "";
+  mapHostEl.classList.remove("session-map-empty");
+
+  const layers = [];
+  for (let i = 0; i < loaded.length; i++) {
+    const pts = extractTrackLatLng(loaded[i].dataPoints);
+    if (pts.length === 0) continue;
+    layers.push({ pts, color: MULTI_TRACK_COLORS[i % MULTI_TRACK_COLORS.length] });
+  }
+
+  if (layers.length === 0) {
+    mapHostEl.innerHTML =
+      '<p class="muted" style="padding:1rem">No hay coordenadas GPS en las sesiones de ese día.</p>';
+    mapHostEl.classList.add("session-map-empty");
+    return;
+  }
+
+  const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  });
+  const satellite = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      attribution: "Tiles &copy; Esri — Earthstar Geographics, Maxar",
+      maxZoom: 19,
+    }
+  );
+  const map = L.map(mapHostEl, { layers: [osm] });
+  L.control
+    .layers(
+      {
+        Mapa: osm,
+        Satélite: satellite,
+      },
+      {},
+      { position: "topright" }
+    )
+    .addTo(map);
+
+  let groupBounds = null;
+  for (const { pts, color } of layers) {
+    const latlngs = pts.map(([a, b]) => L.latLng(a, b));
+    const line = L.polyline(latlngs, { color, weight: 5, opacity: 0.88 }).addTo(map);
+    const lb = line.getBounds();
+    groupBounds = groupBounds == null ? lb : groupBounds.extend(lb);
+  }
+  if (groupBounds) map.fitBounds(groupBounds, { padding: [40, 40], maxZoom: 17 });
+  mapHostEl._edbMap = map;
+  setTimeout(() => map.invalidateSize(), 200);
+}
+
 function initSessionMap(points) {
   const el = document.getElementById("session-map");
   if (!el) return;
@@ -1129,6 +1301,84 @@ async function renderSessionDetail(id) {
   }
 }
 
+function buildTeamInviteHtml(teamId, myRole, isCoach, isPlatformAdmin) {
+  if (myRole === "captain" || isPlatformAdmin) {
+    return `
+        <details class="disclosure-card" style="margin-top:0.75rem">
+          <summary class="disclosure-summary">
+            <span>Invitar al equipo</span>
+            <span class="disclosure-chev" aria-hidden="true"></span>
+          </summary>
+          <div class="disclosure-body">
+            <p class="muted small">Podés invitar por email aunque no tengan cuenta: se crea el usuario con contraseña <strong>12345678</strong> (que deberían cambiar en Cuenta). Si el servidor tiene SMTP, reciben un correo con el acceso.</p>
+            <form id="form-invite-${teamId}">
+              <label for="inv-name-${teamId}">Nombre (opcional)</label>
+              <input id="inv-name-${teamId}" type="text" maxlength="200" autocomplete="name" />
+              <label for="inv-email-${teamId}">Email</label>
+              <input id="inv-email-${teamId}" type="email" required autocomplete="email" />
+              <label for="inv-role-${teamId}">Rol</label>
+              <select id="inv-role-${teamId}">
+                <option value="coach">Entrenador</option>
+                <option value="paddler" selected>Palista</option>
+              </select>
+              <button type="submit">Invitar</button>
+              <p id="inv-err-${teamId}" class="msg-error"></p>
+            </form>
+          </div>
+        </details>`;
+  }
+  if (isCoach) {
+    return `<p class="muted small">Solo el <strong>capitán</strong> puede invitar nuevas personas al equipo.</p>`;
+  }
+  return `<p class="muted small">Solo el <strong>capitán</strong> puede invitar.</p>`;
+}
+
+function bindTeamInviteForm(teamId) {
+  const form = document.getElementById(`form-invite-${teamId}`);
+  if (!form) return;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById(`inv-err-${teamId}`);
+    errEl.textContent = "";
+    errEl.classList.remove("msg-ok");
+    errEl.classList.add("msg-error");
+    try {
+      const result = await api.apiAddMember(
+        teamId,
+        document.getElementById(`inv-email-${teamId}`).value.trim(),
+        document.getElementById(`inv-role-${teamId}`).value,
+        document.getElementById(`inv-name-${teamId}`)?.value || ""
+      );
+      errEl.classList.remove("msg-error");
+      errEl.classList.add("msg-ok");
+      let msg = "Listo: ya está en el equipo.";
+      if (result.account_created) {
+        msg = result.invite_email_sent
+          ? "Cuenta nueva creada y email enviado con la contraseña provisional."
+          : "Cuenta nueva creada (contraseña 12345678). No se envió email: configurá SMTP en el servidor.";
+      }
+      errEl.textContent = msg;
+      document.getElementById(`inv-email-${teamId}`).value = "";
+      const nameIn = document.getElementById(`inv-name-${teamId}`);
+      if (nameIn) nameIn.value = "";
+      location.hash = `#/teams/${teamId}`;
+      route();
+    } catch (ex) {
+      errEl.textContent = humanizeApiError(ex.message) || String(ex.message);
+    }
+  });
+}
+
+function renderTeamPlantelWrapHtml(teamId, members, { isCaptain, isCoach, isPlatformAdmin }, inviteBlock) {
+  return `
+      <div class="card team-plantel-card" style="margin-top:1rem">
+        <h3 style="margin-top:0">Plantel</h3>
+        <p class="muted small">Datos del plantel se guardan en el servidor. El capitán y el entrenador pueden editar filas y roles.</p>
+        ${buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, teamId)}
+        ${inviteBlock}
+      </div>`;
+}
+
 async function renderTeamsList() {
   layout(`<p class="loading-line">Cargando equipo…</p>`);
   try {
@@ -1144,40 +1394,116 @@ async function renderTeamsList() {
       `);
       return;
     }
+
+    let selectedTeamId = list[0].team.id;
+    let members = await api.apiListMembers(selectedTeamId);
+
     const rows = list
       .map(
         (x) => `
       <tr>
-        <td><a class="link" href="#/teams/${x.team.id}">${escapeHtml(x.team.name)}</a></td>
+        <td>${escapeHtml(x.team.name)}</td>
         <td>${escapeHtml(x.team.country || "—")}</td>
         <td>${roleLabel(x.role)}</td>
+        <td><a class="link" href="#/teams/${x.team.id}">Configurar</a></td>
       </tr>
     `
       )
       .join("");
-    layout(`
-      ${
-        list.length === 0
-          ? `<div class="page-actions"><a class="btn-inline primary" href="#/teams/new">+ Nuevo equipo</a></div>`
-          : ""
-      }
+
+    let topCardHtml;
+    let teamPickerHtml = "";
+    if (isPlatformAdmin && list.length > 1) {
+      topCardHtml = `
       <div class="card">
-        <h2 class="card-title">${isPlatformAdmin ? "Todos los equipos" : "Mi equipo"}</h2>
-        <p class="muted">${
-          isPlatformAdmin
-            ? "Vista de administrador: podés abrir cualquier equipo y gestionar el plantel en la ficha del equipo. Los demás usuarios no te ven en sus planteles."
-            : "Un usuario solo puede tener <strong>un</strong> equipo. En la ficha del equipo el capitán puede cambiar nombre, país y eliminar el equipo; el capitán o el entrenador gestionan el plantel y solo el capitán invita."
-        }</p>
+        <h2 class="card-title">Todos los equipos</h2>
+        <p class="muted">Elegí el equipo para ver y editar el plantel debajo. La configuración del club (nombre, país, eliminar) sigue en <strong>Configurar</strong>.</p>
         <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>Nombre</th><th>País</th><th>${isPlatformAdmin ? "Tu rol (si estás en el equipo)" : "Tu rol"}</th></tr>
+              <tr><th>Nombre</th><th>País</th><th>Tu rol (si aplica)</th><th></th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
       </div>
-    `);
+      <div class="session-team-filter" style="margin-top:0.75rem">
+        <label for="sel-inline-plantel-team">Plantel del equipo</label>
+        <select id="sel-inline-plantel-team">
+          ${list
+            .map(
+              (x) =>
+                `<option value="${x.team.id}" ${x.team.id === selectedTeamId ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`
+            )
+            .join("")}
+        </select>
+      </div>`;
+    } else {
+      const x = list[0];
+      topCardHtml = `
+      <div class="card">
+        <h2 class="card-title">Mi equipo</h2>
+        <p class="muted">País: ${escapeHtml(x.team.country || "—")} · Tu rol: <strong>${roleLabel(x.role)}</strong></p>
+        <p><a class="link" href="#/teams/${x.team.id}">Configurar equipo (nombre, país, eliminar)</a></p>
+      </div>`;
+    }
+
+    function plantelContextForTeam(tid) {
+      const entry = list.find((t) => t.team.id === tid);
+      const myRole = entry?.role;
+      const isCaptain = myRole === "captain" || isPlatformAdmin;
+      const isCoach = myRole === "coach";
+      const inviteBlock = buildTeamInviteHtml(tid, myRole, isCoach, isPlatformAdmin);
+      return {
+        myRole,
+        isCaptain,
+        isCoach,
+        inviteBlock,
+        wire: {
+          canChangeRoles: isPlatformAdmin || myRole === "captain",
+          canRemoveMember: isPlatformAdmin || myRole === "captain" || myRole === "coach",
+        },
+      };
+    }
+
+    const ctx0 = plantelContextForTeam(selectedTeamId);
+    const plantelHtml = renderTeamPlantelWrapHtml(
+      selectedTeamId,
+      members,
+      { isCaptain: ctx0.isCaptain, isCoach: ctx0.isCoach, isPlatformAdmin },
+      ctx0.inviteBlock
+    );
+
+    layout(
+      `
+      <p><a class="link" href="#/">Home</a></p>
+      ${topCardHtml}
+      <div id="team-plantel-wrap">${plantelHtml}</div>
+    `,
+      { wide: true }
+    );
+
+    wireTeamPlantelPage(selectedTeamId, ctx0.wire);
+    bindTeamInviteForm(selectedTeamId);
+
+    document.getElementById("sel-inline-plantel-team")?.addEventListener("change", async (e) => {
+      const tid = Number(e.target.value);
+      if (!Number.isFinite(tid)) return;
+      try {
+        const m = await api.apiListMembers(tid);
+        const c = plantelContextForTeam(tid);
+        document.getElementById("team-plantel-wrap").innerHTML = renderTeamPlantelWrapHtml(
+          tid,
+          m,
+          { isCaptain: c.isCaptain, isCoach: c.isCoach, isPlatformAdmin },
+          c.inviteBlock
+        );
+        wireTeamPlantelPage(tid, c.wire);
+        bindTeamInviteForm(tid);
+      } catch (ex) {
+        alert(humanizeApiError(ex.message) || String(ex.message));
+      }
+    });
   } catch (ex) {
     layout(
       `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p></div>`
@@ -1269,42 +1595,14 @@ async function renderTeamDetail(id) {
           ? "Administrador (plataforma)"
           : "—";
 
-    let inviteBlock = "";
-    if (myRole === "captain" || isPlatformAdmin) {
-      inviteBlock = `
-        <details class="disclosure-card" style="margin-top:0.75rem">
-          <summary class="disclosure-summary">
-            <span>Invitar al equipo</span>
-            <span class="disclosure-chev" aria-hidden="true"></span>
-          </summary>
-          <div class="disclosure-body">
-            <p class="muted small">Podés invitar por email aunque no tengan cuenta: se crea el usuario con contraseña <strong>12345678</strong> (que deberían cambiar en Cuenta). Si el servidor tiene SMTP, reciben un correo con el acceso.</p>
-            <form id="form-invite-${teamId}">
-              <label for="inv-name-${teamId}">Nombre (opcional)</label>
-              <input id="inv-name-${teamId}" type="text" maxlength="200" autocomplete="name" />
-              <label for="inv-email-${teamId}">Email</label>
-              <input id="inv-email-${teamId}" type="email" required autocomplete="email" />
-              <label for="inv-role-${teamId}">Rol</label>
-              <select id="inv-role-${teamId}">
-                <option value="coach">Entrenador</option>
-                <option value="paddler" selected>Palista</option>
-              </select>
-              <button type="submit">Invitar</button>
-              <p id="inv-err-${teamId}" class="msg-error"></p>
-            </form>
-          </div>
-        </details>`;
-    } else if (isCoach) {
-      inviteBlock = `<p class="muted small">Solo el <strong>capitán</strong> puede invitar nuevas personas al equipo.</p>`;
-    }
+    const inviteBlock = buildTeamInviteHtml(teamId, myRole, isCoach, isPlatformAdmin);
 
-    const plantelCard = `
-      <div class="card" style="margin-top:1rem">
-        <h3 style="margin-top:0">Plantel</h3>
-        <p class="muted small">Datos del plantel se guardan en el servidor. El capitán y el entrenador pueden editar filas y roles.</p>
-        ${buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, teamId)}
-        ${inviteBlock}
-      </div>`;
+    const plantelCard = renderTeamPlantelWrapHtml(
+      teamId,
+      members,
+      { isCaptain, isCoach, isPlatformAdmin },
+      inviteBlock
+    );
 
     const editBlock = isCaptain
       ? `
@@ -1327,7 +1625,8 @@ async function renderTeamDetail(id) {
       </div>`
       : `<p class="muted">Solo el capitán puede cambiar el nombre, el país o eliminar el equipo.</p>`;
 
-    layout(`
+    layout(
+      `
       <p><a class="link" href="#/teams">← Mi equipo</a></p>
       <div class="card">
         <h2 class="card-title">${escapeHtml(team.name)}</h2>
@@ -1335,44 +1634,16 @@ async function renderTeamDetail(id) {
         ${editBlock}
         ${plantelCard}
       </div>
-    `);
+    `,
+      { wide: true }
+    );
 
     wireTeamPlantelPage(teamId, {
       canChangeRoles: isPlatformAdmin || myRole === "captain",
       canRemoveMember: isPlatformAdmin || myRole === "captain" || myRole === "coach",
     });
 
-    document.getElementById(`form-invite-${teamId}`)?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const errEl = document.getElementById(`inv-err-${teamId}`);
-      errEl.textContent = "";
-      errEl.classList.remove("msg-ok");
-      errEl.classList.add("msg-error");
-      try {
-        const result = await api.apiAddMember(
-          teamId,
-          document.getElementById(`inv-email-${teamId}`).value.trim(),
-          document.getElementById(`inv-role-${teamId}`).value,
-          document.getElementById(`inv-name-${teamId}`)?.value || ""
-        );
-        errEl.classList.remove("msg-error");
-        errEl.classList.add("msg-ok");
-        let msg = "Listo: ya está en el equipo.";
-        if (result.account_created) {
-          msg = result.invite_email_sent
-            ? "Cuenta nueva creada y email enviado con la contraseña provisional."
-            : "Cuenta nueva creada (contraseña 12345678). No se envió email: configurá SMTP en el servidor.";
-        }
-        errEl.textContent = msg;
-        document.getElementById(`inv-email-${teamId}`).value = "";
-        const nameIn = document.getElementById(`inv-name-${teamId}`);
-        if (nameIn) nameIn.value = "";
-        location.hash = `#/teams/${teamId}`;
-        route();
-      } catch (ex) {
-        errEl.textContent = humanizeApiError(ex.message) || String(ex.message);
-      }
-    });
+    bindTeamInviteForm(teamId);
 
     if (isCaptain) {
       document.getElementById("form-edit-team").addEventListener("submit", async (e) => {
