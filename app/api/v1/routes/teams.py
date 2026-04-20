@@ -18,8 +18,8 @@ from app.schemas.team import (
     TeamCreate,
     TeamMemberCreate,
     TeamMemberRead,
-    TeamMemberRoleUpdate,
     TeamMemberRosterUpdate,
+    TeamMemberUpdate,
     TeamRead,
     TeamUpdate,
 )
@@ -268,70 +268,87 @@ def add_team_member(
 
 
 @router.patch("/{team_id}/members/{user_id}", response_model=TeamMemberRead)
-def update_member_role(
+def update_member(
     team_id: int,
     user_id: int,
-    body: TeamMemberRoleUpdate,
+    body: TeamMemberUpdate,
     db: Annotated[Session, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
 ) -> TeamMemberRead:
     m = _membership(db, user_id, team_id)
     if m is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Miembro no encontrado")
-
-    if current.is_platform_admin:
-        _require_team_exists(db, team_id)
-        if body.role == TeamRole.captain:
-            for om in db.scalars(
-                select(TeamMembership).where(TeamMembership.team_id == team_id)
-            ).all():
-                if om.role == TeamRole.captain and om.user_id != user_id:
-                    om.role = TeamRole.paddler
-            m.role = TeamRole.captain
-        else:
-            if m.role == TeamRole.captain and body.role != TeamRole.captain:
-                cap_n = sum(
-                    1
-                    for om in db.scalars(
-                        select(TeamMembership).where(TeamMembership.team_id == team_id)
-                    ).all()
-                    if om.role == TeamRole.captain
-                )
-                if cap_n <= 1:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="El equipo debe tener al menos un capitán. Designá otro capitán primero.",
-                    )
-            m.role = body.role
-        db.commit()
-        db.refresh(m)
-        u = db.get(User, user_id)
-        assert u is not None
-        return _member_read(m, u)
-
-    actor = _require_captain_or_coach(db, current, team_id)
-    _non_captain_roles(body.role)
-    if m.role == TeamRole.captain:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No se puede cambiar el rol del capitán desde aquí",
-        )
-    if actor.role == TeamRole.coach:
-        if body.role == TeamRole.coach:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Solo el capitán puede asignar el rol entrenador",
-            )
-        if m.role == TeamRole.coach:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Solo el capitán puede modificar a otros entrenadores",
-            )
-    m.role = body.role
-    db.commit()
-    db.refresh(m)
     u = db.get(User, user_id)
     assert u is not None
+
+    if body.email is not None:
+        if not current.is_platform_admin:
+            actor = _membership(db, current.id, team_id)
+            if actor is None or actor.role != TeamRole.captain:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Solo el capitán o el administrador pueden cambiar emails del equipo",
+                )
+        email_key = _invite_email_key(str(body.email))
+        conflict = db.scalar(
+            select(User).where(func.lower(User.email) == email_key, User.id != user_id)
+        )
+        if conflict is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ya existe un usuario con ese email",
+            )
+        u.email = email_key
+
+    if body.role is not None:
+        if current.is_platform_admin:
+            _require_team_exists(db, team_id)
+            if body.role == TeamRole.captain:
+                for om in db.scalars(
+                    select(TeamMembership).where(TeamMembership.team_id == team_id)
+                ).all():
+                    if om.role == TeamRole.captain and om.user_id != user_id:
+                        om.role = TeamRole.paddler
+                m.role = TeamRole.captain
+            else:
+                if m.role == TeamRole.captain and body.role != TeamRole.captain:
+                    cap_n = sum(
+                        1
+                        for om in db.scalars(
+                            select(TeamMembership).where(TeamMembership.team_id == team_id)
+                        ).all()
+                        if om.role == TeamRole.captain
+                    )
+                    if cap_n <= 1:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="El equipo debe tener al menos un capitán. Designá otro capitán primero.",
+                        )
+                m.role = body.role
+        else:
+            actor = _require_captain_or_coach(db, current, team_id)
+            _non_captain_roles(body.role)
+            if m.role == TeamRole.captain:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No se puede cambiar el rol del capitán desde aquí",
+                )
+            if actor.role == TeamRole.coach:
+                if body.role == TeamRole.coach:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Solo el capitán puede asignar el rol entrenador",
+                    )
+                if m.role == TeamRole.coach:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Solo el capitán puede modificar a otros entrenadores",
+                    )
+            m.role = body.role
+
+    db.commit()
+    db.refresh(m)
+    db.refresh(u)
     return _member_read(m, u)
 
 

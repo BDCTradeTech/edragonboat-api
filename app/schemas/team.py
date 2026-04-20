@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from app.models.membership import TeamRole
 
@@ -49,8 +49,17 @@ class TeamMemberCreate(BaseModel):
     full_name: str | None = Field(None, max_length=200)
 
 
-class TeamMemberRoleUpdate(BaseModel):
-    role: TeamRole
+class TeamMemberUpdate(BaseModel):
+    """PATCH parcial: al menos uno de rol o email."""
+
+    role: TeamRole | None = None
+    email: EmailStr | None = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> "TeamMemberUpdate":
+        if self.role is None and self.email is None:
+            raise ValueError("Indicá al menos rol o email")
+        return self
 
 
 class TeamMemberRosterUpdate(BaseModel):

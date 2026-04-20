@@ -211,14 +211,19 @@ export async function apiAddMember(teamId, email, role, fullName = null) {
   throw new Error(lastText);
 }
 
-export async function apiPatchMemberRole(teamId, userId, role) {
+/** PATCH miembro: `role` y/o `email` (al menos uno). */
+export async function apiPatchMember(teamId, userId, body) {
   const res = await fetch(`${API}/api/v1/teams/${teamId}/members/${userId}`, {
     method: "PATCH",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ role }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
+}
+
+export async function apiPatchMemberRole(teamId, userId, role) {
+  return apiPatchMember(teamId, userId, { role });
 }
 
 /** Datos de plantel (documento, nacimiento, medidas, lado) en la membresía. */

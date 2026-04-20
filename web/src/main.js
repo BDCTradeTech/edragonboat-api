@@ -124,7 +124,13 @@ function fmtDateDdMmYyFromYmdKey(ymd) {
   const dd = String(d).padStart(2, "0");
   const mm = String(m).padStart(2, "0");
   const yy = String(y).slice(-2);
-  return `${dd}${mm}${yy}`;
+  return `${dd}-${mm}-${yy}`;
+}
+
+/** Metros u otros enteros con separador de miles (es-AR, ej. 12.345). */
+function formatIntEsThousands(n) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return Math.round(n).toLocaleString("es-AR", { maximumFractionDigits: 0 });
 }
 
 /** Resumen encima del mapa (pantalla y export JPG). */
@@ -549,7 +555,7 @@ async function renderSessionsList() {
         ${filterBlock}
         <div class="session-day-filter" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin:0.75rem 0">
           <div>
-            <label for="sel-session-day">Día con entrenamientos</label>
+            <label for="sel-session-day">Día</label>
             <select id="sel-session-day">${dayOpts}</select>
           </div>
           <button type="button" class="secondary" id="btn-session-day-map">Graficar</button>
@@ -561,10 +567,14 @@ async function renderSessionsList() {
           </table>
         </div>
       </div>
-      <div id="sessions-day-map-panel" class="card" style="margin-top:1rem;display:none">
+      <div id="sessions-day-map-panel" class="card" style="margin-top:1rem;display:none" data-day-key="">
         <h3 class="card-title" style="margin-top:0">Mapa del día</h3>
-        <div id="sessions-day-summary" class="session-map-export-summary"></div>
-        <div id="sessions-day-map" class="session-map-host" role="region" aria-label="Mapa combinado del día"></div>
+        <div id="sessions-day-map-export-root" class="session-map-export-root">
+          <div id="sessions-day-summary" class="session-map-export-summary"></div>
+          <div id="sessions-day-map" class="session-map-host" role="region" aria-label="Mapa combinado del día"></div>
+        </div>
+        <p class="muted small map-export-hint">Descargá el mapa con el resumen del día (JPG).</p>
+        <button type="button" class="secondary btn-sm" id="btn-sessions-day-map-jpg">Descargar Mapa (JPG)</button>
       </div>
     `,
       { wide: true }
@@ -601,6 +611,7 @@ async function renderSessionsList() {
       const mapEl = document.getElementById("sessions-day-map");
       if (!panel || !sumEl || !mapEl) return;
       panel.style.display = "block";
+      panel.dataset.dayKey = dayKey;
       sumEl.innerHTML = `<p class="muted">Cargando mapa…</p>`;
       mapEl.innerHTML = "";
       try {
@@ -625,6 +636,40 @@ async function renderSessionsList() {
       } catch (ex) {
         sumEl.innerHTML = `<p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p>`;
         mapEl.innerHTML = "";
+      }
+    });
+
+    document.getElementById("btn-sessions-day-map-jpg")?.addEventListener("click", async () => {
+      const panel = document.getElementById("sessions-day-map-panel");
+      const dayKey = panel?.dataset?.dayKey;
+      if (!dayKey) return;
+      const mapEl = document.getElementById("sessions-day-map");
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => setTimeout(r, 400));
+      if (mapEl?._edbMap) {
+        mapEl._edbMap.invalidateSize();
+        await new Promise((r) => setTimeout(r, 700));
+      } else {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      const root = document.getElementById("sessions-day-map-export-root");
+      if (!root) return;
+      try {
+        const dataUrl = await toJpeg(root, {
+          quality: 0.92,
+          pixelRatio: 2,
+          cacheBust: true,
+        });
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `mapa-dia_${fmtDateDdMmYyFromYmdKey(dayKey)}.jpg`;
+        a.click();
+      } catch (e) {
+        console.error(e);
+        alert(
+          "No se pudo generar el JPG (a veces por las teselas del mapa). Esperá a que cargue el mapa y reintentá, o usá captura de pantalla."
+        );
       }
     });
   } catch (ex) {
@@ -983,13 +1028,14 @@ function buildAggDayMapSummaryHtml(dayYmdKey, totalMeters, sessionCount) {
   const fecha = fmtDateDdMmYyFromYmdKey(dayYmdKey);
   const dist =
     totalMeters != null && Number.isFinite(totalMeters)
-      ? `${escapeHtml(String(Math.round(totalMeters)))} m`
+      ? `${escapeHtml(formatIntEsThousands(totalMeters))} m`
       : "—";
+  const ses = formatIntEsThousands(sessionCount);
   return `
     <div class="session-map-summary-grid">
       <div><span class="sms-label">Fecha</span><span class="sms-val">${escapeHtml(fecha)}</span></div>
-      <div><span class="sms-label">Distancia total (día)</span><span class="sms-val">${dist}</span></div>
-      <div><span class="sms-label">Sesiones</span><span class="sms-val">${escapeHtml(String(sessionCount))}</span></div>
+      <div><span class="sms-label">Distancia total</span><span class="sms-val">${dist}</span></div>
+      <div><span class="sms-label">Sesiones</span><span class="sms-val">${escapeHtml(ses)}</span></div>
     </div>
   `;
 }
@@ -1370,11 +1416,17 @@ function bindTeamInviteForm(teamId) {
 }
 
 function renderTeamPlantelWrapHtml(teamId, members, { isCaptain, isCoach, isPlatformAdmin }, inviteBlock) {
+  const canManage = isCaptain || isCoach || isPlatformAdmin;
+  const canEditEmail = isCaptain || isPlatformAdmin;
+  const saveBtn = canManage
+    ? `<p style="margin-top:0.75rem"><button type="button" class="secondary btn-plantel-save-all" data-team="${teamId}">Guardar plantel</button></p>`
+    : "";
   return `
       <div class="card team-plantel-card" style="margin-top:1rem">
         <h3 style="margin-top:0">Plantel</h3>
-        <p class="muted small">Datos del plantel se guardan en el servidor. El capitán y el entrenador pueden editar filas y roles.</p>
-        ${buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, teamId)}
+        <p class="muted small">Datos del plantel se guardan en el servidor. El capitán y el entrenador pueden editar filas; el capitán y el administrador pueden cambiar emails. Usá <strong>Guardar plantel</strong> para aplicar todos los cambios.</p>
+        ${buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, canEditEmail }, teamId)}
+        ${saveBtn}
         ${inviteBlock}
       </div>`;
 }
@@ -1442,9 +1494,9 @@ async function renderTeamsList() {
       const x = list[0];
       topCardHtml = `
       <div class="card">
-        <h2 class="card-title">Mi equipo</h2>
+        <h2 class="card-title">${escapeHtml(x.team.name)}</h2>
         <p class="muted">País: ${escapeHtml(x.team.country || "—")} · Tu rol: <strong>${roleLabel(x.role)}</strong></p>
-        <p><a class="link" href="#/teams/${x.team.id}">Configurar equipo (nombre, país, eliminar)</a></p>
+        <p><a class="link" href="#/teams/${x.team.id}">Configurar equipo</a></p>
       </div>`;
     }
 
@@ -1462,6 +1514,7 @@ async function renderTeamsList() {
         wire: {
           canChangeRoles: isPlatformAdmin || myRole === "captain",
           canRemoveMember: isPlatformAdmin || myRole === "captain" || myRole === "coach",
+          canEditEmail: isPlatformAdmin || myRole === "captain",
         },
       };
     }
@@ -1575,11 +1628,10 @@ async function renderTeamDetail(id) {
   }
   layout(`<p class="loading-line">Cargando equipo…</p>`);
   try {
-    const [team, myTeams, me, members] = await Promise.all([
+    const [team, myTeams, me] = await Promise.all([
       api.apiGetTeam(teamId),
       api.apiMyTeams(),
       api.apiMe(),
-      api.apiListMembers(teamId),
     ]);
     const myEntry = myTeams.find((t) => t.team.id === teamId);
     const myRole = myEntry?.role;
@@ -1594,15 +1646,6 @@ async function renderTeamDetail(id) {
         : isPlatformAdmin
           ? "Administrador (plataforma)"
           : "—";
-
-    const inviteBlock = buildTeamInviteHtml(teamId, myRole, isCoach, isPlatformAdmin);
-
-    const plantelCard = renderTeamPlantelWrapHtml(
-      teamId,
-      members,
-      { isCaptain, isCoach, isPlatformAdmin },
-      inviteBlock
-    );
 
     const editBlock = isCaptain
       ? `
@@ -1627,23 +1670,15 @@ async function renderTeamDetail(id) {
 
     layout(
       `
-      <p><a class="link" href="#/teams">← Mi equipo</a></p>
+      <p><a class="link" href="#/teams">← Equipo</a></p>
       <div class="card">
         <h2 class="card-title">${escapeHtml(team.name)}</h2>
         <p class="muted">País: ${escapeHtml(team.country || "—")} · Tu rol: <strong>${escapeHtml(roleLine)}</strong></p>
         ${editBlock}
-        ${plantelCard}
       </div>
     `,
       { wide: true }
     );
-
-    wireTeamPlantelPage(teamId, {
-      canChangeRoles: isPlatformAdmin || myRole === "captain",
-      canRemoveMember: isPlatformAdmin || myRole === "captain" || myRole === "coach",
-    });
-
-    bindTeamInviteForm(teamId);
 
     if (isCaptain) {
       document.getElementById("form-edit-team").addEventListener("submit", async (e) => {
@@ -1738,144 +1773,149 @@ function rosterCellsHtml(m, canEditRoster) {
 }
 
 /** Plantel en ficha Equipo: datos personales persistidos en membresía; roles como antes. */
-function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin }, teamId) {
+function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, canEditEmail }, teamId) {
   const canManage = isCaptain || isCoach || isPlatformAdmin;
   const canEditRoster = canManage;
-  const saveBtn = (uid) =>
-    canEditRoster
-      ? `<button type="button" class="secondary btn-sm btn-roster-save" data-team="${teamId}" data-user="${uid}">Guardar</button> `
-      : "";
+
   const thead = canManage
     ? `<thead><tr><th>Email</th><th>Nombre</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th><th>Gestión</th></tr></thead>`
     : `<thead><tr><th>Email</th><th>Nombre</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th></tr></thead>`;
-  const rows = members
-    .map((m) => {
-      const rc = rosterCellsHtml(m, canEditRoster);
-      if (!canManage) {
-        return `<tr>
-          <td>${escapeHtml(m.email)}</td>
-          <td>${escapeHtml(m.full_name || "—")}</td>
-          ${rc}
-          <td>${roleLabel(m.role)}</td>
-        </tr>`;
-      }
-      if (isPlatformAdmin) {
-        return `<tr>
-          <td>${escapeHtml(m.email)}</td>
-          <td>${escapeHtml(m.full_name || "—")}</td>
-          ${rc}
-          <td>${roleLabel(m.role)}</td>
-          <td class="actions-cell">
-            ${saveBtn(m.user_id)}
-            <select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="Rol">
+
+  function emailCell(m) {
+    if (canEditEmail) {
+      return `<td><input type="email" class="member-email" maxlength="320" autocomplete="email" value="${escapeHtml(m.email)}" /></td>`;
+    }
+    return `<td>${escapeHtml(m.email)}</td>`;
+  }
+
+  function rolCell(m) {
+    if (isPlatformAdmin) {
+      return `<td><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="Rol">
               <option value="captain" ${m.role === "captain" ? "selected" : ""}>Capitán</option>
               <option value="coach" ${m.role === "coach" ? "selected" : ""}>Entrenador</option>
               <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>Palista</option>
-            </select>
+            </select></td>`;
+    }
+    if (m.role === "captain") {
+      return `<td>${roleLabel(m.role)}</td>`;
+    }
+    if (isCoach && m.role === "coach") {
+      return `<td>${roleLabel(m.role)}</td>`;
+    }
+    if (isCaptain) {
+      return `<td><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="Rol">
+              <option value="coach" ${m.role === "coach" ? "selected" : ""}>Entrenador</option>
+              <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>Palista</option>
+            </select></td>`;
+    }
+    return `<td>${roleLabel(m.role)}</td>`;
+  }
+
+  function gestionCell(m) {
+    if (!canManage) return "";
+    if (isPlatformAdmin) {
+      return `<td class="actions-cell">
             <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}" ${
               m.role === "captain" ? 'disabled title="Promové a otro capitán antes de quitar"' : ""
             }>Quitar</button>
-          </td>
-        </tr>`;
-      }
-      if (m.role === "captain") {
-        return `<tr>
-          <td>${escapeHtml(m.email)}</td>
-          <td>${escapeHtml(m.full_name || "—")}</td>
-          ${rc}
-          <td>${roleLabel(m.role)}</td>
-          <td class="actions-cell">${saveBtn(m.user_id)}<span class="muted">—</span></td>
-        </tr>`;
-      }
-      if (isCoach && m.role === "coach") {
-        return `<tr>
-          <td>${escapeHtml(m.email)}</td>
-          <td>${escapeHtml(m.full_name || "—")}</td>
-          ${rc}
-          <td>${roleLabel(m.role)}</td>
-          <td class="actions-cell">${saveBtn(m.user_id)}<span class="muted">Solo el capitán gestiona entrenadores</span></td>
-        </tr>`;
-      }
-      if (isCaptain) {
-        return `<tr>
-          <td>${escapeHtml(m.email)}</td>
-          <td>${escapeHtml(m.full_name || "—")}</td>
-          ${rc}
-          <td>${roleLabel(m.role)}</td>
-          <td class="actions-cell">
-            ${saveBtn(m.user_id)}
-            <select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="Rol">
-              <option value="coach" ${m.role === "coach" ? "selected" : ""}>Entrenador</option>
-              <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>Palista</option>
-            </select>
+          </td>`;
+    }
+    if (m.role === "captain") {
+      return `<td class="actions-cell"><span class="muted">—</span></td>`;
+    }
+    if (isCoach && m.role === "coach") {
+      return `<td class="actions-cell"><span class="muted">Solo el capitán gestiona entrenadores</span></td>`;
+    }
+    if (isCaptain) {
+      return `<td class="actions-cell">
             <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">Quitar</button>
-          </td>
+          </td>`;
+    }
+    return `<td class="actions-cell">
+          <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">Quitar</button>
+        </td>`;
+  }
+
+  const rows = members
+    .map((m) => {
+      const rc = rosterCellsHtml(m, canEditRoster);
+      const trOpen = `<tr data-user-id="${m.user_id}" data-initial-role="${m.role}" data-initial-email="${encodeURIComponent(m.email)}">`;
+      if (!canManage) {
+        return `${trOpen}
+          ${emailCell(m)}
+          <td>${escapeHtml(m.full_name || "—")}</td>
+          ${rc}
+          ${rolCell(m)}
         </tr>`;
       }
-      return `<tr>
-        <td>${escapeHtml(m.email)}</td>
+      return `${trOpen}
+        ${emailCell(m)}
         <td>${escapeHtml(m.full_name || "—")}</td>
         ${rc}
-        <td>${roleLabel(m.role)}</td>
-        <td class="actions-cell">
-          ${saveBtn(m.user_id)}
-          <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">Quitar</button>
-        </td>
+        ${rolCell(m)}
+        ${gestionCell(m)}
       </tr>`;
     })
     .join("");
-  return `<div class="table-scroll"><table class="plantel-table">${thead}<tbody>${rows}</tbody></table></div>`;
+  return `<div class="table-scroll"><table class="plantel-table" data-team="${teamId}">${thead}<tbody>${rows}</tbody></table></div>`;
 }
 
-function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember }) {
-  document.querySelectorAll(`.btn-roster-save[data-team="${teamId}"]`).forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const uid = Number(btn.getAttribute("data-user"));
-      const tr = btn.closest("tr");
-      if (!tr) return;
-      const doc = tr.querySelector(".roster-doc")?.value?.trim() ?? "";
-      const birthRaw = tr.querySelector(".roster-birth")?.value || "";
-      const hRaw = tr.querySelector(".roster-h")?.value ?? "";
-      const wRaw = tr.querySelector(".roster-w")?.value ?? "";
-      const sideRaw = tr.querySelector(".roster-side")?.value ?? "";
-      const body = {
-        document_number: doc || null,
-        birth_date: birthRaw ? birthRaw : null,
-        height_cm: hRaw === "" ? null : Number(hRaw),
-        weight_kg: wRaw === "" ? null : Number(wRaw),
-        preferred_side: sideRaw || null,
-      };
-      if (body.height_cm != null && (Number.isNaN(body.height_cm) || body.height_cm < 0)) {
-        alert("Altura inválida.");
-        return;
-      }
-      if (body.weight_kg != null && (Number.isNaN(body.weight_kg) || body.weight_kg < 0)) {
-        alert("Peso inválido.");
-        return;
-      }
-      try {
-        await api.apiPatchMemberRoster(teamId, uid, body);
-        location.hash = `#/teams/${teamId}`;
-        route();
-      } catch (ex) {
-        alert(humanizeApiError(ex.message) || String(ex.message));
-      }
-    });
-  });
-  if (canChangeRoles) {
-    document.querySelectorAll(`.role-select-acc[data-team="${teamId}"]`).forEach((sel) => {
-      sel.addEventListener("change", async () => {
-        const uid = Number(sel.getAttribute("data-user"));
-        try {
-          await api.apiPatchMemberRole(teamId, uid, sel.value);
-          location.hash = `#/teams/${teamId}`;
-          route();
-        } catch (ex) {
-          alert(ex.message || "Error al cambiar rol");
+function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditEmail }) {
+  document.querySelector(`.btn-plantel-save-all[data-team="${teamId}"]`)?.addEventListener("click", async () => {
+    const tbody = document.querySelector(`.plantel-table[data-team="${teamId}"] tbody`);
+    if (!tbody) return;
+    const trList = tbody.querySelectorAll("tr[data-user-id]");
+    try {
+      for (const tr of trList) {
+        const uid = Number(tr.getAttribute("data-user-id"));
+        const initialEmail = decodeURIComponent(tr.getAttribute("data-initial-email") || "");
+        const emailIn = tr.querySelector(".member-email");
+        if (emailIn && canEditEmail) {
+          const newEmail = emailIn.value.trim();
+          if (!newEmail) {
+            alert("El email no puede quedar vacío.");
+            return;
+          }
+          if (newEmail !== initialEmail) {
+            await api.apiPatchMember(teamId, uid, { email: newEmail });
+          }
         }
-      });
-    });
-  }
+        const sel = tr.querySelector(".role-select-acc");
+        if (sel && canChangeRoles) {
+          const newRole = sel.value;
+          const initialRole = tr.getAttribute("data-initial-role");
+          if (newRole !== initialRole) {
+            await api.apiPatchMember(teamId, uid, { role: newRole });
+          }
+        }
+        const doc = tr.querySelector(".roster-doc")?.value?.trim() ?? "";
+        const birthRaw = tr.querySelector(".roster-birth")?.value || "";
+        const hRaw = tr.querySelector(".roster-h")?.value ?? "";
+        const wRaw = tr.querySelector(".roster-w")?.value ?? "";
+        const sideRaw = tr.querySelector(".roster-side")?.value ?? "";
+        const body = {
+          document_number: doc || null,
+          birth_date: birthRaw ? birthRaw : null,
+          height_cm: hRaw === "" ? null : Number(hRaw),
+          weight_kg: wRaw === "" ? null : Number(wRaw),
+          preferred_side: sideRaw || null,
+        };
+        if (body.height_cm != null && (Number.isNaN(body.height_cm) || body.height_cm < 0)) {
+          alert("Altura inválida.");
+          return;
+        }
+        if (body.weight_kg != null && (Number.isNaN(body.weight_kg) || body.weight_kg < 0)) {
+          alert("Peso inválido.");
+          return;
+        }
+        await api.apiPatchMemberRoster(teamId, uid, body);
+      }
+      location.hash = `#/teams/${teamId}`;
+      route();
+    } catch (ex) {
+      alert(humanizeApiError(ex.message) || String(ex.message));
+    }
+  });
   if (canRemoveMember) {
     document.querySelectorAll(`.btn-remove-acc[data-team="${teamId}"]`).forEach((btn) => {
       btn.addEventListener("click", async () => {
