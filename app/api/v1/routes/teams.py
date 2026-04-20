@@ -44,9 +44,16 @@ def _team_read(team: Team) -> TeamRead:
 
 
 def _process_uploaded_logo(raw: bytes) -> bytes:
-    from PIL import Image
+    from PIL import Image, ImageFile, ImageOps
 
-    im = Image.open(BytesIO(raw))
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
+    buf = BytesIO(raw)
+    try:
+        im = Image.open(buf)
+        im.load()
+    except OSError as e:
+        raise ValueError("No se pudo abrir la imagen (formato no soportado o archivo dañado).") from e
+    im = ImageOps.exif_transpose(im)
     if im.mode in ("RGBA", "P"):
         if im.mode == "P":
             im = im.convert("RGBA")
@@ -508,6 +515,8 @@ async def upload_team_logo(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Máximo 5 MB")
     try:
         processed = _process_uploaded_logo(raw)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Imagen inválida o corrupta")
     path = _team_logo_disk_path(team_id)

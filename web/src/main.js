@@ -19,6 +19,7 @@ import panelPkg from "../package.json";
 Chart.register(...registerables);
 
 const SESSION_TEAM_FILTER_KEY = "edb_team_sessions_filter";
+const RUTINAS_TEAM_KEY = "edb_rutinas_team_id";
 
 let chartInstances = [];
 
@@ -342,7 +343,13 @@ function route() {
   }
   if (parts[0] === "competencias") return renderCompetencias();
   if (parts[0] === "cuenta") return renderAccount();
-  if (parts[0] === "rutinas") return renderRutinas();
+  if (parts[0] === "rutinas") {
+    if (!parts[1]) return renderRutinasHub();
+    if (parts[1] === "new") return renderRutinasNew();
+    if (/^\d+$/.test(parts[1])) return renderRutinasEditor(parts[1]);
+    location.hash = "#/rutinas";
+    return route();
+  }
   if (parts[0] === "sessions") return renderSessionsList();
   if (!parts.length || parts[0] === "home") return renderHome();
   return renderHome();
@@ -651,44 +658,18 @@ async function renderSessionsList() {
       if (!dayKey) return;
       const teamName = panel?.dataset?.teamNameForExport || "";
       const mapEl = document.getElementById("sessions-day-map");
-      await new Promise((r) => requestAnimationFrame(r));
-      await new Promise((r) => requestAnimationFrame(r));
-      await new Promise((r) => setTimeout(r, 400));
-      if (mapEl?._edbMap) {
-        mapEl._edbMap.invalidateSize();
-        await new Promise((r) => setTimeout(r, 700));
-      } else {
-        await new Promise((r) => setTimeout(r, 200));
-      }
       const root = document.getElementById("sessions-day-map-export-root");
       if (!root) return;
-      const prev = root.getAttribute("style") || "";
-      root.style.width = "1080px";
-      root.style.height = "1920px";
-      root.style.maxWidth = "none";
-      root.style.marginLeft = "auto";
-      root.style.marginRight = "auto";
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => setTimeout(r, 300));
       try {
-        if (mapEl?._edbMap) mapEl._edbMap.invalidateSize();
-        await new Promise((r) => setTimeout(r, 350));
-        const dataUrl = await toJpeg(root, {
-          quality: 0.92,
-          pixelRatio: 1,
-          cacheBust: true,
-        });
-        const a = document.createElement("a");
-        a.href = dataUrl;
-        a.download = `${safeMapJpgTeamSegment(teamName)}-${fmtDateDdMmYyFromYmdKey(dayKey)}.jpg`;
-        a.click();
+        await exportVerticalMapJpeg(root, mapEl, `${safeMapJpgTeamSegment(teamName)}-${fmtDateDdMmYyFromYmdKey(dayKey)}.jpg`);
       } catch (e) {
         console.error(e);
         alert(
           "No se pudo generar el JPG (a veces por las teselas del mapa). Esperá a que cargue el mapa y reintentá, o usá captura de pantalla."
         );
-      } finally {
-        if (prev) root.setAttribute("style", prev);
-        else root.removeAttribute("style");
-        if (mapEl?._edbMap) setTimeout(() => mapEl._edbMap.invalidateSize(), 100);
       }
     });
   } catch (ex) {
@@ -1041,6 +1022,60 @@ function extractTrackLatLng(points) {
   return out;
 }
 
+function leafletStartIcon() {
+  return L.divIcon({
+    className: "map-sf-marker",
+    html: '<span class="map-sf-marker-inner">S</span>',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  });
+}
+
+function leafletFinishIcon() {
+  return L.divIcon({
+    className: "map-sf-marker",
+    html:
+      '<span class="map-sf-marker-inner map-sf-marker-inner--finish"><span class="map-sf-marker-checker" aria-hidden="true"></span></span>',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  });
+}
+
+function addStartFinishMarkers(map, startLatLng, endLatLng) {
+  L.marker(startLatLng, { icon: leafletStartIcon(), zIndexOffset: 2000 }).addTo(map);
+  L.marker(endLatLng, { icon: leafletFinishIcon(), zIndexOffset: 2000 }).addTo(map);
+}
+
+/** Exporta JPG 1080×1920 (vertical) manteniendo proporción al fijar ancho/alto del nodo y opciones de toJpeg. */
+async function exportVerticalMapJpeg(rootEl, mapHostEl, fileName) {
+  const prev = rootEl.getAttribute("style") || "";
+  rootEl.style.width = "1080px";
+  rootEl.style.height = "1920px";
+  rootEl.style.maxWidth = "none";
+  rootEl.style.aspectRatio = "auto";
+  try {
+    if (mapHostEl?._edbMap) {
+      mapHostEl._edbMap.invalidateSize();
+      await new Promise((r) => setTimeout(r, 450));
+    }
+    const dataUrl = await toJpeg(rootEl, {
+      quality: 0.92,
+      pixelRatio: 1,
+      width: 1080,
+      height: 1920,
+      cacheBust: true,
+    });
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = fileName;
+    a.click();
+  } finally {
+    if (prev) rootEl.setAttribute("style", prev);
+    else rootEl.removeAttribute("style");
+    if (mapHostEl?._edbMap) setTimeout(() => mapHostEl._edbMap.invalidateSize(), 120);
+  }
+}
+
 /** Colores en degradé (sesiones cercanas = tonos parecidos); cada sesión tiene un matiz distinto. */
 function hslGradientTrackColors(n) {
   if (n <= 0) return [];
@@ -1141,15 +1176,7 @@ function initMultiSessionDayMap(loaded, mapHostEl) {
   const lastLayer = layers[layers.length - 1];
   const startPt = firstLayer.pts[0];
   const endPt = lastLayer.pts[lastLayer.pts.length - 1];
-  const sfIcon = (letter) =>
-    L.divIcon({
-      className: "map-sf-marker",
-      html: `<span class="map-sf-marker-inner">${letter}</span>`,
-      iconSize: [34, 34],
-      iconAnchor: [17, 17],
-    });
-  L.marker([startPt[0], startPt[1]], { icon: sfIcon("S"), zIndexOffset: 2000 }).addTo(map);
-  L.marker([endPt[0], endPt[1]], { icon: sfIcon("F"), zIndexOffset: 2000 }).addTo(map);
+  addStartFinishMarkers(map, [startPt[0], startPt[1]], [endPt[0], endPt[1]]);
 
   if (groupBounds) map.fitBounds(groupBounds, { padding: [48, 48], maxZoom: 17 });
   mapHostEl._edbMap = map;
@@ -1196,6 +1223,9 @@ function initSessionMap(points) {
     .addTo(map);
   const latlngs = track.map(([a, b]) => L.latLng(a, b));
   const line = L.polyline(latlngs, { color: "#0d47a1", weight: 5, opacity: 0.88 }).addTo(map);
+  const s0 = track[0];
+  const s1 = track[track.length - 1];
+  addStartFinishMarkers(map, [s0[0], s0[1]], [s1[0], s1[1]]);
   map.fitBounds(line.getBounds(), { padding: [40, 40], maxZoom: 17 });
   el._edbMap = map;
   setTimeout(() => map.invalidateSize(), 200);
@@ -1263,11 +1293,11 @@ async function renderSessionDetail(id) {
     const mapasPanel = `
           <div id="panel-mapas" class="tab-panel" role="tabpanel">
             <p class="muted small">Recorrido del bote con los puntos GPS que envía la app (una posición por segundo, si hay señal).</p>
-            <div id="session-map-export-root" class="session-map-export-root">
+            <div id="session-map-export-root" class="session-map-export-root session-map-export-root--ig-story">
               <div id="session-map-export-summary" class="session-map-export-summary">
                 ${sessionMapSummaryHtml}
               </div>
-              <div id="session-map" class="session-map-host" role="region" aria-label="Mapa del recorrido"></div>
+              <div id="session-map" class="session-map-host session-map-host--ig" role="region" aria-label="Mapa del recorrido"></div>
             </div>
             <p class="muted small map-export-hint">Descargá el mapa con el resumen del entrenamiento (JPG).</p>
             <button type="button" class="secondary btn-sm" id="btn-session-map-jpg">Descargar mapa (JPG)</button>
@@ -1367,26 +1397,12 @@ async function renderSessionDetail(id) {
       activateSessionTab("mapas");
       await new Promise((r) => requestAnimationFrame(r));
       await new Promise((r) => requestAnimationFrame(r));
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 300));
       const wrap = document.getElementById("session-map");
-      if (wrap?._edbMap) {
-        wrap._edbMap.invalidateSize();
-        await new Promise((r) => setTimeout(r, 700));
-      } else {
-        await new Promise((r) => setTimeout(r, 200));
-      }
       const root = document.getElementById("session-map-export-root");
       if (!root) return;
       try {
-        const dataUrl = await toJpeg(root, {
-          quality: 0.92,
-          pixelRatio: 2,
-          cacheBust: true,
-        });
-        const a = document.createElement("a");
-        a.href = dataUrl;
-        a.download = buildSessionMapJpegFileName(s, data.id, data.created_at);
-        a.click();
+        await exportVerticalMapJpeg(root, wrap, buildSessionMapJpegFileName(s, data.id, data.created_at));
       } catch (e) {
         console.error(e);
         alert(
@@ -2355,13 +2371,314 @@ async function renderCompetencias() {
   }
 }
 
-function renderRutinas() {
-  layout(`
-    <div class="card">
-      <h2 class="card-title">Rutinas</h2>
-      <p class="muted">Próximamente: rutinas de entrenamiento y planificación para el equipo.</p>
-    </div>
-  `);
+function routineKindLabel(k) {
+  const m = {
+    warmup: "Entrar en calor",
+    salida: "Salida",
+    r1: "R1",
+    r2: "R2",
+    r3: "R3",
+    r4: "R4",
+    descanso: "Descansar",
+  };
+  return m[k] || k;
+}
+
+function routineMetricLabel(metric) {
+  const x = { time: "Tiempo (seg)", distance: "Distancia (m)", strokes: "Paladas" };
+  return x[metric] || metric;
+}
+
+function routineKindOptionsHtml(selected) {
+  const opts = [
+    ["warmup", "Entrar en calor"],
+    ["salida", "Salida"],
+    ["r1", "R1"],
+    ["r2", "R2"],
+    ["r3", "R3"],
+    ["r4", "R4"],
+    ["descanso", "Descansar"],
+  ];
+  return opts
+    .map(
+      ([v, lab]) =>
+        `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(lab)}</option>`
+    )
+    .join("");
+}
+
+function routineMetricOptionsHtml(selected) {
+  const opts = [
+    ["time", "Tiempo (seg)"],
+    ["distance", "Distancia (m)"],
+    ["strokes", "Paladas"],
+  ];
+  return opts
+    .map(
+      ([v, lab]) =>
+        `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(lab)}</option>`
+    )
+    .join("");
+}
+
+async function renderRutinasHub() {
+  layout(`<p class="loading-line">Cargando rutinas…</p>`);
+  try {
+    const teams = await api.apiMyTeams();
+    if (!teams.length) {
+      layout(
+        `<div class="card"><p>No tenés equipos. Creá uno en <a class="link" href="#/teams">Equipo</a>.</p></div>`
+      );
+      return;
+    }
+    let tid = Number(sessionStorage.getItem(RUTINAS_TEAM_KEY)) || teams[0].team.id;
+    if (!teams.some((t) => t.team.id === tid)) tid = teams[0].team.id;
+    const routines = await api.apiListRoutines(tid);
+    const teamOpts = teams
+      .map(
+        (x) =>
+          `<option value="${x.team.id}" ${x.team.id === tid ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`
+      )
+      .join("");
+    const rows = routines
+      .map(
+        (r) => `
+      <tr>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${r.exercises?.length ?? 0}</td>
+        <td><a class="link" href="#/rutinas/${r.id}">Editar</a></td>
+        <td><button type="button" class="secondary btn-sm btn-rutina-del" data-id="${r.id}">Borrar</button></td>
+      </tr>`
+      )
+      .join("");
+    layout(
+      `
+      <p><a class="link" href="#/">Home</a></p>
+      <div class="card">
+        <h2 class="card-title">Rutinas</h2>
+        <p class="muted small">Elegí el equipo y gestioná rutinas de entrenamiento (ejercicios por tiempo, distancia o paladas).</p>
+        <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin:0.75rem 0">
+          <div>
+            <label for="sel-rutinas-team">Equipo</label>
+            <select id="sel-rutinas-team">${teamOpts}</select>
+          </div>
+          <a class="btn-inline primary" href="#/rutinas/new">Nueva rutina</a>
+        </div>
+        <div class="table-scroll">
+          <table class="sessions-list-table">
+            <thead><tr><th>Nombre</th><th>Ejercicios</th><th></th><th></th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="4" class="muted">No hay rutinas. Creá una con <strong>Nueva rutina</strong>.</td></tr>`}</tbody>
+          </table>
+        </div>
+      </div>
+    `,
+      { wide: true }
+    );
+    document.getElementById("sel-rutinas-team")?.addEventListener("change", (e) => {
+      sessionStorage.setItem(RUTINAS_TEAM_KEY, e.target.value);
+      route();
+    });
+    document.querySelectorAll(".btn-rutina-del").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const rid = Number(btn.getAttribute("data-id"));
+        if (!confirm("¿Borrar esta rutina?")) return;
+        try {
+          await api.apiDeleteRoutine(rid);
+          route();
+        } catch (ex) {
+          alert(humanizeApiError(ex.message) || String(ex.message));
+        }
+      });
+    });
+  } catch (ex) {
+    layout(`<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p></div>`);
+  }
+}
+
+async function renderRutinasNew() {
+  layout(`<p class="loading-line">Cargando…</p>`);
+  try {
+    const teams = await api.apiMyTeams();
+    if (!teams.length) {
+      layout(
+        `<div class="card"><p>No tenés equipos. <a class="link" href="#/teams">Equipo</a></p></div>`
+      );
+      return;
+    }
+    let tid = Number(sessionStorage.getItem(RUTINAS_TEAM_KEY)) || teams[0].team.id;
+    if (!teams.some((t) => t.team.id === tid)) tid = teams[0].team.id;
+    const teamOpts = teams
+      .map(
+        (x) =>
+          `<option value="${x.team.id}" ${x.team.id === tid ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`
+      )
+      .join("");
+    layout(
+      `
+      <p><a class="link" href="#/rutinas">← Rutinas</a></p>
+      <div class="card narrow">
+        <h2 class="card-title">Nueva rutina</h2>
+        <p class="muted small">Primero el nombre; después podrás agregar ejercicios uno a uno.</p>
+        <label for="new-routine-team">Equipo</label>
+        <select id="new-routine-team">${teamOpts}</select>
+        <label for="new-routine-name">Nombre de la rutina</label>
+        <input id="new-routine-name" type="text" maxlength="200" required placeholder="Ej. Base semanal" />
+        <p style="margin-top:0.75rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+          <button type="button" class="primary" id="btn-routine-create">Crear y continuar</button>
+          <a class="link" href="#/rutinas">Cancelar</a>
+        </p>
+        <p id="new-routine-err" class="msg-error"></p>
+      </div>
+    `
+    );
+    document.getElementById("btn-routine-create")?.addEventListener("click", async () => {
+      const name = document.getElementById("new-routine-name")?.value?.trim() ?? "";
+      const teamId = Number(document.getElementById("new-routine-team")?.value);
+      const errEl = document.getElementById("new-routine-err");
+      errEl.textContent = "";
+      if (!name) {
+        errEl.textContent = "Indicá un nombre.";
+        return;
+      }
+      try {
+        const r = await api.apiCreateRoutine({ team_id: teamId, name });
+        sessionStorage.setItem(RUTINAS_TEAM_KEY, String(teamId));
+        location.hash = `#/rutinas/${r.id}`;
+        route();
+      } catch (ex) {
+        errEl.textContent = humanizeApiError(ex.message) || String(ex.message);
+      }
+    });
+  } catch (ex) {
+    layout(`<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p></div>`);
+  }
+}
+
+async function renderRutinasEditor(id) {
+  layout(`<p class="loading-line">Cargando rutina…</p>`);
+  try {
+    const data = await api.apiGetRoutine(id);
+    let exercises = (data.exercises || []).map((e) => ({
+      kind: e.kind,
+      metric: e.metric,
+      value: e.value,
+    }));
+
+    function tableHtml() {
+      if (!exercises.length) {
+        return `<tr><td colspan="4" class="muted">Todavía no agregaste ejercicios.</td></tr>`;
+      }
+      return exercises
+        .map(
+          (ex, idx) => `
+        <tr>
+          <td>${escapeHtml(routineKindLabel(ex.kind))}</td>
+          <td>${escapeHtml(routineMetricLabel(ex.metric))}</td>
+          <td>${escapeHtml(String(ex.value))}</td>
+          <td><button type="button" class="secondary btn-sm btn-ex-del" data-i="${idx}">Quitar</button></td>
+        </tr>`
+        )
+        .join("");
+    }
+
+    function render() {
+      const tbody = document.getElementById("rutina-ex-tbody");
+      if (tbody) tbody.innerHTML = tableHtml();
+    }
+
+    layout(
+      `
+      <p><a class="link" href="#/rutinas">← Rutinas</a></p>
+      <div class="card" style="max-width:720px">
+        <h2 class="card-title">Editar rutina</h2>
+        <label for="routine-name">Nombre</label>
+        <input id="routine-name" type="text" maxlength="200" value="${escapeHtml(data.name)}" />
+        <h3 class="subheading" style="margin-top:1rem">Ejercicios</h3>
+        <p class="muted small">Agregá de a uno: tipo de bloque, medida y valor.</p>
+        <div class="table-scroll">
+          <table class="sessions-list-table">
+            <thead><tr><th>Tipo</th><th>Medida</th><th>Valor</th><th></th></tr></thead>
+            <tbody id="rutina-ex-tbody">${tableHtml()}</tbody>
+          </table>
+        </div>
+        <div class="rutina-add-ex" style="margin-top:0.75rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius);background:#fafcff">
+          <p class="muted small" style="margin-top:0">Nuevo ejercicio</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.5rem;align-items:end">
+            <div>
+              <label for="add-ex-kind">Tipo</label>
+              <select id="add-ex-kind">${routineKindOptionsHtml("warmup")}</select>
+            </div>
+            <div>
+              <label for="add-ex-metric">Medida</label>
+              <select id="add-ex-metric">${routineMetricOptionsHtml("time")}</select>
+            </div>
+            <div>
+              <label for="add-ex-val">Valor</label>
+              <input id="add-ex-val" type="number" min="0" step="any" placeholder="0" />
+            </div>
+            <div>
+              <button type="button" class="secondary" id="btn-add-exercise">Agregar</button>
+            </div>
+          </div>
+        </div>
+        <p style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+          <button type="button" class="primary" id="btn-save-routine">Guardar rutina</button>
+          <a class="link" href="#/rutinas" id="link-cancel-routine">Cancelar</a>
+        </p>
+        <p id="routine-edit-err" class="msg-error"></p>
+      </div>
+    `,
+      { wide: true }
+    );
+
+    document.getElementById("btn-add-exercise")?.addEventListener("click", () => {
+      const kind = document.getElementById("add-ex-kind")?.value ?? "warmup";
+      const metric = document.getElementById("add-ex-metric")?.value ?? "time";
+      const raw = document.getElementById("add-ex-val")?.value ?? "";
+      const val = raw === "" ? NaN : Number(raw);
+      const errEl = document.getElementById("routine-edit-err");
+      errEl.textContent = "";
+      if (Number.isNaN(val) || val < 0) {
+        errEl.textContent = "Completá un valor numérico válido (≥ 0).";
+        return;
+      }
+      exercises.push({ kind, metric, value: val });
+      document.getElementById("add-ex-val").value = "";
+      render();
+    });
+
+    document.getElementById("rutina-ex-tbody")?.addEventListener("click", (e) => {
+      const b = e.target.closest(".btn-ex-del");
+      if (!b) return;
+      const i = Number(b.getAttribute("data-i"));
+      exercises.splice(i, 1);
+      render();
+    });
+
+    document.getElementById("btn-save-routine")?.addEventListener("click", async () => {
+      const name = document.getElementById("routine-name")?.value?.trim() ?? "";
+      const errEl = document.getElementById("routine-edit-err");
+      errEl.textContent = "";
+      if (!name) {
+        errEl.textContent = "El nombre no puede estar vacío.";
+        return;
+      }
+      try {
+        await api.apiSaveRoutine(id, {
+          name,
+          exercises: exercises.map(({ kind, metric, value }) => ({ kind, metric, value: Number(value) })),
+        });
+        location.hash = "#/rutinas";
+        route();
+      } catch (ex) {
+        errEl.textContent = humanizeApiError(ex.message) || String(ex.message);
+      }
+    });
+  } catch (ex) {
+    layout(
+      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/rutinas">Volver</a></p></div>`
+    );
+  }
 }
 
 async function renderAccount() {

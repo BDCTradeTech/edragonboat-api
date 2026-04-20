@@ -185,6 +185,48 @@ export async function apiDeleteTeamLogo(teamId) {
   return res.json();
 }
 
+export async function apiListRoutines(teamId) {
+  const res = await fetch(`${API}/api/v1/routines?team_id=${encodeURIComponent(String(teamId))}`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function apiCreateRoutine(body) {
+  const res = await fetch(`${API}/api/v1/routines`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function apiGetRoutine(routineId) {
+  const res = await fetch(`${API}/api/v1/routines/${routineId}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function apiSaveRoutine(routineId, body) {
+  const res = await fetch(`${API}/api/v1/routines/${routineId}`, {
+    method: "PUT",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function apiDeleteRoutine(routineId) {
+  const res = await fetch(`${API}/api/v1/routines/${routineId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
 export async function apiUpdateTeam(teamId, body) {
   const res = await fetch(`${API}/api/v1/teams/${teamId}`, {
     method: "PATCH",

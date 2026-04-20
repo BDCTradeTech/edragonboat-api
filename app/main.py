@@ -129,6 +129,7 @@ async def lifespan(app: FastAPI):
     import app.models.libre_session_upload  # noqa: F401
     import app.models.membership  # noqa: F401
     import app.models.team  # noqa: F401
+    import app.models.routine  # noqa: F401
     import app.models.user  # noqa: F401
 
     Base.metadata.create_all(bind=engine)

@@ -18,3 +18,6 @@ class Team(Base):
     memberships: Mapped[list["TeamMembership"]] = relationship(
         "TeamMembership", back_populates="team", cascade="all, delete-orphan"
     )
+    routines: Mapped[list["Routine"]] = relationship(
+        "Routine", back_populates="team", cascade="all, delete-orphan"
+    )

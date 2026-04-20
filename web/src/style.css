@@ -707,6 +707,26 @@ pre.json {
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
 }
 
+.map-sf-marker-inner--finish {
+  padding: 4px;
+  font-size: 0;
+  line-height: 0;
+}
+
+.map-sf-marker-inner--finish .map-sf-marker-checker {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #111 25%, transparent 25%),
+    linear-gradient(-45deg, #111 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #111 75%),
+    linear-gradient(-45deg, transparent 75%, #111 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+}
+
 .team-list-head,
 .team-detail-head {
   display: flex;
