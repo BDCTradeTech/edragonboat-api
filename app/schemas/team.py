@@ -1,5 +1,7 @@
 from datetime import date
 
+from typing import Literal
+
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from app.models.membership import TeamRole
@@ -40,6 +42,7 @@ class TeamMemberRead(BaseModel):
     height_cm: float | None = None
     weight_kg: float | None = None
     preferred_side: str | None = None
+    sex: Literal["female", "male"] | None = None
 
 
 class TeamMemberCreate(BaseModel):
@@ -67,3 +70,4 @@ class TeamMemberRosterUpdate(BaseModel):
     height_cm: float | None = Field(None, ge=0, le=400)
     weight_kg: float | None = Field(None, ge=0, le=400)
     preferred_side: str | None = None
+    sex: Literal["female", "male"] | None = None

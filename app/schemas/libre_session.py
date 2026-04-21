@@ -27,6 +27,8 @@ class LibreSessionCreate(BaseModel):
     teamName: str | None = None
     boatType: str | None = None
     paddlersCount: int | None = None
+    strokePeakAccelerationsMs2: list[float] | None = None
+    """Máximo |a| (m/s²) por palada en orden; eje según configuración en la app."""
 
 
 class LibreSessionUploaded(BaseModel):

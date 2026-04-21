@@ -130,6 +130,7 @@ def _member_read(m: TeamMembership, u: User) -> TeamMemberRead:
         height_cm=m.height_cm,
         weight_kg=m.weight_kg,
         preferred_side=m.preferred_side,
+        sex=m.sex if m.sex in ("female", "male") else None,
     )
 
 
@@ -230,7 +231,7 @@ def create_team(
     team = Team(name=body.name.strip(), country=country or None)
     db.add(team)
     db.flush()
-    membership = TeamMembership(user_id=current.id, team_id=team.id, role=TeamRole.captain)
+    membership = TeamMembership(user_id=current.id, team_id=team.id, role=TeamRole.captain, sex="female")
     db.add(membership)
     db.commit()
     db.refresh(team)
@@ -327,7 +328,7 @@ def add_team_member(
     existing = _membership(db, target.id, team_id)
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Esa persona ya está en el equipo")
-    m = TeamMembership(user_id=target.id, team_id=team_id, role=body.role)
+    m = TeamMembership(user_id=target.id, team_id=team_id, role=body.role, sex="female")
     db.add(m)
     db.commit()
     db.refresh(m)
@@ -464,6 +465,14 @@ def update_member_roster(
                 detail="preferred_side debe ser right, left o either",
             )
         m.preferred_side = ps
+    if "sex" in data:
+        sx = data["sex"]
+        if sx is not None and sx not in ("female", "male"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="sex debe ser female o male",
+            )
+        m.sex = sx
     db.commit()
     db.refresh(m)
     u = db.get(User, user_id)

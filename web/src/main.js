@@ -1903,6 +1903,21 @@ function preferredSideOptionsHtml(m) {
     <option value="either" ${v === "either" ? "selected" : ""}>Indistinto</option>`;
 }
 
+/** API: female | male; null → Femenino en UI */
+function sexSelectOptionsHtml(m) {
+  const v = m.sex === "male" ? "male" : "female";
+  return `<option value="female" ${v === "female" ? "selected" : ""}>Femenino</option>
+    <option value="male" ${v === "male" ? "selected" : ""}>Masculino</option>`;
+}
+
+function sexCellHtml(m, canEditRoster) {
+  if (canEditRoster) {
+    return `<td><select class="roster-sex" aria-label="Sexo">${sexSelectOptionsHtml(m)}</select></td>`;
+  }
+  const label = m.sex === "male" ? "Masculino" : "Femenino";
+  return `<td>${label}</td>`;
+}
+
 function rosterCellsHtml(m, canEditRoster) {
   if (canEditRoster) {
     return `
@@ -1928,8 +1943,8 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
   const canEditRoster = canManage;
 
   const thead = canManage
-    ? `<thead><tr><th>Email</th><th>Nombre</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th><th>Gestión</th></tr></thead>`
-    : `<thead><tr><th>Email</th><th>Nombre</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th></tr></thead>`;
+    ? `<thead><tr><th>Email</th><th>Nombre</th><th>Sexo</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th><th>Gestión</th></tr></thead>`
+    : `<thead><tr><th>Email</th><th>Nombre</th><th>Sexo</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th></tr></thead>`;
 
   function emailCell(m) {
     if (canEditEmail) {
@@ -1994,6 +2009,7 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
         return `${trOpen}
           ${emailCell(m)}
           <td>${escapeHtml(m.full_name || "—")}</td>
+          ${sexCellHtml(m, canEditRoster)}
           ${rc}
           ${rolCell(m)}
         </tr>`;
@@ -2001,6 +2017,7 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
       return `${trOpen}
         ${emailCell(m)}
         <td>${escapeHtml(m.full_name || "—")}</td>
+        ${sexCellHtml(m, canEditRoster)}
         ${rc}
         ${rolCell(m)}
         ${gestionCell(m)}
@@ -2043,12 +2060,14 @@ function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditE
         const hRaw = tr.querySelector(".roster-h")?.value ?? "";
         const wRaw = tr.querySelector(".roster-w")?.value ?? "";
         const sideRaw = tr.querySelector(".roster-side")?.value ?? "";
+        const sexRaw = tr.querySelector(".roster-sex")?.value ?? "female";
         const body = {
           document_number: doc || null,
           birth_date: birthRaw ? birthRaw : null,
           height_cm: hRaw === "" ? null : Number(hRaw),
           weight_kg: wRaw === "" ? null : Number(wRaw),
           preferred_side: sideRaw || null,
+          sex: sexRaw === "male" ? "male" : "female",
         };
         if (body.height_cm != null && (Number.isNaN(body.height_cm) || body.height_cm < 0)) {
           alert("Altura inválida.");

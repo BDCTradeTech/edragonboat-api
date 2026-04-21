@@ -84,6 +84,9 @@ def _migrate_team_membership_roster() -> None:
             )
         if "preferred_side" not in cols:
             conn.execute(text("ALTER TABLE team_memberships ADD COLUMN preferred_side VARCHAR(20)"))
+        if "sex" not in cols:
+            conn.execute(text("ALTER TABLE team_memberships ADD COLUMN sex VARCHAR(20)"))
+            conn.execute(text("UPDATE team_memberships SET sex = 'female' WHERE sex IS NULL"))
 
 
 def _migrate_users_platform_admin() -> None:
@@ -292,7 +295,7 @@ def panel_add_team_member(
             detail="Esa persona ya está en el equipo",
         )
 
-    m = TeamMembership(user_id=target.id, team_id=team_id, role=body.role)
+    m = TeamMembership(user_id=target.id, team_id=team_id, role=body.role, sex="female")
     db.add(m)
     db.commit()
     db.refresh(m)
