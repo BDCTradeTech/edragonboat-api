@@ -285,7 +285,7 @@ function renderHome() {
         revisalos en este panel con gráficos, mapas GPS y exportación, y organizá tu plantel.
       </p>
       <ul class="home-features">
-        <li><strong>Entrenamientos:</strong> sesiones subidas desde la app, filtradas por tu equipo; detalle con resumen, tablas, gráficos (distancia, velocidad, SPM, paladas) y mapa del recorrido.</li>
+        <li><strong>Entrenamientos:</strong> sesiones subidas desde la app, filtradas por tu equipo; detalle con resumen, tablas, gráficos (distancia, velocidad, SPM, DPS, paladas) y mapa del recorrido.</li>
         <li><strong>Mapas y JPG:</strong> recorrido sobre mapa (mapa o satélite); podés descargar una imagen con el mapa y un resumen (fecha, equipo, bote, palistas, distancia en m).</li>
         <li><strong>Equipo:</strong> datos del club y roles (capitán, entrenador, palista). El <strong>capitán</strong> puede editar nombre y país del equipo, eliminarlo e <strong>invitar</strong> por email. El <strong>entrenador</strong> ve lo mismo en entrenamientos y plantel, y puede cambiar roles y quitar miembros, pero no invita ni modifica los datos del equipo.</li>
         <li><strong>Cuenta:</strong> tu perfil, contraseña e idioma. El plantel está en <strong>Equipo</strong>.</li>
@@ -718,6 +718,7 @@ function metricLabelForKey(key) {
     speedKmh: "Velocidad (km/h)",
     spm: "SPM",
     paladas: "Paladas",
+    dpsMeters: "DPS (m/palada)",
     strokePeakAccelerationMs2: "Fuerza Palada M/S2",
   };
   return m[key] ?? key;
@@ -729,7 +730,7 @@ function dataPointColumnLabel(key) {
 
 /** Columnas del JSON de cada punto: orden conocido + resto alfabético. */
 function dataPointColumnOrder(keys) {
-  const preferred = ["second", "distanceMeters", "speedKmh", "paladas", "spm", "strokePeakAccelerationMs2"];
+  const preferred = ["second", "distanceMeters", "speedKmh", "paladas", "spm", "dpsMeters", "strokePeakAccelerationMs2"];
   const rest = keys.filter((k) => !preferred.includes(k)).sort();
   return preferred.filter((k) => keys.includes(k)).concat(rest);
 }
@@ -780,7 +781,10 @@ function numericKeysFromPoints(points) {
       if (typeof v === "number" && Number.isFinite(v)) keys.add(k);
     }
   }
-  const preferred = ["distanceMeters", "speedKmh", "spm", "paladas", "strokePeakAccelerationMs2"];
+  if (points.length >= 2 && points.some((p) => typeof p.paladas === "number")) {
+    keys.add("dpsMeters");
+  }
+  const preferred = ["distanceMeters", "speedKmh", "spm", "dpsMeters", "paladas", "strokePeakAccelerationMs2"];
   const rest = [...keys].filter((k) => !preferred.includes(k)).sort();
   return preferred.filter((k) => keys.has(k)).concat(rest);
 }
@@ -794,13 +798,19 @@ function buildExploreControlsHtml(points) {
   return `
     <div class="explore-chart card-inset">
       <h4>Comparar métricas numéricas</h4>
-      <p class="muted small">Eje inferior: tiempo (segundos). Eje superior: distancia en metros (cuando hay <code>distanceMeters</code>). Elegí una o dos series en Y.</p>
+      <p class="muted small">Eje inferior: tiempo (segundos). Eje superior: distancia en metros (cuando hay <code>distanceMeters</code>). Podés superponer hasta tres series en Y.</p>
       <div class="explore-controls">
         <label>Eje Y (izquierda)
           <select id="explore-y1">${opts}</select>
         </label>
-        <label>Eje Y (derecha, opcional)
+        <label>Eje Y (derecha 1, opcional)
           <select id="explore-y2">
+            <option value="">— Ninguna —</option>
+            ${opts}
+          </select>
+        </label>
+        <label>Eje Y (derecha 2, opcional)
+          <select id="explore-y3">
             <option value="">— Ninguna —</option>
             ${opts}
           </select>
@@ -821,27 +831,66 @@ function destroyExploreChart() {
   });
 }
 
+/** DPS aproximado (Δdist / Δpaladas) si el punto no trae dpsMeters (sesiones antiguas). */
+function dpsSeriesFallbackFromPoints(points) {
+  if (!points?.length) return [];
+  let lastFilled = 0;
+  const out = [];
+  for (let i = 0; i < points.length; i++) {
+    if (i === 0) {
+      out.push(0);
+      continue;
+    }
+    const dp = points[i].paladas - points[i - 1].paladas;
+    const dd = points[i].distanceMeters - points[i - 1].distanceMeters;
+    if (dp > 0 && typeof dd === "number" && Number.isFinite(dd)) {
+      lastFilled = Math.max(0, dd / dp);
+    }
+    out.push(lastFilled);
+  }
+  return out;
+}
+
+function buildDpsSeriesForChart(points) {
+  const fallback = dpsSeriesFallbackFromPoints(points);
+  return points.map((p, i) => {
+    if (typeof p.dpsMeters === "number" && Number.isFinite(p.dpsMeters)) return p.dpsMeters;
+    return fallback[i] ?? 0;
+  });
+}
+
 function renderExploreChart(points) {
   const y1Key = document.getElementById("explore-y1")?.value;
   const y2Sel = document.getElementById("explore-y2");
+  const y3Sel = document.getElementById("explore-y3");
   const y2Key = y2Sel?.value || "";
+  const y3Key = y3Sel?.value || "";
   const canvas = document.getElementById("chart-explore");
   if (!canvas || !y1Key || !points?.length) return;
 
   destroyExploreChart();
 
   const labels = points.map((p) => p.second);
-  const ds1 = points.map((p) => (typeof p[y1Key] === "number" ? p[y1Key] : null));
-  const hasDistance = points.some(
-    (p) => typeof p.distanceMeters === "number" && Number.isFinite(p.distanceMeters)
-  );
-
   const lineDataset = {
     borderWidth: 2,
     pointRadius: 0,
     pointHoverRadius: 0,
     tension: 0.2,
   };
+
+  const dpsSeries = buildDpsSeriesForChart(points);
+  const valAt = (p, key, i) => {
+    if (key === "dpsMeters") {
+      const v = dpsSeries[i];
+      return typeof v === "number" && Number.isFinite(v) ? v : null;
+    }
+    return typeof p[key] === "number" ? p[key] : null;
+  };
+
+  const ds1 = points.map((p, i) => valAt(p, y1Key, i));
+  const hasDistance = points.some(
+    (p) => typeof p.distanceMeters === "number" && Number.isFinite(p.distanceMeters)
+  );
 
   const datasets = [
     {
@@ -885,11 +934,12 @@ function renderExploreChart(points) {
   }
 
   if (y2Key && y2Key !== y1Key) {
-    const ds2 = points.map((p) => (typeof p[y2Key] === "number" ? p[y2Key] : null));
+    const ds2 = points.map((p, i) => valAt(p, y2Key, i));
     datasets.push({
       label: metricLabelForKey(y2Key),
       data: ds2,
       borderColor: "#e65100",
+      backgroundColor: "rgba(230, 81, 0, 0.06)",
       yAxisID: "y2",
       xAxisID: "x",
       ...lineDataset,
@@ -898,6 +948,25 @@ function renderExploreChart(points) {
       position: "right",
       title: { display: true, text: metricLabelForKey(y2Key) },
       grid: { drawOnChartArea: false },
+    };
+  }
+
+  if (y3Key && y3Key !== y1Key && y3Key !== y2Key) {
+    const ds3 = points.map((p, i) => valAt(p, y3Key, i));
+    datasets.push({
+      label: metricLabelForKey(y3Key),
+      data: ds3,
+      borderColor: "#5e35b1",
+      backgroundColor: "rgba(94, 53, 177, 0.06)",
+      yAxisID: "y3",
+      xAxisID: "x",
+      ...lineDataset,
+    });
+    scales.y3 = {
+      position: "right",
+      title: { display: true, text: metricLabelForKey(y3Key) },
+      grid: { drawOnChartArea: false },
+      offset: true,
     };
   }
 
@@ -934,6 +1003,7 @@ function renderExploreChart(points) {
 function wireExploreChart(points) {
   const y1 = document.getElementById("explore-y1");
   const y2 = document.getElementById("explore-y2");
+  const y3 = document.getElementById("explore-y3");
   const keys = numericKeysFromPoints(points);
   if (!y1 || !keys.length) return;
   if (keys.includes("speedKmh")) y1.value = "speedKmh";
@@ -944,10 +1014,18 @@ function wireExploreChart(points) {
       keys.find((k) => k !== y1.value);
     y2.value = second || "";
   }
+  if (y3) {
+    const used = new Set([y1.value, y2?.value || ""].filter(Boolean));
+    const third =
+      keys.find((k) => !used.has(k) && k === "strokePeakAccelerationMs2") ||
+      keys.find((k) => !used.has(k));
+    y3.value = third || "";
+  }
   const apply = () => renderExploreChart(points);
   document.getElementById("btn-explore-apply")?.addEventListener("click", apply);
   y1.addEventListener("change", apply);
   y2?.addEventListener("change", apply);
+  y3?.addEventListener("change", apply);
   apply();
 }
 
@@ -978,8 +1056,11 @@ function initSessionCharts(dataPoints) {
 
   const elSpeed = document.getElementById("chart-speed");
   const elSpm = document.getElementById("chart-spm");
+  const elDps = document.getElementById("chart-dps");
   const elForce = document.getElementById("chart-stroke-force");
-  if (!elSpeed || !elSpm || !elForce) return;
+  if (!elSpeed || !elSpm || !elDps || !elForce) return;
+
+  const dpsSeries = buildDpsSeriesForChart(dataPoints);
 
   chartInstances.push(
     new Chart(elSpeed, {
@@ -990,7 +1071,7 @@ function initSessionCharts(dataPoints) {
           {
             label: "Velocidad (km/h)",
             data: dataPoints.map((p) => p.speedKmh),
-            borderColor: "#e65100",
+            borderColor: "#1565c0",
             ...lineDs,
           },
         ],
@@ -1014,7 +1095,7 @@ function initSessionCharts(dataPoints) {
           {
             label: "SPM",
             data: dataPoints.map((p) => p.spm),
-            borderColor: "#2e7d32",
+            borderColor: "#e65100",
             ...lineDs,
           },
         ],
@@ -1030,19 +1111,15 @@ function initSessionCharts(dataPoints) {
   );
 
   chartInstances.push(
-    new Chart(elForce, {
+    new Chart(elDps, {
       type: "line",
       data: {
         labels,
         datasets: [
           {
-            label: "Fuerza Palada M/S2",
-            data: dataPoints.map((p) =>
-              typeof p.strokePeakAccelerationMs2 === "number" && Number.isFinite(p.strokePeakAccelerationMs2)
-                ? p.strokePeakAccelerationMs2
-                : null
-            ),
-            borderColor: "#5e35b1",
+            label: "DPS (m/palada)",
+            data: dpsSeries,
+            borderColor: "#00897b",
             ...lineDs,
           },
         ],
@@ -1051,7 +1128,46 @@ function initSessionCharts(dataPoints) {
         ...common,
         scales: {
           ...common.scales,
-          y: { title: { display: true, text: "Fuerza Palada M/S2" } },
+          y: { title: { display: true, text: "DPS (m/palada)" } },
+        },
+      },
+    })
+  );
+
+  chartInstances.push(
+    new Chart(elForce, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Fuerza palada (m/s²)",
+            data: dataPoints.map((p) =>
+              typeof p.strokePeakAccelerationMs2 === "number" && Number.isFinite(p.strokePeakAccelerationMs2)
+                ? p.strokePeakAccelerationMs2
+                : null
+            ),
+            backgroundColor: "rgba(94, 53, 177, 0.75)",
+            borderColor: "rgba(62, 39, 120, 0.95)",
+            borderWidth: 0,
+            borderRadius: 2,
+            maxBarThickness: 14,
+          },
+        ],
+      },
+      options: {
+        ...common,
+        datasets: {
+          bar: {
+            borderSkipped: false,
+          },
+        },
+        scales: {
+          ...common.scales,
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: "m/s²" },
+          },
         },
       },
     })
@@ -1340,7 +1456,8 @@ async function renderSessionDetail(id) {
             <div class="chart-grid">
               <div class="chart-box"><h4>Velocidad (km/h)</h4><div class="chart-canvas-wrap"><canvas id="chart-speed"></canvas></div></div>
               <div class="chart-box"><h4>Ritmo (SPM)</h4><div class="chart-canvas-wrap"><canvas id="chart-spm"></canvas></div></div>
-              <div class="chart-box"><h4>Fuerza Palada M/S2</h4><div class="chart-canvas-wrap"><canvas id="chart-stroke-force"></canvas></div></div>
+              <div class="chart-box"><h4>DPS (m/palada)</h4><div class="chart-canvas-wrap"><canvas id="chart-dps"></canvas></div></div>
+              <div class="chart-box"><h4>Fuerza palada (m/s²)</h4><p class="muted small" style="margin:0 0 0.5rem">Picos por segundo (barra solo si hubo medición en ese segundo).</p><div class="chart-canvas-wrap"><canvas id="chart-stroke-force"></canvas></div></div>
             </div>
             ${exploreBlock}
           </div>`;
