@@ -887,22 +887,42 @@ function renderExploreChart(points) {
     return typeof p[key] === "number" ? p[key] : null;
   };
 
-  const ds1 = points.map((p, i) => valAt(p, y1Key, i));
   const hasDistance = points.some(
     (p) => typeof p.distanceMeters === "number" && Number.isFinite(p.distanceMeters)
   );
 
-  const datasets = [
-    {
-      label: metricLabelForKey(y1Key),
-      data: ds1,
-      borderColor: "#1565c0",
-      backgroundColor: "rgba(21, 101, 192, 0.08)",
-      yAxisID: "y1",
+  function exploreDataset(key, yAxisId, borderColor, fillRgba) {
+    const data = points.map((p, i) => valAt(p, key, i));
+    const isForce = key === "strokePeakAccelerationMs2";
+    if (isForce) {
+      return {
+        type: "bar",
+        label: metricLabelForKey(key),
+        data,
+        yAxisID: yAxisId,
+        xAxisID: "x",
+        backgroundColor: "rgba(94, 53, 177, 0.72)",
+        borderColor: "rgba(62, 39, 120, 0.95)",
+        borderWidth: 0,
+        borderRadius: 2,
+        maxBarThickness: 14,
+        order: 0,
+      };
+    }
+    return {
+      type: "line",
+      label: metricLabelForKey(key),
+      data,
+      borderColor,
+      backgroundColor: fillRgba,
+      yAxisID: yAxisId,
       xAxisID: "x",
+      order: 1,
       ...lineDataset,
-    },
-  ];
+    };
+  }
+
+  const datasets = [exploreDataset(y1Key, "y1", "#1565c0", "rgba(21, 101, 192, 0.08)")];
 
   const scales = {
     x: {
@@ -912,6 +932,7 @@ function renderExploreChart(points) {
     y1: {
       position: "left",
       title: { display: true, text: metricLabelForKey(y1Key) },
+      ...(y1Key === "strokePeakAccelerationMs2" ? { beginAtZero: true } : {}),
     },
   };
 
@@ -934,44 +955,32 @@ function renderExploreChart(points) {
   }
 
   if (y2Key && y2Key !== y1Key) {
-    const ds2 = points.map((p, i) => valAt(p, y2Key, i));
-    datasets.push({
-      label: metricLabelForKey(y2Key),
-      data: ds2,
-      borderColor: "#e65100",
-      backgroundColor: "rgba(230, 81, 0, 0.06)",
-      yAxisID: "y2",
-      xAxisID: "x",
-      ...lineDataset,
-    });
+    datasets.push(exploreDataset(y2Key, "y2", "#e65100", "rgba(230, 81, 0, 0.06)"));
     scales.y2 = {
       position: "right",
       title: { display: true, text: metricLabelForKey(y2Key) },
       grid: { drawOnChartArea: false },
+      ...(y2Key === "strokePeakAccelerationMs2" ? { beginAtZero: true } : {}),
     };
   }
 
   if (y3Key && y3Key !== y1Key && y3Key !== y2Key) {
-    const ds3 = points.map((p, i) => valAt(p, y3Key, i));
-    datasets.push({
-      label: metricLabelForKey(y3Key),
-      data: ds3,
-      borderColor: "#5e35b1",
-      backgroundColor: "rgba(94, 53, 177, 0.06)",
-      yAxisID: "y3",
-      xAxisID: "x",
-      ...lineDataset,
-    });
+    datasets.push(exploreDataset(y3Key, "y3", "#5e35b1", "rgba(94, 53, 177, 0.06)"));
     scales.y3 = {
       position: "right",
       title: { display: true, text: metricLabelForKey(y3Key) },
       grid: { drawOnChartArea: false },
       offset: true,
+      ...(y3Key === "strokePeakAccelerationMs2" ? { beginAtZero: true } : {}),
     };
   }
 
+  const anyBar = datasets.some((d) => d.type === "bar");
+  const allBar = datasets.length > 0 && datasets.every((d) => d.type === "bar");
+  /** Líneas + barras: raíz `line`; solo barras (p. ej. solo fuerza): raíz `bar`. */
+  const rootChartType = allBar ? "bar" : "line";
   const ch = new Chart(canvas, {
-    type: "line",
+    type: rootChartType,
     data: { labels, datasets },
     options: {
       responsive: true,
@@ -993,6 +1002,13 @@ function renderExploreChart(points) {
       elements: {
         point: { radius: 0, hoverRadius: 0 },
       },
+      ...(anyBar
+        ? {
+            datasets: {
+              bar: { borderSkipped: false },
+            },
+          }
+        : {}),
       scales,
     },
   });
@@ -1651,8 +1667,12 @@ function bindTeamInviteForm(teamId) {
       document.getElementById(`inv-email-${teamId}`).value = "";
       const nameIn = document.getElementById(`inv-name-${teamId}`);
       if (nameIn) nameIn.value = "";
-      location.hash = `#/teams/${teamId}`;
-      route();
+      try {
+        sessionStorage.setItem("edb-teams-selected-team", String(teamId));
+      } catch (_) {
+        /* ignore */
+      }
+      await renderTeamsList();
     } catch (ex) {
       errEl.textContent = humanizeApiError(ex.message) || String(ex.message);
     }
@@ -1692,6 +1712,15 @@ async function renderTeamsList() {
     }
 
     let selectedTeamId = list[0].team.id;
+    try {
+      const saved = sessionStorage.getItem("edb-teams-selected-team");
+      if (saved) {
+        const n = Number(saved);
+        if (list.some((x) => x.team.id === n)) selectedTeamId = n;
+      }
+    } catch (_) {
+      /* ignore */
+    }
     let members = await api.apiListMembers(selectedTeamId);
 
     const rows = list
@@ -1792,6 +1821,7 @@ async function renderTeamsList() {
       const tid = Number(e.target.value);
       if (!Number.isFinite(tid)) return;
       try {
+        sessionStorage.setItem("edb-teams-selected-team", String(tid));
         const m = await api.apiListMembers(tid);
         const c = plantelContextForTeam(tid);
         document.getElementById("team-plantel-wrap").innerHTML = renderTeamPlantelWrapHtml(
@@ -2227,8 +2257,12 @@ function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditE
         }
         await api.apiPatchMemberRoster(teamId, uid, body);
       }
-      location.hash = `#/teams/${teamId}`;
-      route();
+      try {
+        sessionStorage.setItem("edb-teams-selected-team", String(teamId));
+      } catch (_) {
+        /* ignore */
+      }
+      await renderTeamsList();
     } catch (ex) {
       alert(humanizeApiError(ex.message) || String(ex.message));
     }
@@ -2240,8 +2274,12 @@ function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditE
         if (!confirm("¿Quitar a esta persona del equipo?")) return;
         try {
           await api.apiRemoveMember(teamId, uid);
-          location.hash = `#/teams/${teamId}`;
-          route();
+          try {
+            sessionStorage.setItem("edb-teams-selected-team", String(teamId));
+          } catch (_) {
+            /* ignore */
+          }
+          await renderTeamsList();
         } catch (ex) {
           alert(ex.message || "Error");
         }
