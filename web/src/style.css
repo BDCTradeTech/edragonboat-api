@@ -809,55 +809,37 @@ pre.json {
   background-position: 0 0, 0 3px, 3px -3px, -3px 0px;
 }
 
-/* Número de orden (1, 2, …) al centro del recorrido de cada JSON / sesión */
+/* Flecha (color del trazo) + número sobre la línea, sin círculo */
 .map-route-index-marker {
   background: transparent !important;
   border: none !important;
 }
 
-.map-route-index-cluster {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0;
-  pointer-events: auto;
-}
-
-/* Flecha ▲: Norte = arriba en pantalla; rotamos según rumbo real */
-.map-route-index-arrow {
-  display: block;
-  font-size: 8px;
-  line-height: 1;
-  color: #37474f;
-  transform-origin: 50% 65%;
-  text-shadow: 0 0 2px #fff, 0 0 2px #fff;
-  margin-bottom: 1px;
-}
-
-.map-route-index-inner {
-  display: flex;
+.map-route-index-inline {
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 4px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid;
-  font-weight: 800;
-  font-size: 0.68rem;
+  gap: 0;
   line-height: 1;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  pointer-events: auto;
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
 }
 
-.map-route-index-dir {
-  margin-top: 2px;
-  font-size: 0.55rem;
+.map-route-index-arrow {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  transform-origin: 50% 55%;
+  flex-shrink: 0;
+}
+
+.map-route-index-num {
+  font-size: 0.68rem;
   font-weight: 800;
   line-height: 1;
-  color: #455a64;
-  letter-spacing: -0.02em;
+  margin-left: 1px;
 }
 
 .team-list-head,

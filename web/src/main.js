@@ -1265,58 +1265,24 @@ function bearingAtFractionAlongPolyline(pts, fraction) {
   return br;
 }
 
-/** Punto cardinal (8) para etiqueta corta. */
-function cardinal8(deg) {
-  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  const d = ((deg % 360) + 360) % 360;
-  const i = Math.floor((d + 22.5) / 45) % 8;
-  return dirs[i];
-}
-
 /**
- * Número de orden + dirección aproximada (flecha según rumbo + siglas N/NE/…).
- * @param {number} bearingDegVal - rumbo 0–360 para rotar ▲ y el title.
+ * Flecha (mismo color que la línea) + número, centrado sobre el trazo. → apunta al Este en CSS;
+ * rumbo náutico 0°=N: rotamos (bearing − 90°).
  */
 function leafletRouteIndexIcon(num, strokeColor, bearingDegVal) {
   const n = Number.isFinite(Number(num)) ? String(Math.floor(Number(num))) : "1";
   const safeColor = String(strokeColor).replace(/[<>"']/g, "");
   const b = Number.isFinite(Number(bearingDegVal)) ? Number(bearingDegVal) : 0;
-  const card = cardinal8(b);
-  const title = `Rumbo ~${Math.round(b)}° (${card}). La flecha indica hacia dónde se avanzaba en ese tramo.`;
+  const rot = b - 90;
+  const titleText = `Tramo ${n} — sentido del recorrido en el punto medio`;
   return L.divIcon({
     className: "map-route-index-marker",
-    html: `<div class="map-route-index-cluster" title="${escapeHtml(title)}">
-  <span class="map-route-index-arrow" style="transform:rotate(${b}deg)" aria-hidden="true">▲</span>
-  <span class="map-route-index-inner" style="border-color:${safeColor};color:${safeColor}">${escapeHtml(n)}</span>
-  <span class="map-route-index-dir">${escapeHtml(card)}</span>
+    html: `<div class="map-route-index-inline" title="${escapeHtml(titleText)}">
+  <span class="map-route-index-arrow" style="color:${safeColor};transform:rotate(${rot}deg)" aria-hidden="true">→</span><span class="map-route-index-num" style="color:${safeColor}">${escapeHtml(n)}</span>
 </div>`,
-    iconSize: [34, 46],
-    iconAnchor: [17, 23],
+    iconSize: [32, 18],
+    iconAnchor: [16, 9],
   });
-}
-
-function leafletStartIcon() {
-  return L.divIcon({
-    className: "map-sf-marker",
-    html: '<span class="map-sf-marker-inner">S</span>',
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-  });
-}
-
-function leafletFinishIcon() {
-  return L.divIcon({
-    className: "map-sf-marker",
-    html:
-      '<span class="map-sf-marker-inner map-sf-marker-inner--finish"><span class="map-sf-marker-checker" aria-hidden="true"></span></span>',
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
-  });
-}
-
-function addStartFinishMarkers(map, startLatLng, endLatLng) {
-  L.marker(startLatLng, { icon: leafletStartIcon(), zIndexOffset: 2000 }).addTo(map);
-  L.marker(endLatLng, { icon: leafletFinishIcon(), zIndexOffset: 2000 }).addTo(map);
 }
 
 /**
@@ -1459,12 +1425,6 @@ function initMultiSessionDayMap(loaded, mapHostEl) {
     }
   }
 
-  const firstLayer = layers[0];
-  const lastLayer = layers[layers.length - 1];
-  const startPt = firstLayer.pts[0];
-  const endPt = lastLayer.pts[lastLayer.pts.length - 1];
-  addStartFinishMarkers(map, [startPt[0], startPt[1]], [endPt[0], endPt[1]]);
-
   if (groupBounds) map.fitBounds(groupBounds, { padding: [48, 48], maxZoom: 17 });
   mapHostEl._edbMap = map;
   setTimeout(() => map.invalidateSize(), 200);
@@ -1511,9 +1471,6 @@ function initSessionMap(points) {
   const trackColor = "#0d47a1";
   const latlngs = track.map(([a, b]) => L.latLng(a, b));
   const line = L.polyline(latlngs, { color: trackColor, weight: 5, opacity: 0.88 }).addTo(map);
-  const s0 = track[0];
-  const s1 = track[track.length - 1];
-  addStartFinishMarkers(map, [s0[0], s0[1]], [s1[0], s1[1]]);
   const midSingle = latLonAtFractionAlongPolyline(track, 0.5);
   if (midSingle) {
     const br = bearingAtFractionAlongPolyline(track, 0.5);
