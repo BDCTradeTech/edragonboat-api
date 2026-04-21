@@ -718,6 +718,7 @@ function metricLabelForKey(key) {
     speedKmh: "Velocidad (km/h)",
     spm: "SPM",
     paladas: "Paladas",
+    strokePeakAccelerationMs2: "Fuerza Palada M/S2",
   };
   return m[key] ?? key;
 }
@@ -734,7 +735,7 @@ function dataPointColumnOrder(keys) {
 }
 
 function buildSessionMetadataTable(session) {
-  const skip = new Set(["dataPoints"]);
+  const skip = new Set(["dataPoints", "strokePeakAccelerationsMs2"]);
   const rows = Object.keys(session)
     .filter((k) => !skip.has(k))
     .map((k) => {
@@ -779,7 +780,7 @@ function numericKeysFromPoints(points) {
       if (typeof v === "number" && Number.isFinite(v)) keys.add(k);
     }
   }
-  const preferred = ["distanceMeters", "speedKmh", "spm", "paladas"];
+  const preferred = ["distanceMeters", "speedKmh", "spm", "paladas", "strokePeakAccelerationMs2"];
   const rest = [...keys].filter((k) => !preferred.includes(k)).sort();
   return preferred.filter((k) => keys.has(k)).concat(rest);
 }
@@ -977,7 +978,8 @@ function initSessionCharts(dataPoints) {
 
   const elSpeed = document.getElementById("chart-speed");
   const elSpm = document.getElementById("chart-spm");
-  if (!elSpeed || !elSpm) return;
+  const elForce = document.getElementById("chart-stroke-force");
+  if (!elSpeed || !elSpm || !elForce) return;
 
   chartInstances.push(
     new Chart(elSpeed, {
@@ -1022,6 +1024,34 @@ function initSessionCharts(dataPoints) {
         scales: {
           ...common.scales,
           y: { title: { display: true, text: "SPM" } },
+        },
+      },
+    })
+  );
+
+  chartInstances.push(
+    new Chart(elForce, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Fuerza Palada M/S2",
+            data: dataPoints.map((p) =>
+              typeof p.strokePeakAccelerationMs2 === "number" && Number.isFinite(p.strokePeakAccelerationMs2)
+                ? p.strokePeakAccelerationMs2
+                : null
+            ),
+            borderColor: "#5e35b1",
+            ...lineDs,
+          },
+        ],
+      },
+      options: {
+        ...common,
+        scales: {
+          ...common.scales,
+          y: { title: { display: true, text: "Fuerza Palada M/S2" } },
         },
       },
     })
@@ -1310,6 +1340,7 @@ async function renderSessionDetail(id) {
             <div class="chart-grid">
               <div class="chart-box"><h4>Velocidad (km/h)</h4><div class="chart-canvas-wrap"><canvas id="chart-speed"></canvas></div></div>
               <div class="chart-box"><h4>Ritmo (SPM)</h4><div class="chart-canvas-wrap"><canvas id="chart-spm"></canvas></div></div>
+              <div class="chart-box"><h4>Fuerza Palada M/S2</h4><div class="chart-canvas-wrap"><canvas id="chart-stroke-force"></canvas></div></div>
             </div>
             ${exploreBlock}
           </div>`;
