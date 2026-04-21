@@ -1266,8 +1266,8 @@ function bearingAtFractionAlongPolyline(pts, fraction) {
 }
 
 /**
- * Flecha (mismo color que la línea) + número, centrado sobre el trazo. → apunta al Este en CSS;
- * rumbo náutico 0°=N: rotamos (bearing − 90°).
+ * Flecha grande arriba (mismo color que la línea) + número en círculo debajo, centrado en el trazo.
+ * → apunta al Este en CSS; rumbo náutico 0°=N: rotamos (bearing − 90°).
  */
 function leafletRouteIndexIcon(num, strokeColor, bearingDegVal) {
   const n = Number.isFinite(Number(num)) ? String(Math.floor(Number(num))) : "1";
@@ -1277,11 +1277,12 @@ function leafletRouteIndexIcon(num, strokeColor, bearingDegVal) {
   const titleText = `Tramo ${n} — sentido del recorrido en el punto medio`;
   return L.divIcon({
     className: "map-route-index-marker",
-    html: `<div class="map-route-index-inline" title="${escapeHtml(titleText)}">
-  <span class="map-route-index-arrow" style="color:${safeColor};transform:rotate(${rot}deg)" aria-hidden="true">→</span><span class="map-route-index-num" style="color:${safeColor}">${escapeHtml(n)}</span>
+    html: `<div class="map-route-index-stack" title="${escapeHtml(titleText)}">
+  <span class="map-route-index-arrow" style="color:${safeColor};transform:rotate(${rot}deg)" aria-hidden="true">→</span>
+  <span class="map-route-index-disc" style="border-color:${safeColor};color:${safeColor}">${escapeHtml(n)}</span>
 </div>`,
-    iconSize: [32, 18],
-    iconAnchor: [16, 9],
+    iconSize: [44, 68],
+    iconAnchor: [22, 34],
   });
 }
 

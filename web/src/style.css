@@ -809,37 +809,48 @@ pre.json {
   background-position: 0 0, 0 3px, 3px -3px, -3px 0px;
 }
 
-/* Flecha (color del trazo) + número sobre la línea, sin círculo */
+/* Flecha arriba (color del trazo) + número en círculo debajo */
 .map-route-index-marker {
   background: transparent !important;
   border: none !important;
 }
 
-.map-route-index-inline {
-  display: inline-flex;
-  flex-direction: row;
+.map-route-index-stack {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0;
+  justify-content: flex-start;
+  gap: 6px;
   line-height: 1;
   pointer-events: auto;
-  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
 }
 
 .map-route-index-arrow {
-  display: inline-block;
-  font-size: 12px;
+  display: block;
+  font-size: 19px;
   font-weight: 900;
   line-height: 1;
-  transform-origin: 50% 55%;
+  transform-origin: 50% 50%;
   flex-shrink: 0;
 }
 
-.map-route-index-num {
-  font-size: 0.68rem;
+.map-route-index-disc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 8px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2.5px solid;
   font-weight: 800;
+  font-size: 1.05rem;
   line-height: 1;
-  margin-left: 1px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
 }
 
 .team-list-head,
