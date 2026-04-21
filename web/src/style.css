@@ -809,6 +809,28 @@ pre.json {
   background-position: 0 0, 0 3px, 3px -3px, -3px 0px;
 }
 
+/* Número de orden (1, 2, …) al centro del recorrido de cada JSON / sesión */
+.map-route-index-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.map-route-index-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid;
+  font-weight: 800;
+  font-size: 0.95rem;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+
 .team-list-head,
 .team-detail-head {
   display: flex;

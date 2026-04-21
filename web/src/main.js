@@ -1203,6 +1203,54 @@ function extractTrackLatLng(points) {
   return out;
 }
 
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+/** Punto sobre la polilínea al fraction (0–1) de la longitud recorrida (mitad = 0.5). */
+function latLonAtFractionAlongPolyline(pts, fraction) {
+  if (!pts || pts.length === 0) return null;
+  if (pts.length === 1) return pts[0];
+  const fr = Math.max(0, Math.min(1, fraction));
+  const lens = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    lens.push(haversineMeters(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]));
+  }
+  const total = lens.reduce((a, b) => a + b, 0);
+  if (total < 0.05) return pts[Math.floor(pts.length / 2)];
+  let target = total * fr;
+  for (let i = 0; i < lens.length; i++) {
+    const len = lens[i];
+    if (target <= len + 1e-6) {
+      const t = len > 1e-6 ? target / len : 0;
+      const p0 = pts[i];
+      const p1 = pts[i + 1];
+      return [p0[0] + t * (p1[0] - p0[0]), p0[1] + t * (p1[1] - p0[1])];
+    }
+    target -= len;
+  }
+  return pts[pts.length - 1];
+}
+
+/** Marcador con número de orden sobre el trazo (1, 2, … por sesión / JSON). */
+function leafletRouteIndexIcon(num, strokeColor) {
+  const n = Number.isFinite(Number(num)) ? String(Math.floor(Number(num))) : "1";
+  const safeColor = String(strokeColor).replace(/[<>"']/g, "");
+  return L.divIcon({
+    className: "map-route-index-marker",
+    html: `<span class="map-route-index-inner" style="border-color:${safeColor};color:${safeColor}">${escapeHtml(n)}</span>`,
+    iconSize: [38, 38],
+    iconAnchor: [19, 19],
+  });
+}
+
 function leafletStartIcon() {
   return L.divIcon({
     className: "map-sf-marker",
@@ -1357,6 +1405,13 @@ function initMultiSessionDayMap(loaded, mapHostEl) {
     const line = L.polyline(latlngs, { color, weight: 5, opacity: 0.9 }).addTo(map);
     const lb = line.getBounds();
     groupBounds = groupBounds == null ? lb : groupBounds.extend(lb);
+    const mid = latLonAtFractionAlongPolyline(pts, 0.5);
+    if (mid) {
+      L.marker(mid, {
+        icon: leafletRouteIndexIcon(i + 1, color),
+        zIndexOffset: 1800,
+      }).addTo(map);
+    }
   }
 
   const firstLayer = layers[0];
@@ -1408,11 +1463,19 @@ function initSessionMap(points) {
       { position: "topright" }
     )
     .addTo(map);
+  const trackColor = "#0d47a1";
   const latlngs = track.map(([a, b]) => L.latLng(a, b));
-  const line = L.polyline(latlngs, { color: "#0d47a1", weight: 5, opacity: 0.88 }).addTo(map);
+  const line = L.polyline(latlngs, { color: trackColor, weight: 5, opacity: 0.88 }).addTo(map);
   const s0 = track[0];
   const s1 = track[track.length - 1];
   addStartFinishMarkers(map, [s0[0], s0[1]], [s1[0], s1[1]]);
+  const midSingle = latLonAtFractionAlongPolyline(track, 0.5);
+  if (midSingle) {
+    L.marker(midSingle, {
+      icon: leafletRouteIndexIcon(1, trackColor),
+      zIndexOffset: 1800,
+    }).addTo(map);
+  }
   map.fitBounds(line.getBounds(), { padding: [40, 40], maxZoom: 17 });
   el._edbMap = map;
   setTimeout(() => map.invalidateSize(), 200);
@@ -2595,7 +2658,7 @@ async function renderCompetencias() {
       <div class="card">
         <h2 class="card-title">Competencias</h2>
         <p class="msg-error">Error al cargar: ${escapeHtml(humanizeApiError(ex.message))}</p>
-        <p class="muted small">Hace falta desplegar la API con <code>GET /api/v1/sessions/competencia</code> (panel v0.2.4+).</p>
+        <p class="muted small">Hace falta desplegar la API con <code>GET /api/v1/sessions/competencia</code> (panel v0.2.5+).</p>
         <button type="button" id="btn-retry-comp">Reintentar</button>
       </div>
     `,
