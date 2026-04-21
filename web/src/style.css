@@ -815,20 +815,49 @@ pre.json {
   border: none !important;
 }
 
+.map-route-index-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  pointer-events: auto;
+}
+
+/* Flecha ▲: Norte = arriba en pantalla; rotamos según rumbo real */
+.map-route-index-arrow {
+  display: block;
+  font-size: 8px;
+  line-height: 1;
+  color: #37474f;
+  transform-origin: 50% 65%;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+  margin-bottom: 1px;
+}
+
 .map-route-index-inner {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
-  height: 34px;
-  padding: 0 6px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
   border-radius: 50%;
   background: #fff;
-  border: 3px solid;
+  border: 2px solid;
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 0.68rem;
   line-height: 1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.map-route-index-dir {
+  margin-top: 2px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #455a64;
+  letter-spacing: -0.02em;
 }
 
 .team-list-head,

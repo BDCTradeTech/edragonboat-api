@@ -1239,15 +1239,59 @@ function latLonAtFractionAlongPolyline(pts, fraction) {
   return pts[pts.length - 1];
 }
 
-/** Marcador con número de orden sobre el trazo (1, 2, … por sesión / JSON). */
-function leafletRouteIndexIcon(num, strokeColor) {
+/** Rumbo inicial entre dos WGS84, grados 0–360 (N=0°, E=90°, sentido horario). */
+function bearingDeg(lat1, lon1, lat2, lon2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const toDeg = (r) => (r * 180) / Math.PI;
+  const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+  const x =
+    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/** Rumbo de avance sobre el trazo cerca del punto [fraction] (p. ej. 0,5 = mitad). */
+function bearingAtFractionAlongPolyline(pts, fraction) {
+  const eps = 0.035;
+  const a = latLonAtFractionAlongPolyline(pts, Math.max(0, fraction - eps));
+  const b = latLonAtFractionAlongPolyline(pts, Math.min(1, fraction + eps));
+  if (!a || !b) return 0;
+  let br = bearingDeg(a[0], a[1], b[0], b[1]);
+  if (!Number.isFinite(br)) return 0;
+  if (haversineMeters(a[0], a[1], b[0], b[1]) < 0.4) {
+    const b2 = latLonAtFractionAlongPolyline(pts, Math.min(1, fraction + 0.12));
+    if (b2) br = bearingDeg(a[0], a[1], b2[0], b2[1]);
+  }
+  return br;
+}
+
+/** Punto cardinal (8) para etiqueta corta. */
+function cardinal8(deg) {
+  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const d = ((deg % 360) + 360) % 360;
+  const i = Math.floor((d + 22.5) / 45) % 8;
+  return dirs[i];
+}
+
+/**
+ * Número de orden + dirección aproximada (flecha según rumbo + siglas N/NE/…).
+ * @param {number} bearingDegVal - rumbo 0–360 para rotar ▲ y el title.
+ */
+function leafletRouteIndexIcon(num, strokeColor, bearingDegVal) {
   const n = Number.isFinite(Number(num)) ? String(Math.floor(Number(num))) : "1";
   const safeColor = String(strokeColor).replace(/[<>"']/g, "");
+  const b = Number.isFinite(Number(bearingDegVal)) ? Number(bearingDegVal) : 0;
+  const card = cardinal8(b);
+  const title = `Rumbo ~${Math.round(b)}° (${card}). La flecha indica hacia dónde se avanzaba en ese tramo.`;
   return L.divIcon({
     className: "map-route-index-marker",
-    html: `<span class="map-route-index-inner" style="border-color:${safeColor};color:${safeColor}">${escapeHtml(n)}</span>`,
-    iconSize: [38, 38],
-    iconAnchor: [19, 19],
+    html: `<div class="map-route-index-cluster" title="${escapeHtml(title)}">
+  <span class="map-route-index-arrow" style="transform:rotate(${b}deg)" aria-hidden="true">▲</span>
+  <span class="map-route-index-inner" style="border-color:${safeColor};color:${safeColor}">${escapeHtml(n)}</span>
+  <span class="map-route-index-dir">${escapeHtml(card)}</span>
+</div>`,
+    iconSize: [34, 46],
+    iconAnchor: [17, 23],
   });
 }
 
@@ -1407,8 +1451,9 @@ function initMultiSessionDayMap(loaded, mapHostEl) {
     groupBounds = groupBounds == null ? lb : groupBounds.extend(lb);
     const mid = latLonAtFractionAlongPolyline(pts, 0.5);
     if (mid) {
+      const br = bearingAtFractionAlongPolyline(pts, 0.5);
       L.marker(mid, {
-        icon: leafletRouteIndexIcon(i + 1, color),
+        icon: leafletRouteIndexIcon(i + 1, color, br),
         zIndexOffset: 1800,
       }).addTo(map);
     }
@@ -1471,8 +1516,9 @@ function initSessionMap(points) {
   addStartFinishMarkers(map, [s0[0], s0[1]], [s1[0], s1[1]]);
   const midSingle = latLonAtFractionAlongPolyline(track, 0.5);
   if (midSingle) {
+    const br = bearingAtFractionAlongPolyline(track, 0.5);
     L.marker(midSingle, {
-      icon: leafletRouteIndexIcon(1, trackColor),
+      icon: leafletRouteIndexIcon(1, trackColor, br),
       zIndexOffset: 1800,
     }).addTo(map);
   }
