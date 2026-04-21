@@ -652,11 +652,14 @@ pre.json {
   display: block;
 }
 
+/* No usar display:flex en <td>: desalinea bordes entre columnas en muchos navegadores. */
+.competencias-table th,
+.competencias-table td {
+  vertical-align: middle;
+}
+
 .competencia-team-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
+  line-height: 1.35;
 }
 
 .competencia-team-logo {
@@ -666,7 +669,9 @@ pre.json {
   object-fit: cover;
   border: 1px solid var(--border);
   background: #fff;
-  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.35rem;
 }
 
 .session-map-summary-grid {

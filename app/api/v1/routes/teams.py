@@ -540,7 +540,13 @@ def get_team_logo_image(
     path = _team_logo_disk_path(team_id)
     if not path.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sin logo")
-    return FileResponse(path, media_type="image/png")
+    # Misma URL siempre (/teams/{id}/logo): sin esto el navegador puede seguir mostrando
+    # la imagen vieja tras subir un logo nuevo; mapas JPG y listados deben ver el archivo actual.
+    return FileResponse(
+        path,
+        media_type="image/png",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post("/{team_id}/logo", response_model=TeamRead)
