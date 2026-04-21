@@ -1281,8 +1281,8 @@ function leafletRouteIndexIcon(num, strokeColor, bearingDegVal) {
   <span class="map-route-index-arrow" style="color:${safeColor};transform:rotate(${rot}deg)" aria-hidden="true">→</span>
   <span class="map-route-index-disc" style="border-color:${safeColor};color:${safeColor}">${escapeHtml(n)}</span>
 </div>`,
-    iconSize: [44, 68],
-    iconAnchor: [22, 34],
+    iconSize: [24, 34],
+    iconAnchor: [12, 17],
   });
 }
 
