@@ -1,73 +1,73 @@
 {
   "common": {
-    "loading": "Loading…",
-    "loadingProfile": "Loading profile…",
-    "errorUnknown": "Unknown error"
+    "loading": "Laden…",
+    "loadingProfile": "Profil wird geladen…",
+    "errorUnknown": "Unbekannter Fehler"
   },
   "nav": {
-    "ariaMain": "Main menu",
-    "home": "Home",
+    "ariaMain": "Hauptmenü",
+    "home": "Start",
     "teams": "Team",
-    "routines": "Routines",
+    "routines": "Pläne",
     "sessions": "Training",
-    "competitions": "Races",
-    "account": "Account"
+    "competitions": "Rennen",
+    "account": "Konto"
   },
   "shell": {
-    "logout": "Log out",
+    "logout": "Abmelden",
     "panelVersion": "Panel v{version}"
   },
   "home": {
     "title": "E-DragonBoat",
-    "lead": "Platform for <strong>dragon boat</strong> teams: record free training from the mobile app, review it in this panel with charts, GPS maps and export, and manage your crew.",
-    "featTraining": "<strong>Training:</strong> sessions uploaded from the app, filtered by your team; detail with summary, tables, charts (distance, speed, SPM, DPS, strokes) and course map.",
-    "featMaps": "<strong>Maps and JPG:</strong> course on map (or satellite); you can download an image with the map and a summary (date, team, boat, paddlers, distance in m).",
-    "featTeam": "<strong>Team:</strong> club data and roles (captain, coach, paddler). The <strong>captain</strong> can edit the team name and country, delete it and <strong>invite</strong> by email. The <strong>coach</strong> sees the same in training and crew, and can change roles and remove members, but cannot invite or edit team data.",
-    "featAccount": "<strong>Account:</strong> your profile, password and language. The crew is under <strong>Team</strong>.",
-    "featCompetitions": "<strong>Races:</strong> runs uploaded from the app when you tap <em>Done</em>; same detail as training (charts, map).",
-    "btnSessions": "Go to training",
-    "btnTeam": "Go to team",
-    "btnAccount": "Go to account"
+    "lead": "Plattform für <strong>Drachenboot</strong>-Teams: Freies Training in der App erfassen, hier im Panel mit Diagrammen, GPS-Karten und Export auswerten und den Kader verwalten.",
+    "featTraining": "<strong>Training:</strong> von der App hochgeladene Einheiten, nach Team gefiltert; Details mit Zusammenfassung, Tabellen, Diagrammen (Distanz, Geschwindigkeit, SPM, DPS, Züge) und Streckenkarte.",
+    "featMaps": "<strong>Karten & JPG:</strong> Strecke auf Karte oder Satellit; Sie können ein Bild mit Karte und Zusammenfassung (Datum, Team, Boot, Paddler, Distanz in m) herunterladen.",
+    "featTeam": "<strong>Team:</strong> Vereinsdaten und Rollen (Steuermann, Coach, Paddler). Der <strong>Steuermann</strong> kann Name und Land bearbeiten, das Team löschen und per E-Mail <strong>einladen</strong>. Der <strong>Coach</strong> sieht dasselbe bei Training und Kader, kann Rollen ändern und Mitglieder entfernen, lädt aber nicht ein und bearbeitet keine Teamdaten.",
+    "featAccount": "<strong>Konto:</strong> Profil, Passwort und Sprache. Der Kader steht unter <strong>Team</strong>.",
+    "featCompetitions": "<strong>Rennen:</strong> in der App nach <em>Abgeschlossen</em> hochgeladen; gleiche Details wie beim Training (Diagramme, Karte).",
+    "btnSessions": "Zum Training",
+    "btnTeam": "Zum Team",
+    "btnAccount": "Zum Konto"
   },
   "login": {
-    "title": "Log in",
-    "subtitle": "Same user as in the mobile app and the API.",
-    "email": "Email",
-    "password": "Password",
-    "submit": "Sign in",
-    "footerHtml": "No account? <a class=\"link\" href=\"#/register\">Create account</a>",
-    "errorGeneric": "Could not sign in."
+    "title": "Anmelden",
+    "subtitle": "Derselbe Benutzer wie in der App und der API.",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Einloggen",
+    "footerHtml": "Noch kein Konto? <a class=\"link\" href=\"#/register\">Konto anlegen</a>",
+    "errorGeneric": "Anmeldung fehlgeschlagen."
   },
   "register": {
-    "title": "Create account",
-    "subtitleHtml": "Sign up with email and password (no email verification). You can then create your team in <strong>Team</strong>.",
-    "email": "Email",
+    "title": "Konto anlegen",
+    "subtitleHtml": "Registrierung mit E-Mail und Passwort (ohne E-Mail-Bestätigung). Anschließend kannst du dein Team unter <strong>Team</strong> anlegen.",
+    "email": "E-Mail",
     "nameOptional": "Name (optional)",
-    "password": "Password",
-    "password2": "Confirm password",
-    "submit": "Register",
-    "footerHtml": "Already have an account? <a class=\"link\" href=\"#/login\">Log in</a>",
-    "errorPasswordMismatch": "Passwords do not match.",
-    "errorPasswordShort": "Password must be at least 8 characters."
+    "password": "Passwort",
+    "password2": "Passwort wiederholen",
+    "submit": "Registrieren",
+    "footerHtml": "Bereits ein Konto? <a class=\"link\" href=\"#/login\">Anmelden</a>",
+    "errorPasswordMismatch": "Die Passwörter stimmen nicht überein.",
+    "errorPasswordShort": "Das Passwort muss mindestens 8 Zeichen haben."
   },
   "account": {
-    "title": "Account",
-    "emailLabel": "Email:",
+    "title": "Konto",
+    "emailLabel": "E-Mail:",
     "nameLabel": "Name:",
     "emptyDash": "—",
-    "changePassword": "Change password",
-    "pwdCurrent": "Current password",
-    "pwdNew": "New password",
-    "pwdNew2": "Confirm new password",
-    "pwdSubmit": "Save new password",
-    "pwdMismatch": "The new passwords do not match.",
-    "pwdSuccess": "Password updated.",
-    "languageTitle": "Language",
-    "languageHint": "Preference stored in this browser (default: Spanish).",
-    "languageLabel": "Language",
-    "noTeamHtml": "You have no team. You can create one in <a class=\"link\" href=\"#/teams/new\">Team</a>."
+    "changePassword": "Passwort ändern",
+    "pwdCurrent": "Aktuelles Passwort",
+    "pwdNew": "Neues Passwort",
+    "pwdNew2": "Neues Passwort bestätigen",
+    "pwdSubmit": "Neues Passwort speichern",
+    "pwdMismatch": "Die neuen Passwörter stimmen nicht überein.",
+    "pwdSuccess": "Passwort aktualisiert.",
+    "languageTitle": "Sprache",
+    "languageHint": "Einstellung in diesem Browser gespeichert (Standard: Spanisch).",
+    "languageLabel": "Sprache",
+    "noTeamHtml": "Du bist in keinem Team. Du kannst eines unter <a class=\"link\" href=\"#/teams/new\">Team</a> anlegen."
   },
   "errors": {
-    "notFoundDeploy": "Resource not found (404). Upload the updated app/main.py (routes /api/v1/profile and DELETE /api/v1/equipo/{id}) or the full project, then restart: sudo systemctl restart edragonboat-api."
+    "notFoundDeploy": "Ressource nicht gefunden (404). Aktualisierte app/main.py hochladen (Routen /api/v1/profile und DELETE /api/v1/equipo/{id}) oder das ganze Projekt, dann: sudo systemctl restart edragonboat-api"
   }
 }

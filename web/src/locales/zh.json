@@ -1,73 +1,73 @@
 {
   "common": {
-    "loading": "Loading…",
-    "loadingProfile": "Loading profile…",
-    "errorUnknown": "Unknown error"
+    "loading": "加载中…",
+    "loadingProfile": "正在加载个人资料…",
+    "errorUnknown": "未知错误"
   },
   "nav": {
-    "ariaMain": "Main menu",
-    "home": "Home",
-    "teams": "Team",
-    "routines": "Routines",
-    "sessions": "Training",
-    "competitions": "Races",
-    "account": "Account"
+    "ariaMain": "主导航",
+    "home": "首页",
+    "teams": "队伍",
+    "routines": "训练计划",
+    "sessions": "训练",
+    "competitions": "比赛",
+    "account": "账户"
   },
   "shell": {
-    "logout": "Log out",
-    "panelVersion": "Panel v{version}"
+    "logout": "退出登录",
+    "panelVersion": "面板 v{version}"
   },
   "home": {
     "title": "E-DragonBoat",
-    "lead": "Platform for <strong>dragon boat</strong> teams: record free training from the mobile app, review it in this panel with charts, GPS maps and export, and manage your crew.",
-    "featTraining": "<strong>Training:</strong> sessions uploaded from the app, filtered by your team; detail with summary, tables, charts (distance, speed, SPM, DPS, strokes) and course map.",
-    "featMaps": "<strong>Maps and JPG:</strong> course on map (or satellite); you can download an image with the map and a summary (date, team, boat, paddlers, distance in m).",
-    "featTeam": "<strong>Team:</strong> club data and roles (captain, coach, paddler). The <strong>captain</strong> can edit the team name and country, delete it and <strong>invite</strong> by email. The <strong>coach</strong> sees the same in training and crew, and can change roles and remove members, but cannot invite or edit team data.",
-    "featAccount": "<strong>Account:</strong> your profile, password and language. The crew is under <strong>Team</strong>.",
-    "featCompetitions": "<strong>Races:</strong> runs uploaded from the app when you tap <em>Done</em>; same detail as training (charts, map).",
-    "btnSessions": "Go to training",
-    "btnTeam": "Go to team",
-    "btnAccount": "Go to account"
+    "lead": "面向<strong>龙舟</strong>队伍的平台：通过手机应用记录自由训练，在本面板查看图表、GPS 地图与导出，并管理队员名单。",
+    "featTraining": "<strong>训练：</strong>由应用上传、按队伍筛选；详情含摘要、表格、图表（距离、速度、SPM、DPS、划桨次数）及航线地图。",
+    "featMaps": "<strong>地图与 JPG：</strong>在地图或卫星图上显示路线；可下载带地图与摘要的图片（日期、队伍、船型、桨手人数、距离，单位米）。",
+    "featTeam": "<strong>队伍：</strong>俱乐部资料与角色（队长、教练、桨手）。<strong>队长</strong>可编辑队名与国籍、删除队伍并<strong>发邮件邀请</strong>。<strong>教练</strong>在训练与名单中的权限与队长相同，可调整角色与移出成员，但不可邀请或修改队伍资料。",
+    "featAccount": "<strong>账户：</strong>个人资料、密码与语言。队员名单在<strong>队伍</strong>中管理。",
+    "featCompetitions": "<strong>比赛：</strong>在应用中点击<em>完成</em>后上传；详情与训练相同（图表、地图）。",
+    "btnSessions": "前往训练",
+    "btnTeam": "前往队伍",
+    "btnAccount": "前往账户"
   },
   "login": {
-    "title": "Log in",
-    "subtitle": "Same user as in the mobile app and the API.",
-    "email": "Email",
-    "password": "Password",
-    "submit": "Sign in",
-    "footerHtml": "No account? <a class=\"link\" href=\"#/register\">Create account</a>",
-    "errorGeneric": "Could not sign in."
+    "title": "登录",
+    "subtitle": "与移动应用和 API 使用同一账户。",
+    "email": "邮箱",
+    "password": "密码",
+    "submit": "进入",
+    "footerHtml": "没有账户？<a class=\"link\" href=\"#/register\">注册</a>",
+    "errorGeneric": "无法登录。"
   },
   "register": {
-    "title": "Create account",
-    "subtitleHtml": "Sign up with email and password (no email verification). You can then create your team in <strong>Team</strong>.",
-    "email": "Email",
-    "nameOptional": "Name (optional)",
-    "password": "Password",
-    "password2": "Confirm password",
-    "submit": "Register",
-    "footerHtml": "Already have an account? <a class=\"link\" href=\"#/login\">Log in</a>",
-    "errorPasswordMismatch": "Passwords do not match.",
-    "errorPasswordShort": "Password must be at least 8 characters."
+    "title": "注册",
+    "subtitleHtml": "使用邮箱与密码注册（无邮件验证）。之后可在<strong>队伍</strong>中创建队伍。",
+    "email": "邮箱",
+    "nameOptional": "姓名（选填）",
+    "password": "密码",
+    "password2": "确认密码",
+    "submit": "注册",
+    "footerHtml": "已有账户？<a class=\"link\" href=\"#/login\">登录</a>",
+    "errorPasswordMismatch": "两次输入的密码不一致。",
+    "errorPasswordShort": "密码至少 8 个字符。"
   },
   "account": {
-    "title": "Account",
-    "emailLabel": "Email:",
-    "nameLabel": "Name:",
+    "title": "账户",
+    "emailLabel": "邮箱：",
+    "nameLabel": "姓名：",
     "emptyDash": "—",
-    "changePassword": "Change password",
-    "pwdCurrent": "Current password",
-    "pwdNew": "New password",
-    "pwdNew2": "Confirm new password",
-    "pwdSubmit": "Save new password",
-    "pwdMismatch": "The new passwords do not match.",
-    "pwdSuccess": "Password updated.",
-    "languageTitle": "Language",
-    "languageHint": "Preference stored in this browser (default: Spanish).",
-    "languageLabel": "Language",
-    "noTeamHtml": "You have no team. You can create one in <a class=\"link\" href=\"#/teams/new\">Team</a>."
+    "changePassword": "修改密码",
+    "pwdCurrent": "当前密码",
+    "pwdNew": "新密码",
+    "pwdNew2": "确认新密码",
+    "pwdSubmit": "保存新密码",
+    "pwdMismatch": "新密码两次输入不一致。",
+    "pwdSuccess": "密码已更新。",
+    "languageTitle": "语言",
+    "languageHint": "偏好已保存在本浏览器中（默认：西班牙语）。",
+    "languageLabel": "语言",
+    "noTeamHtml": "您尚未加入队伍。可在 <a class=\"link\" href=\"#/teams/new\">队伍</a> 中创建。"
   },
   "errors": {
-    "notFoundDeploy": "Resource not found (404). Upload the updated app/main.py (routes /api/v1/profile and DELETE /api/v1/equipo/{id}) or the full project, then restart: sudo systemctl restart edragonboat-api."
+    "notFoundDeploy": "未找到资源 (404)。请上传已更新的 app/main.py（/api/v1/profile 与 DELETE /api/v1/equipo/{id} 路由）或整个项目，然后执行：sudo systemctl restart edragonboat-api"
   }
 }

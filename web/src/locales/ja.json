@@ -1,73 +1,73 @@
 {
   "common": {
-    "loading": "Loading…",
-    "loadingProfile": "Loading profile…",
-    "errorUnknown": "Unknown error"
+    "loading": "読み込み中…",
+    "loadingProfile": "プロフィールを読み込み中…",
+    "errorUnknown": "不明なエラー"
   },
   "nav": {
-    "ariaMain": "Main menu",
-    "home": "Home",
-    "teams": "Team",
-    "routines": "Routines",
-    "sessions": "Training",
-    "competitions": "Races",
-    "account": "Account"
+    "ariaMain": "メインメニュー",
+    "home": "ホーム",
+    "teams": "チーム",
+    "routines": "ルーティン",
+    "sessions": "トレーニング",
+    "competitions": "大会",
+    "account": "アカウント"
   },
   "shell": {
-    "logout": "Log out",
-    "panelVersion": "Panel v{version}"
+    "logout": "ログアウト",
+    "panelVersion": "パネル v{version}"
   },
   "home": {
     "title": "E-DragonBoat",
-    "lead": "Platform for <strong>dragon boat</strong> teams: record free training from the mobile app, review it in this panel with charts, GPS maps and export, and manage your crew.",
-    "featTraining": "<strong>Training:</strong> sessions uploaded from the app, filtered by your team; detail with summary, tables, charts (distance, speed, SPM, DPS, strokes) and course map.",
-    "featMaps": "<strong>Maps and JPG:</strong> course on map (or satellite); you can download an image with the map and a summary (date, team, boat, paddlers, distance in m).",
-    "featTeam": "<strong>Team:</strong> club data and roles (captain, coach, paddler). The <strong>captain</strong> can edit the team name and country, delete it and <strong>invite</strong> by email. The <strong>coach</strong> sees the same in training and crew, and can change roles and remove members, but cannot invite or edit team data.",
-    "featAccount": "<strong>Account:</strong> your profile, password and language. The crew is under <strong>Team</strong>.",
-    "featCompetitions": "<strong>Races:</strong> runs uploaded from the app when you tap <em>Done</em>; same detail as training (charts, map).",
-    "btnSessions": "Go to training",
-    "btnTeam": "Go to team",
-    "btnAccount": "Go to account"
+    "lead": "<strong>ドラゴンボート</strong>チーム向けプラットフォーム：モバイルアプリで自由なトレーニングを記録し、このパネルでグラフ・GPS マップ・エクスポートを確認し、メンバーを管理します。",
+    "featTraining": "<strong>トレーニング：</strong>アプリからアップロード、チームでフィルタ；概要・表・グラフ（距離、速度、SPM、DPS、ストローク数）とコース図。",
+    "featMaps": "<strong>地図と JPG：</strong>地図または衛星上のコース；地図と概要入り画像をダウンロード可能（日付、チーム、舟種、パドラー人数、距離 m）。",
+    "featTeam": "<strong>チーム：</strong>クラブ情報と役割（キャプテン、コーチ、パドラー）。<strong>キャプテン</strong>は名称・国の編集、チーム削除、メールで<strong>招待</strong>が可能。<strong>コーチ</strong>はトレーニングと名簿を同様に閲覧し、役割変更・メンバー削除が可能。招待やチームデータの編集は不可。",
+    "featAccount": "<strong>アカウント：</strong>プロフィール、パスワード、言語。名簿は<strong>チーム</strong>で。",
+    "featCompetitions": "<strong>大会：</strong>アプリで<em>完了</em>を押してアップロード；トレーニングと同じ詳細（グラフ、地図）。",
+    "btnSessions": "トレーニングへ",
+    "btnTeam": "チームへ",
+    "btnAccount": "アカウントへ"
   },
   "login": {
-    "title": "Log in",
-    "subtitle": "Same user as in the mobile app and the API.",
-    "email": "Email",
-    "password": "Password",
-    "submit": "Sign in",
-    "footerHtml": "No account? <a class=\"link\" href=\"#/register\">Create account</a>",
-    "errorGeneric": "Could not sign in."
+    "title": "ログイン",
+    "subtitle": "モバイルアプリと API と同じユーザーです。",
+    "email": "メール",
+    "password": "パスワード",
+    "submit": "進む",
+    "footerHtml": "アカウントをお持ちでないですか？ <a class=\"link\" href=\"#/register\">新規登録</a>",
+    "errorGeneric": "ログインできませんでした。"
   },
   "register": {
-    "title": "Create account",
-    "subtitleHtml": "Sign up with email and password (no email verification). You can then create your team in <strong>Team</strong>.",
-    "email": "Email",
-    "nameOptional": "Name (optional)",
-    "password": "Password",
-    "password2": "Confirm password",
-    "submit": "Register",
-    "footerHtml": "Already have an account? <a class=\"link\" href=\"#/login\">Log in</a>",
-    "errorPasswordMismatch": "Passwords do not match.",
-    "errorPasswordShort": "Password must be at least 8 characters."
+    "title": "新規登録",
+    "subtitleHtml": "メールとパスワードで登録（メール確認なし）。その後、<strong>チーム</strong>でチームを作成できます。",
+    "email": "メール",
+    "nameOptional": "氏名（任意）",
+    "password": "パスワード",
+    "password2": "パスワード（確認）",
+    "submit": "登録",
+    "footerHtml": "既にアカウントをお持ちですか？ <a class=\"link\" href=\"#/login\">ログイン</a>",
+    "errorPasswordMismatch": "パスワードが一致しません。",
+    "errorPasswordShort": "パスワードは8文字以上にしてください。"
   },
   "account": {
-    "title": "Account",
-    "emailLabel": "Email:",
-    "nameLabel": "Name:",
+    "title": "アカウント",
+    "emailLabel": "メール：",
+    "nameLabel": "氏名：",
     "emptyDash": "—",
-    "changePassword": "Change password",
-    "pwdCurrent": "Current password",
-    "pwdNew": "New password",
-    "pwdNew2": "Confirm new password",
-    "pwdSubmit": "Save new password",
-    "pwdMismatch": "The new passwords do not match.",
-    "pwdSuccess": "Password updated.",
-    "languageTitle": "Language",
-    "languageHint": "Preference stored in this browser (default: Spanish).",
-    "languageLabel": "Language",
-    "noTeamHtml": "You have no team. You can create one in <a class=\"link\" href=\"#/teams/new\">Team</a>."
+    "changePassword": "パスワードを変更",
+    "pwdCurrent": "現在のパスワード",
+    "pwdNew": "新しいパスワード",
+    "pwdNew2": "新しいパスワード（確認）",
+    "pwdSubmit": "新しいパスワードを保存",
+    "pwdMismatch": "新しいパスワードが一致しません。",
+    "pwdSuccess": "パスワードを更新しました。",
+    "languageTitle": "言語",
+    "languageHint": "このブラウザに保存されます（初期値：スペイン語）。",
+    "languageLabel": "言語",
+    "noTeamHtml": "チームに所属していません。<a class=\"link\" href=\"#/teams/new\">チーム</a>で作成できます。"
   },
   "errors": {
-    "notFoundDeploy": "Resource not found (404). Upload the updated app/main.py (routes /api/v1/profile and DELETE /api/v1/equipo/{id}) or the full project, then restart: sudo systemctl restart edragonboat-api."
+    "notFoundDeploy": "リソースが見つかりません (404)。更新した app/main.py（/api/v1/profile と DELETE /api/v1/equipo/{id} のルート）またはプロジェクト全体をアップロードし、sudo systemctl restart edragonboat-api を実行してください。"
   }
 }

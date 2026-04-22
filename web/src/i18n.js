@@ -2,13 +2,13 @@
  * Internacionalización del panel (claves anidadas: nav.sessions, shell.logout).
  * Fallback: idioma en curso → UI_LANG_DEFAULT (es) → se muestra la clave.
  *
- * Añadir un idioma nuevo:
- * 1) `src/locales/XX.json` con las mismas claves que `es.json` (podés copiar y traducir).
- * 2) Importar el JSON aquí y registrarlo en `bundles`.
- * 3) Añadir la entrada en `UI_LANGUAGES` (locale.js).
- * 4) `npm run i18n:check` y `npm run build`.
+ * Idiomas actuales (mismas claves en los 9): es, en, pt, zh, fil, fr, de, ja, ms — alineados con `UI_LANGUAGES` en locale.js.
  *
- * Cada string nuevo en la UI: agregar la clave en **todos** los JSON, luego `i18n:check`.
+ * Añadir un idioma nuevo:
+ * 1) `src/locales/XX.json` con las mismas claves que `es.json`.
+ * 2) import aquí y entrada en `bundles`.
+ * 3) `UI_LANGUAGES` en locale.js + `BCP47` si aplica.
+ * 4) `npm run i18n:check` y `npm run build`.
  */
 import { getStoredUiLang, UI_LANG_DEFAULT } from "./locale.js";
 
