@@ -51,34 +51,48 @@ function fmtDate(iso) {
 }
 
 function roleLabel(role) {
-  const m = { captain: "Capitán", coach: "Entrenador", paddler: "Palista" };
-  return m[role] || role;
+  if (role === "captain") return t("roles.captain");
+  if (role === "coach") return t("roles.coach");
+  if (role === "paddler") return t("roles.paddler");
+  return String(role);
 }
 
 function labelCompBoat(bt) {
-  if (bt == null || bt === "") return "—";
+  if (bt == null || bt === "") return t("account.emptyDash");
   const x = String(bt).toLowerCase();
-  if (x === "grande") return "Grande";
-  if (x === "chico") return "Chico";
+  if (x === "grande") return t("competitions.boatGrande");
+  if (x === "chico") return t("competitions.boatChico");
   return escapeHtml(String(bt));
 }
 
 function labelCompAge(k) {
-  if (k == null || k === "") return "—";
-  const m = { premier: "Premier", senior_a: "Senior A", senior_b: "Senior B", senior_c: "Senior C" };
-  return m[k] || escapeHtml(String(k));
+  if (k == null || k === "") return t("account.emptyDash");
+  const m = {
+    premier: "competitions.agePremier",
+    senior_a: "competitions.ageSeniorA",
+    senior_b: "competitions.ageSeniorB",
+    senior_c: "competitions.ageSeniorC",
+  };
+  const key = m[k];
+  return key ? t(key) : escapeHtml(String(k));
 }
 
 function labelCompTeamCat(k) {
-  if (k == null || k === "") return "—";
-  const m = { open: "Open", mixto: "Mixto", damas: "Damas", acs: "ACS" };
-  return m[k] || escapeHtml(String(k));
+  if (k == null || k === "") return t("account.emptyDash");
+  const m = {
+    open: "competitions.catOpen",
+    mixto: "competitions.catMixto",
+    damas: "competitions.catDamas",
+    acs: "competitions.catAcs",
+  };
+  const key = m[k];
+  return key ? t(key) : escapeHtml(String(k));
 }
 
 function yn(v) {
-  if (v === true) return "Sí";
-  if (v === false) return "No";
-  return "—";
+  if (v === true) return t("competitions.optYes");
+  if (v === false) return t("competitions.optNo");
+  return t("account.emptyDash");
 }
 
 /** Claves de punto que no se listan en "Muestras por segundo" (privacidad / ruido en tabla). */
@@ -99,14 +113,6 @@ function fmtSessionStartMap(iso) {
   } catch {
     return String(iso);
   }
-}
-
-function boatTypeLabelEsp(bt) {
-  if (bt == null || String(bt).trim() === "") return "—";
-  const x = String(bt).trim().toLowerCase();
-  if (x === "grande") return "Grande";
-  if (x === "chico") return "Chico";
-  return escapeHtml(String(bt));
 }
 
 /** Clave local YYYY-MM-DD para agrupar por día. */
@@ -149,7 +155,7 @@ function buildSessionMapSummaryHtml(s, last, teamLogoUrl) {
       ? Math.round(last.distanceMeters)
       : null;
   const team = s.teamName ? escapeHtml(s.teamName) : escapeHtml(t("account.emptyDash"));
-  const boat = boatTypeLabelEsp(s.boatType);
+  const boat = labelCompBoat(s.boatType);
   const paddlers = s.paddlersCount != null ? escapeHtml(String(s.paddlersCount)) : escapeHtml(t("account.emptyDash"));
   const fechaInicio = escapeHtml(fmtSessionStartMap(s.sessionStartTime));
   const distHtml = meters != null ? `${escapeHtml(String(meters))} m` : escapeHtml(t("account.emptyDash"));
@@ -331,7 +337,7 @@ function route() {
   if (parts[0] === "session" && parts[1]) {
     if (!/^\d+$/.test(parts[1])) {
       layout(
-        `<div class="card"><p class="msg-error">ID de sesión inválido.</p><p><a class="link" href="#/sessions">Volver</a></p></div>`
+        `<div class="card"><p class="msg-error">${escapeHtml(t("errors.invalidSessionId"))}</p><p><a class="link" href="#/sessions">${escapeHtml(t("sessionDetail.backToSessions"))}</a></p></div>`
       );
       return;
     }
@@ -342,7 +348,7 @@ function route() {
     if (parts[1] === "new") return renderTeamNew();
     if (!/^\d+$/.test(parts[1])) {
       layout(
-        `<div class="card"><p class="msg-error">ID de equipo inválido (solo números).</p><p><a class="link" href="#/teams">Volver al equipo</a></p></div>`
+        `<div class="card"><p class="msg-error">${escapeHtml(t("errors.invalidTeamId"))}</p><p><a class="link" href="#/teams">${escapeHtml(t("teams.backToTeams"))}</a></p></div>`
       );
       return;
     }
@@ -539,6 +545,7 @@ async function renderSessionsList() {
     const sortState = { sortKey: "created_at", sortDir: "desc" };
 
     function renderSessionsTableBody() {
+      const em = escapeHtml(t("account.emptyDash"));
       const sorted = [...rows].sort((a, b) => compareSessionRows(sortState.sortKey, sortState.sortDir, a, b));
       const tableRows = sorted
         .map(
@@ -546,10 +553,10 @@ async function renderSessionsList() {
       <tr>
         <td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>
         <td>${fmtDate(r.created_at)}</td>
-        <td>${escapeHtml(r.team_name || "—")}</td>
-        <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
-        <td>${r.distance_meters != null ? r.distance_meters.toFixed(0) + " m" : "—"}</td>
-        <td>${r.paladas != null ? r.paladas : "—"}</td>
+        <td>${escapeHtml(r.team_name) || em}</td>
+        <td>${r.total_seconds != null ? r.total_seconds + " s" : em}</td>
+        <td>${r.distance_meters != null ? r.distance_meters.toFixed(0) + " m" : em}</td>
+        <td>${r.paladas != null ? r.paladas : em}</td>
       </tr>
     `
         )
@@ -702,7 +709,7 @@ async function renderSessionsList() {
 }
 
 function formatCellVal(v) {
-  if (v === null || v === undefined) return "—";
+  if (v === null || v === undefined) return t("account.emptyDash");
   if (typeof v === "number")
     return Number.isInteger(v) ? String(v) : String(Math.round(v * 1000) / 1000);
   if (typeof v === "object") return escapeHtml(JSON.stringify(v));
@@ -1668,31 +1675,31 @@ function buildTeamInviteHtml(teamId, myRole, isCoach, isPlatformAdmin) {
     return `
         <details class="disclosure-card" style="margin-top:0.75rem">
           <summary class="disclosure-summary">
-            <span>Invitar al equipo</span>
+            <span>${escapeHtml(t("teams.inviteTitle"))}</span>
             <span class="disclosure-chev" aria-hidden="true"></span>
           </summary>
           <div class="disclosure-body">
-            <p class="muted small">Podés invitar por email aunque no tengan cuenta: se crea el usuario con contraseña <strong>12345678</strong> (que deberían cambiar en Cuenta). Si el servidor tiene SMTP, reciben un correo con el acceso.</p>
+            <p class="muted small">${t("teams.inviteHintHtml")}</p>
             <form id="form-invite-${teamId}">
-              <label for="inv-name-${teamId}">Nombre (opcional)</label>
+              <label for="inv-name-${teamId}">${escapeHtml(t("teams.nameOptional"))}</label>
               <input id="inv-name-${teamId}" type="text" maxlength="200" autocomplete="name" />
-              <label for="inv-email-${teamId}">Email</label>
+              <label for="inv-email-${teamId}">${escapeHtml(t("teams.email"))}</label>
               <input id="inv-email-${teamId}" type="email" required autocomplete="email" />
-              <label for="inv-role-${teamId}">Rol</label>
+              <label for="inv-role-${teamId}">${escapeHtml(t("teams.role"))}</label>
               <select id="inv-role-${teamId}">
-                <option value="coach">Entrenador</option>
-                <option value="paddler" selected>Palista</option>
+                <option value="coach">${escapeHtml(t("teams.roleCoach"))}</option>
+                <option value="paddler" selected>${escapeHtml(t("teams.rolePaddler"))}</option>
               </select>
-              <button type="submit">Invitar</button>
+              <button type="submit">${escapeHtml(t("teams.inviteSubmit"))}</button>
               <p id="inv-err-${teamId}" class="msg-error"></p>
             </form>
           </div>
         </details>`;
   }
   if (isCoach) {
-    return `<p class="muted small">Solo el <strong>capitán</strong> puede invitar nuevas personas al equipo.</p>`;
+    return `<p class="muted small">${t("teams.inviteCoachOnlyHtml")}</p>`;
   }
-  return `<p class="muted small">Solo el <strong>capitán</strong> puede invitar.</p>`;
+  return `<p class="muted small">${t("teams.inviteOnlyCaptain")}</p>`;
 }
 
 function bindTeamInviteForm(teamId) {
@@ -1713,11 +1720,9 @@ function bindTeamInviteForm(teamId) {
       );
       errEl.classList.remove("msg-error");
       errEl.classList.add("msg-ok");
-      let msg = "Listo: ya está en el equipo.";
+      let msg = t("teams.inviteSuccessMember");
       if (result.account_created) {
-        msg = result.invite_email_sent
-          ? "Cuenta nueva creada y email enviado con la contraseña provisional."
-          : "Cuenta nueva creada (contraseña 12345678). No se envió email: configurá SMTP en el servidor.";
+        msg = result.invite_email_sent ? t("teams.inviteSuccessNewWithEmail") : t("teams.inviteSuccessNewNoSmtp");
       }
       errEl.textContent = msg;
       document.getElementById(`inv-email-${teamId}`).value = "";
@@ -1739,12 +1744,12 @@ function renderTeamPlantelWrapHtml(teamId, members, { isCaptain, isCoach, isPlat
   const canManage = isCaptain || isCoach || isPlatformAdmin;
   const canEditEmail = isCaptain || isPlatformAdmin;
   const saveBtn = canManage
-    ? `<p style="margin-top:0.75rem"><button type="button" class="secondary btn-plantel-save-all" data-team="${teamId}">Guardar plantel</button></p>`
+    ? `<p style="margin-top:0.75rem"><button type="button" class="secondary btn-plantel-save-all" data-team="${teamId}">${escapeHtml(t("teams.saveRoster"))}</button></p>`
     : "";
   return `
       <div class="card team-plantel-card" style="margin-top:1rem">
-        <h3 style="margin-top:0">Plantel</h3>
-        <p class="muted small">Datos del plantel se guardan en el servidor. El capitán y el entrenador pueden editar filas; el capitán y el administrador pueden cambiar emails. Usá <strong>Guardar plantel</strong> para aplicar todos los cambios.</p>
+        <h3 style="margin-top:0">${escapeHtml(t("teams.plantelTitle"))}</h3>
+        <p class="muted small">${t("teams.plantelHint")}</p>
         ${buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, canEditEmail }, teamId)}
         ${saveBtn}
         ${inviteBlock}
@@ -1752,16 +1757,16 @@ function renderTeamPlantelWrapHtml(teamId, members, { isCaptain, isCoach, isPlat
 }
 
 async function renderTeamsList() {
-  layout(`<p class="loading-line">Cargando equipo…</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("teams.loading"))}</p>`);
   try {
     const [list, me] = await Promise.all([api.apiMyTeams(), api.apiMe()]);
     const isPlatformAdmin = me.is_platform_admin === true;
     if (!list.length) {
       layout(`
         <div class="card">
-          <h2 class="card-title">Equipo</h2>
-          <p>Todavía no pertenecés a ningún equipo.</p>
-          <a class="btn-inline" href="#/teams/new">Crear equipo</a>
+          <h2 class="card-title">${escapeHtml(t("teams.listTitle"))}</h2>
+          <p>${escapeHtml(t("teams.emptyNoTeam"))}</p>
+          <a class="btn-inline" href="#/teams/new">${escapeHtml(t("teams.createTeam"))}</a>
         </div>
       `);
       return;
@@ -1784,9 +1789,9 @@ async function renderTeamsList() {
         (x) => `
       <tr>
         <td>${escapeHtml(x.team.name)}</td>
-        <td>${escapeHtml(x.team.country || "—")}</td>
+        <td>${escapeHtml(x.team.country || t("account.emptyDash"))}</td>
         <td>${roleLabel(x.role)}</td>
-        <td><a class="link" href="#/teams/${x.team.id}">Configurar</a></td>
+        <td><a class="link" href="#/teams/${x.team.id}">${escapeHtml(t("teams.configure"))}</a></td>
       </tr>
     `
       )
@@ -1797,19 +1802,19 @@ async function renderTeamsList() {
     if (isPlatformAdmin && list.length > 1) {
       topCardHtml = `
       <div class="card">
-        <h2 class="card-title">Todos los equipos</h2>
-        <p class="muted">Elegí el equipo para ver y editar el plantel debajo. La configuración del club (nombre, país, eliminar) sigue en <strong>Configurar</strong>.</p>
+        <h2 class="card-title">${escapeHtml(t("teams.adminAllTitle"))}</h2>
+        <p class="muted">${t("teams.adminAllHint")}</p>
         <div class="table-scroll">
           <table>
             <thead>
-              <tr><th>Nombre</th><th>País</th><th>Tu rol (si aplica)</th><th></th></tr>
+              <tr><th>${escapeHtml(t("teams.colName"))}</th><th>${escapeHtml(t("teams.colCountry"))}</th><th>${escapeHtml(t("teams.colYourRole"))}</th><th></th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
       </div>
       <div class="session-team-filter" style="margin-top:0.75rem">
-        <label for="sel-inline-plantel-team">Plantel del equipo</label>
+        <label for="sel-inline-plantel-team">${escapeHtml(t("teams.rosterPickerLabel"))}</label>
         <select id="sel-inline-plantel-team">
           ${list
             .map(
@@ -1827,8 +1832,11 @@ async function renderTeamsList() {
           ${x.team.logo_url ? `<img src="${api.API}${x.team.logo_url}" alt="" class="team-logo-thumb" width="64" height="64" />` : ""}
           <div>
         <h2 class="card-title">${escapeHtml(x.team.name)}</h2>
-        <p class="muted">País: ${escapeHtml(x.team.country || "—")} · Tu rol: <strong>${roleLabel(x.role)}</strong></p>
-        <p><a class="link" href="#/teams/${x.team.id}">Configurar equipo</a></p>
+        <p class="muted">${t("teams.countryAndRole", {
+          country: escapeHtml(x.team.country || t("account.emptyDash")),
+          roleHtml: `<strong>${escapeHtml(roleLabel(x.role))}</strong>`,
+        })}</p>
+        <p><a class="link" href="#/teams/${x.team.id}">${escapeHtml(t("teams.linkConfigureTeam"))}</a></p>
           </div>
         </div>
       </div>`;
@@ -1863,7 +1871,7 @@ async function renderTeamsList() {
 
     layout(
       `
-      <p><a class="link" href="#/">Home</a></p>
+      <p><a class="link" href="#/">${escapeHtml(t("nav.home"))}</a></p>
       ${topCardHtml}
       <div id="team-plantel-wrap">${plantelHtml}</div>
     `,
@@ -1906,7 +1914,7 @@ async function renderTeamNew() {
     [existing, me] = await Promise.all([api.apiMyTeams(), api.apiMe()]);
   } catch (ex) {
     layout(
-      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/teams">Volver</a></p></div>`
+      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/teams">${escapeHtml(t("teams.backShort"))}</a></p></div>`
     );
     return;
   }
@@ -1919,15 +1927,15 @@ async function renderTeamNew() {
   const countryOpts = countrySelectOptionsHtml("");
 
   layout(`
-    <p><a class="link" href="#/teams">← Equipo</a></p>
+    <p><a class="link" href="#/teams">${escapeHtml(t("teams.backToList"))}</a></p>
     <div class="card narrow">
-      <h2 class="card-title">Nuevo equipo</h2>
+      <h2 class="card-title">${escapeHtml(t("teams.newTitle"))}</h2>
       <form id="form-new-team">
-        <label for="t-name">Nombre del equipo</label>
+        <label for="t-name">${escapeHtml(t("teams.newTeamName"))}</label>
         <input id="t-name" required maxlength="200" />
-        <label for="t-country">País (opcional)</label>
+        <label for="t-country">${escapeHtml(t("teams.newCountryOptional"))}</label>
         <select id="t-country">${countryOpts}</select>
-        <button type="submit">Crear</button>
+        <button type="submit">${escapeHtml(t("teams.newCreate"))}</button>
         <p id="team-err" class="msg-error"></p>
       </form>
     </div>
@@ -1948,7 +1956,7 @@ async function renderTeamNew() {
       else location.hash = "#/teams";
       route();
     } catch (ex) {
-      err.textContent = humanizeApiError(ex.message) || "Error al crear.";
+      err.textContent = humanizeApiError(ex.message) || t("teams.newErrorCreate");
     }
   });
 }
@@ -1957,11 +1965,11 @@ async function renderTeamDetail(id) {
   const teamId = Number(id);
   if (!Number.isFinite(teamId) || teamId < 1) {
     layout(
-      `<div class="card"><p class="msg-error">Equipo inválido.</p><p><a class="link" href="#/teams">Volver</a></p></div>`
+      `<div class="card"><p class="msg-error">${escapeHtml(t("teams.detailInvalid"))}</p><p><a class="link" href="#/teams">${escapeHtml(t("teams.backShort"))}</a></p></div>`
     );
     return;
   }
-  layout(`<p class="loading-line">Cargando equipo…</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("teams.loading"))}</p>`);
   try {
     const [team, myTeams, me] = await Promise.all([
       api.apiGetTeam(teamId),
@@ -1979,55 +1987,58 @@ async function renderTeamDetail(id) {
       myRole != null
         ? roleLabel(myRole)
         : isPlatformAdmin
-          ? "Administrador (plataforma)"
-          : "—";
+          ? t("roles.platformAdmin")
+          : t("account.emptyDash");
 
     const logoPreview = team.logo_url
       ? `<img src="${api.API}${team.logo_url}" alt="" class="team-logo-preview" width="112" height="112" />`
-      : `<span class="muted">Sin logo</span>`;
+      : `<span class="muted">${escapeHtml(t("teams.logoNone"))}</span>`;
     const logoDeleteBtn = team.logo_url
-      ? `<button type="button" class="secondary btn-sm" id="btn-team-logo-delete">Quitar logo</button>`
+      ? `<button type="button" class="secondary btn-sm" id="btn-team-logo-delete">${escapeHtml(t("teams.btnRemoveLogo"))}</button>`
       : "";
 
     const editBlock = isCaptain
       ? `
       <div class="card sub-card">
-        <h3>Datos del equipo</h3>
+        <h3>${escapeHtml(t("teams.dataTitle"))}</h3>
         <form id="form-edit-team">
-          <label for="e-name">Nombre</label>
+          <label for="e-name">${escapeHtml(t("teams.labelName"))}</label>
           <input id="e-name" value="${escapeHtml(team.name)}" required maxlength="200" />
-          <label for="e-country">País</label>
+          <label for="e-country">${escapeHtml(t("teams.labelCountry"))}</label>
           <select id="e-country">${countryOptsEdit}</select>
-          <button type="submit">Guardar cambios</button>
+          <button type="submit">${escapeHtml(t("teams.saveChanges"))}</button>
           <p id="edit-err" class="msg-error"></p>
         </form>
       </div>
       <div class="card sub-card">
-        <h3>Logo del equipo</h3>
-        <p class="muted small">Recomendado: imagen <strong>cuadrada 512×512 px</strong>, <strong>PNG</strong> (fondo blanco o transparente) o JPEG. Se normaliza a PNG de hasta 512 px de lado.</p>
+        <h3>${escapeHtml(t("teams.logoTitle"))}</h3>
+        <p class="muted small">${t("teams.logoHint")}</p>
         <div class="team-logo-row">${logoPreview}</div>
-        <label for="team-logo-file">Archivo (PNG o JPEG)</label>
+        <label for="team-logo-file">${escapeHtml(t("teams.logoFile"))}</label>
         <input type="file" id="team-logo-file" accept="image/png,image/jpeg" />
-        <p style="margin-top:0.5rem"><button type="button" class="secondary btn-sm" id="btn-team-logo-upload">Subir logo</button> ${logoDeleteBtn}</p>
+        <p style="margin-top:0.5rem"><button type="button" class="secondary btn-sm" id="btn-team-logo-upload">${escapeHtml(t("teams.uploadLogo"))}</button> ${logoDeleteBtn}</p>
         <p id="logo-err" class="msg-error"></p>
       </div>
       <div class="card sub-card danger-zone">
-        <h3>Eliminar equipo</h3>
-        <p class="muted">Quita el equipo y las membresías. Los entrenamientos ya subidos no se borran.</p>
-        <button type="button" class="btn-danger" id="btn-delete-team">Eliminar equipo</button>
+        <h3>${escapeHtml(t("teams.deleteTitle"))}</h3>
+        <p class="muted">${escapeHtml(t("teams.deleteHint"))}</p>
+        <button type="button" class="btn-danger" id="btn-delete-team">${escapeHtml(t("teams.deleteBtn"))}</button>
         <p id="delete-team-err" class="msg-error"></p>
       </div>`
-      : `<p class="muted">Solo el capitán puede cambiar el nombre, el país o eliminar el equipo.</p>`;
+      : `<p class="muted">${escapeHtml(t("teams.onlyCaptainEdits"))}</p>`;
 
     layout(
       `
-      <p><a class="link" href="#/teams">← Equipo</a></p>
+      <p><a class="link" href="#/teams">${escapeHtml(t("teams.backToList"))}</a></p>
       <div class="card">
         <div class="team-detail-head">
           ${team.logo_url ? `<img src="${api.API}${team.logo_url}" alt="" class="team-logo-preview team-logo-preview--header" width="72" height="72" />` : ""}
           <div>
         <h2 class="card-title">${escapeHtml(team.name)}</h2>
-        <p class="muted">País: ${escapeHtml(team.country || "—")} · Tu rol: <strong>${escapeHtml(roleLine)}</strong></p>
+        <p class="muted">${t("teams.countryAndRole", {
+          country: escapeHtml(team.country || t("account.emptyDash")),
+          roleHtml: `<strong>${escapeHtml(roleLine)}</strong>`,
+        })}</p>
           </div>
         </div>
         ${editBlock}
@@ -2046,20 +2057,20 @@ async function renderTeamDetail(id) {
             name: document.getElementById("e-name").value.trim(),
             country: document.getElementById("e-country").value.trim() || null,
           });
-          errEl.textContent = "Guardado.";
+          errEl.textContent = t("teams.saved");
           errEl.classList.remove("msg-error");
           errEl.classList.add("msg-ok");
         } catch (ex) {
           errEl.classList.add("msg-error");
           errEl.classList.remove("msg-ok");
-          errEl.textContent = ex.message || "Error";
+          errEl.textContent = ex.message || t("teams.errGeneric");
         }
       });
 
       document.getElementById("btn-delete-team")?.addEventListener("click", async () => {
         const errEl = document.getElementById("delete-team-err");
         errEl.textContent = "";
-        if (!confirm("¿Eliminar este equipo para siempre? No se puede deshacer.")) return;
+        if (!confirm(t("teams.confirmDeleteTeam"))) return;
         try {
           await api.apiDeleteTeam(teamId);
           sessionStorage.removeItem(SESSION_TEAM_FILTER_KEY);
@@ -2076,7 +2087,7 @@ async function renderTeamDetail(id) {
         const err = document.getElementById("logo-err");
         if (err) err.textContent = "";
         if (!f) {
-          alert("Elegí un archivo PNG o JPEG.");
+          alert(t("teams.pickPngJpeg"));
           return;
         }
         try {
@@ -2089,7 +2100,7 @@ async function renderTeamDetail(id) {
       document.getElementById("btn-team-logo-delete")?.addEventListener("click", async () => {
         const err = document.getElementById("logo-err");
         if (err) err.textContent = "";
-        if (!confirm("¿Quitar el logo del equipo?")) return;
+        if (!confirm(t("teams.confirmRemoveLogo"))) return;
         try {
           await api.apiDeleteTeamLogo(teamId);
           route();
@@ -2100,7 +2111,7 @@ async function renderTeamDetail(id) {
     }
   } catch (ex) {
     layout(
-      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/teams">Volver al equipo</a></p></div>`
+      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/teams">${escapeHtml(t("teams.backToTeams"))}</a></p></div>`
     );
   }
 }
@@ -2122,34 +2133,35 @@ function rosterBirthInputValue(iso) {
 }
 
 function preferredSideLabel(side) {
-  if (side === "right") return "Derecho";
-  if (side === "left") return "Izquierdo";
-  if (side === "either") return "Indistinto";
-  return "—";
+  if (side === "right") return t("teams.sideRight");
+  if (side === "left") return t("teams.sideLeft");
+  if (side === "either") return t("teams.sideEither");
+  return t("account.emptyDash");
 }
 
 function preferredSideOptionsHtml(m) {
   const v = m.preferred_side || "";
+  const dash = t("account.emptyDash");
   return `
-    <option value="">—</option>
-    <option value="right" ${v === "right" ? "selected" : ""}>Derecho</option>
-    <option value="left" ${v === "left" ? "selected" : ""}>Izquierdo</option>
-    <option value="either" ${v === "either" ? "selected" : ""}>Indistinto</option>`;
+    <option value="">${escapeHtml(dash)}</option>
+    <option value="right" ${v === "right" ? "selected" : ""}>${escapeHtml(t("teams.sideRight"))}</option>
+    <option value="left" ${v === "left" ? "selected" : ""}>${escapeHtml(t("teams.sideLeft"))}</option>
+    <option value="either" ${v === "either" ? "selected" : ""}>${escapeHtml(t("teams.sideEither"))}</option>`;
 }
 
 /** API: female | male; null → Femenino en UI */
 function sexSelectOptionsHtml(m) {
   const v = m.sex === "male" ? "male" : "female";
-  return `<option value="female" ${v === "female" ? "selected" : ""}>Femenino</option>
-    <option value="male" ${v === "male" ? "selected" : ""}>Masculino</option>`;
+  return `<option value="female" ${v === "female" ? "selected" : ""}>${escapeHtml(t("teams.sexFemale"))}</option>
+    <option value="male" ${v === "male" ? "selected" : ""}>${escapeHtml(t("teams.sexMale"))}</option>`;
 }
 
 function sexCellHtml(m, canEditRoster) {
   if (canEditRoster) {
-    return `<td><select class="roster-sex" aria-label="Sexo">${sexSelectOptionsHtml(m)}</select></td>`;
+    return `<td><select class="roster-sex" aria-label="${escapeHtml(t("teams.sexAria"))}">${sexSelectOptionsHtml(m)}</select></td>`;
   }
-  const label = m.sex === "male" ? "Masculino" : "Femenino";
-  return `<td>${label}</td>`;
+  const label = m.sex === "male" ? t("teams.sexMale") : t("teams.sexFemale");
+  return `<td>${escapeHtml(label)}</td>`;
 }
 
 function rosterCellsHtml(m, canEditRoster) {
@@ -2157,18 +2169,19 @@ function rosterCellsHtml(m, canEditRoster) {
     return `
         <td><input class="roster-doc" type="text" value="${escapeHtml(m.document_number || "")}" maxlength="80" /></td>
         <td><input class="roster-birth" type="date" value="${rosterBirthInputValue(m.birth_date)}" /></td>
-        <td class="muted roster-age">${m.age_years != null ? m.age_years : "—"}</td>
+        <td class="muted roster-age">${m.age_years != null ? m.age_years : escapeHtml(t("account.emptyDash"))}</td>
         <td><input class="roster-h" type="number" step="0.1" min="0" placeholder="cm" value="${m.height_cm != null ? escapeHtml(String(m.height_cm)) : ""}" /></td>
         <td><input class="roster-w" type="number" step="0.1" min="0" placeholder="kg" value="${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : ""}" /></td>
         <td><select class="roster-side">${preferredSideOptionsHtml(m)}</select></td>`;
   }
+  const d = t("account.emptyDash");
   return `
-        <td>${escapeHtml(m.document_number || "—")}</td>
-        <td>${m.birth_date ? escapeHtml(rosterBirthInputValue(m.birth_date)) : "—"}</td>
-        <td>${m.age_years != null ? m.age_years : "—"}</td>
-        <td>${m.height_cm != null ? escapeHtml(String(m.height_cm)) : "—"}</td>
-        <td>${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : "—"}</td>
-        <td>${preferredSideLabel(m.preferred_side)}</td>`;
+        <td>${escapeHtml(m.document_number || d)}</td>
+        <td>${m.birth_date ? escapeHtml(rosterBirthInputValue(m.birth_date)) : escapeHtml(d)}</td>
+        <td>${m.age_years != null ? m.age_years : escapeHtml(d)}</td>
+        <td>${m.height_cm != null ? escapeHtml(String(m.height_cm)) : escapeHtml(d)}</td>
+        <td>${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : escapeHtml(d)}</td>
+        <td>${escapeHtml(preferredSideLabel(m.preferred_side))}</td>`;
 }
 
 /** Plantel en ficha Equipo: datos personales persistidos en membresía; roles como antes. */
@@ -2176,9 +2189,10 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
   const canManage = isCaptain || isCoach || isPlatformAdmin;
   const canEditRoster = canManage;
 
+  const th = (k) => escapeHtml(t(k));
   const thead = canManage
-    ? `<thead><tr><th>Email</th><th>Nombre</th><th>Sexo</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th><th>Gestión</th></tr></thead>`
-    : `<thead><tr><th>Email</th><th>Nombre</th><th>Sexo</th><th>Documento</th><th>Fecha nac.</th><th>Edad</th><th>Altura (cm)</th><th>Peso (kg)</th><th>Lado preferido</th><th>Rol</th></tr></thead>`;
+    ? `<thead><tr><th>${th("teams.thEmail")}</th><th>${th("teams.thName")}</th><th>${th("teams.thSex")}</th><th>${th("teams.thDocument")}</th><th>${th("teams.thBirth")}</th><th>${th("teams.thAge")}</th><th>${th("teams.thHeight")}</th><th>${th("teams.thWeight")}</th><th>${th("teams.thPreferredSide")}</th><th>${th("teams.thRole")}</th><th>${th("teams.thManage")}</th></tr></thead>`
+    : `<thead><tr><th>${th("teams.thEmail")}</th><th>${th("teams.thName")}</th><th>${th("teams.thSex")}</th><th>${th("teams.thDocument")}</th><th>${th("teams.thBirth")}</th><th>${th("teams.thAge")}</th><th>${th("teams.thHeight")}</th><th>${th("teams.thWeight")}</th><th>${th("teams.thPreferredSide")}</th><th>${th("teams.thRole")}</th></tr></thead>`;
 
   function emailCell(m) {
     if (canEditEmail) {
@@ -2188,26 +2202,27 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
   }
 
   function rolCell(m) {
+    const rAria = escapeHtml(t("teams.roleAria"));
     if (isPlatformAdmin) {
-      return `<td><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="Rol">
-              <option value="captain" ${m.role === "captain" ? "selected" : ""}>Capitán</option>
-              <option value="coach" ${m.role === "coach" ? "selected" : ""}>Entrenador</option>
-              <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>Palista</option>
+      return `<td><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="${rAria}">
+              <option value="captain" ${m.role === "captain" ? "selected" : ""}>${escapeHtml(t("roles.captain"))}</option>
+              <option value="coach" ${m.role === "coach" ? "selected" : ""}>${escapeHtml(t("roles.coach"))}</option>
+              <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>${escapeHtml(t("roles.paddler"))}</option>
             </select></td>`;
     }
     if (m.role === "captain") {
-      return `<td>${roleLabel(m.role)}</td>`;
+      return `<td>${escapeHtml(roleLabel(m.role))}</td>`;
     }
     if (isCoach && m.role === "coach") {
-      return `<td>${roleLabel(m.role)}</td>`;
+      return `<td>${escapeHtml(roleLabel(m.role))}</td>`;
     }
     if (isCaptain) {
-      return `<td><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="Rol">
-              <option value="coach" ${m.role === "coach" ? "selected" : ""}>Entrenador</option>
-              <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>Palista</option>
+      return `<td><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="${rAria}">
+              <option value="coach" ${m.role === "coach" ? "selected" : ""}>${escapeHtml(t("roles.coach"))}</option>
+              <option value="paddler" ${m.role === "paddler" ? "selected" : ""}>${escapeHtml(t("roles.paddler"))}</option>
             </select></td>`;
     }
-    return `<td>${roleLabel(m.role)}</td>`;
+    return `<td>${escapeHtml(roleLabel(m.role))}</td>`;
   }
 
   function gestionCell(m) {
@@ -2215,23 +2230,23 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
     if (isPlatformAdmin) {
       return `<td class="actions-cell">
             <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}" ${
-              m.role === "captain" ? 'disabled title="Promové a otro capitán antes de quitar"' : ""
-            }>Quitar</button>
+              m.role === "captain" ? `disabled title="${escapeHtml(t("teams.removeCaptainHint"))}"` : ""
+            }>${escapeHtml(t("teams.remove"))}</button>
           </td>`;
     }
     if (m.role === "captain") {
-      return `<td class="actions-cell"><span class="muted">—</span></td>`;
+      return `<td class="actions-cell"><span class="muted">${escapeHtml(t("account.emptyDash"))}</span></td>`;
     }
     if (isCoach && m.role === "coach") {
-      return `<td class="actions-cell"><span class="muted">Solo el capitán gestiona entrenadores</span></td>`;
+      return `<td class="actions-cell"><span class="muted">${escapeHtml(t("teams.coachOnlyManagesPaddler"))}</span></td>`;
     }
     if (isCaptain) {
       return `<td class="actions-cell">
-            <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">Quitar</button>
+            <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">${escapeHtml(t("teams.remove"))}</button>
           </td>`;
     }
     return `<td class="actions-cell">
-          <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">Quitar</button>
+          <button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">${escapeHtml(t("teams.remove"))}</button>
         </td>`;
   }
 
@@ -2242,7 +2257,7 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
       if (!canManage) {
         return `${trOpen}
           ${emailCell(m)}
-          <td>${escapeHtml(m.full_name || "—")}</td>
+          <td>${escapeHtml(m.full_name || t("account.emptyDash"))}</td>
           ${sexCellHtml(m, canEditRoster)}
           ${rc}
           ${rolCell(m)}
@@ -2250,7 +2265,7 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
       }
       return `${trOpen}
         ${emailCell(m)}
-        <td>${escapeHtml(m.full_name || "—")}</td>
+        <td>${escapeHtml(m.full_name || t("account.emptyDash"))}</td>
         ${sexCellHtml(m, canEditRoster)}
         ${rc}
         ${rolCell(m)}
@@ -2274,7 +2289,7 @@ function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditE
         if (emailIn && canEditEmail) {
           const newEmail = emailIn.value.trim();
           if (!newEmail) {
-            alert("El email no puede quedar vacío.");
+            alert(t("teams.alertEmailEmpty"));
             return;
           }
           if (newEmail !== initialEmail) {
@@ -2304,11 +2319,11 @@ function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditE
           sex: sexRaw === "male" ? "male" : "female",
         };
         if (body.height_cm != null && (Number.isNaN(body.height_cm) || body.height_cm < 0)) {
-          alert("Altura inválida.");
+          alert(t("teams.alertHeightInvalid"));
           return;
         }
         if (body.weight_kg != null && (Number.isNaN(body.weight_kg) || body.weight_kg < 0)) {
-          alert("Peso inválido.");
+          alert(t("teams.alertWeightInvalid"));
           return;
         }
         await api.apiPatchMemberRoster(teamId, uid, body);
@@ -2327,7 +2342,7 @@ function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditE
     document.querySelectorAll(`.btn-remove-acc[data-team="${teamId}"]`).forEach((btn) => {
       btn.addEventListener("click", async () => {
         const uid = Number(btn.getAttribute("data-user"));
-        if (!confirm("¿Quitar a esta persona del equipo?")) return;
+        if (!confirm(t("teams.confirmRemoveMember"))) return;
         try {
           await api.apiRemoveMember(teamId, uid);
           try {
@@ -2337,7 +2352,7 @@ function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditE
           }
           await renderTeamsList();
         } catch (ex) {
-          alert(ex.message || "Error");
+          alert(ex.message || t("teams.errGeneric"));
         }
       });
     });
@@ -2381,7 +2396,7 @@ function compareCompetenciaRows(sortKey, sortDir, a, b) {
 }
 
 async function renderCompetencias() {
-  layout(`<p class="loading-line">Cargando competencias…</p>`, { wide: true });
+  layout(`<p class="loading-line">${escapeHtml(t("competitions.loading"))}</p>`, { wide: true });
   try {
     const [allRows, teamCountriesRaw, me, myTeams] = await Promise.all([
       api.apiListCompetenciaSessions(),
@@ -2409,16 +2424,16 @@ async function renderCompetencias() {
       return Boolean(n && myTeamNameKeys.has(n));
     }
 
-    const introBlock = `<p class="muted small">Listado global: se muestran las competencias subidas por <strong>todos</strong> los equipos (requiere iniciar sesión). Podés abrir el detalle solo de las sesiones de <strong>tu equipo</strong> (o las que subiste vos).</p>`;
+    const introBlock = `<p class="muted small">${t("competitions.introGlobalHtml")}</p>`;
 
     if (!allRows.length) {
       layout(`
         <div class="card">
-          <h2 class="card-title">Competencias</h2>
-          <p class="muted">Carreras registradas desde la app al terminar la distancia y pulsar <strong>Completado</strong> (requiere API con <code>POST /api/v1/sessions/competencia</code>).</p>
+          <h2 class="card-title">${escapeHtml(t("competitions.title"))}</h2>
+          <p class="muted">${t("competitions.emptyLead")}</p>
           ${introBlock}
-          <p>No hay sesiones de competencia todavía.</p>
-          <p class="muted">Cuando alguien complete una carrera y suba la sesión desde la app, aparecerá aquí.</p>
+          <p>${escapeHtml(t("competitions.emptyNoSessions"))}</p>
+          <p class="muted">${escapeHtml(t("competitions.emptyWhenUploaded"))}</p>
         </div>
       `,
         { wide: true },
@@ -2426,8 +2441,15 @@ async function renderCompetencias() {
       return;
     }
 
+    const oAllM = escapeHtml(t("competitions.optAllM"));
+    const oAllF = escapeHtml(t("competitions.optAllF"));
+    const oAllDist = escapeHtml(t("competitions.optAllDist"));
+    const oAllTurn = escapeHtml(t("competitions.optAllTurn"));
+    const oYes = escapeHtml(t("competitions.optYes"));
+    const oNo = escapeHtml(t("competitions.optNo"));
+
     const countryFilterOptions =
-      `<option value="todos" selected>Todos</option>` +
+      `<option value="todos" selected>${oAllM}</option>` +
       teamCountries
         .map((c) => {
           const v = String(c);
@@ -2439,95 +2461,97 @@ async function renderCompetencias() {
     const filterBar = `
       <div class="competencia-filters" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-bottom:0.75rem">
         <div>
-          <label for="comp-filter-pais" class="muted small" style="display:block">País</label>
+          <label for="comp-filter-pais" class="muted small" style="display:block">${escapeHtml(t("competitions.filterCountry"))}</label>
           <select id="comp-filter-pais">
             ${countryFilterOptions}
           </select>
         </div>
         <div>
-          <label for="comp-filter-boat" class="muted small" style="display:block">Bote</label>
+          <label for="comp-filter-boat" class="muted small" style="display:block">${escapeHtml(t("competitions.filterBoat"))}</label>
           <select id="comp-filter-boat">
-            <option value="todos" selected>Todos</option>
-            <option value="grande">Grande</option>
-            <option value="chico">Chico</option>
+            <option value="todos" selected>${oAllM}</option>
+            <option value="grande">${escapeHtml(t("competitions.boatGrande"))}</option>
+            <option value="chico">${escapeHtml(t("competitions.boatChico"))}</option>
           </select>
         </div>
         <div>
-          <label for="comp-filter-paddlers" class="muted small" style="display:block">Palistas</label>
+          <label for="comp-filter-paddlers" class="muted small" style="display:block">${escapeHtml(t("competitions.filterPaddlers"))}</label>
           <select id="comp-filter-paddlers">
-            <option value="todos" selected>Todos</option>
-            <option value="10">10</option>
-            <option value="20">20</option>
+            <option value="todos" selected>${oAllM}</option>
+            <option value="10">${escapeHtml(t("competitions.p10"))}</option>
+            <option value="20">${escapeHtml(t("competitions.p20"))}</option>
           </select>
         </div>
         <div>
-          <label for="comp-filter-drummer" class="muted small" style="display:block">Drummer</label>
+          <label for="comp-filter-drummer" class="muted small" style="display:block">${escapeHtml(t("competitions.filterDrummer"))}</label>
           <select id="comp-filter-drummer">
-            <option value="todos" selected>Todos</option>
-            <option value="si">Sí</option>
-            <option value="no">No</option>
+            <option value="todos" selected>${oAllM}</option>
+            <option value="si">${oYes}</option>
+            <option value="no">${oNo}</option>
           </select>
         </div>
         <div>
-          <label for="comp-filter-age" class="muted small" style="display:block">Edad</label>
+          <label for="comp-filter-age" class="muted small" style="display:block">${escapeHtml(t("competitions.filterAge"))}</label>
           <select id="comp-filter-age">
-            <option value="todos" selected>Todos</option>
-            <option value="premier">Premier</option>
-            <option value="senior_a">Senior A</option>
-            <option value="senior_b">Senior B</option>
-            <option value="senior_c">Senior C</option>
+            <option value="todos" selected>${oAllM}</option>
+            <option value="premier">${escapeHtml(t("competitions.agePremier"))}</option>
+            <option value="senior_a">${escapeHtml(t("competitions.ageSeniorA"))}</option>
+            <option value="senior_b">${escapeHtml(t("competitions.ageSeniorB"))}</option>
+            <option value="senior_c">${escapeHtml(t("competitions.ageSeniorC"))}</option>
           </select>
         </div>
         <div>
-          <label for="comp-filter-teamcat" class="muted small" style="display:block">Equipo</label>
+          <label for="comp-filter-teamcat" class="muted small" style="display:block">${escapeHtml(t("competitions.filterTeam"))}</label>
           <select id="comp-filter-teamcat">
-            <option value="todos" selected>Todos</option>
-            <option value="open">Open</option>
-            <option value="mixto">Mixto</option>
-            <option value="damas">Damas</option>
-            <option value="acs">ACS</option>
+            <option value="todos" selected>${oAllM}</option>
+            <option value="open">${escapeHtml(t("competitions.catOpen"))}</option>
+            <option value="mixto">${escapeHtml(t("competitions.catMixto"))}</option>
+            <option value="damas">${escapeHtml(t("competitions.catDamas"))}</option>
+            <option value="acs">${escapeHtml(t("competitions.catAcs"))}</option>
           </select>
         </div>
         <div>
-          <label for="comp-filter-dist" class="muted small" style="display:block">Distancia</label>
+          <label for="comp-filter-dist" class="muted small" style="display:block">${escapeHtml(t("competitions.filterDistance"))}</label>
           <select id="comp-filter-dist">
-            <option value="todas" selected>Todas</option>
-            <option value="200">200 m</option>
-            <option value="500">500 m</option>
-            <option value="1000">1000 m</option>
-            <option value="2000">2000 m</option>
+            <option value="todas" selected>${oAllDist}</option>
+            <option value="200">${escapeHtml(t("competitions.dist200"))}</option>
+            <option value="500">${escapeHtml(t("competitions.dist500"))}</option>
+            <option value="1000">${escapeHtml(t("competitions.dist1000"))}</option>
+            <option value="2000">${escapeHtml(t("competitions.dist2000"))}</option>
           </select>
         </div>
         <div>
-          <label for="comp-filter-virada" class="muted small" style="display:block">Virada</label>
+          <label for="comp-filter-virada" class="muted small" style="display:block">${escapeHtml(t("competitions.filterTurn"))}</label>
           <select id="comp-filter-virada">
-            <option value="todas" selected>Todas</option>
-            <option value="si">Sí</option>
-            <option value="no">No</option>
+            <option value="todas" selected>${oAllTurn}</option>
+            <option value="si">${oYes}</option>
+            <option value="no">${oNo}</option>
           </select>
         </div>
       </div>`;
 
+    const sortTitle = escapeHtml(t("sessions.sortTitle"));
+    const th = (key) => escapeHtml(t(key));
     const theadRow = `
       <tr>
-        <th data-sort="id" class="th-sortable" title="Ordenar">Id</th>
-        <th data-sort="created_at" class="th-sortable" title="Ordenar">Fecha</th>
-        <th data-sort="target_distance_meters" class="th-sortable" title="Ordenar">Meta</th>
-        <th data-sort="boat_type" class="th-sortable" title="Ordenar">Bote</th>
-        <th data-sort="paddlers_count" class="th-sortable" title="Ordenar">Palistas</th>
-        <th data-sort="age_category" class="th-sortable" title="Ordenar">Edad</th>
-        <th data-sort="team_category" class="th-sortable" title="Ordenar">Tipo</th>
-        <th data-sort="drummer" class="th-sortable" title="Ordenar">Drummer</th>
-        <th data-sort="virada" class="th-sortable" title="Ordenar">Virada</th>
-        <th data-sort="team_name" class="th-sortable" title="Ordenar">Equipo</th>
-        <th data-sort="team_country" class="th-sortable" title="Ordenar">País</th>
-        <th data-sort="total_seconds" class="th-sortable" title="Ordenar">Tiempo</th>
+        <th data-sort="id" class="th-sortable" title="${sortTitle}">${th("competitions.thId")}</th>
+        <th data-sort="created_at" class="th-sortable" title="${sortTitle}">${th("competitions.thDate")}</th>
+        <th data-sort="target_distance_meters" class="th-sortable" title="${sortTitle}">${th("competitions.thTarget")}</th>
+        <th data-sort="boat_type" class="th-sortable" title="${sortTitle}">${th("competitions.thBoat")}</th>
+        <th data-sort="paddlers_count" class="th-sortable" title="${sortTitle}">${th("competitions.thPaddlers")}</th>
+        <th data-sort="age_category" class="th-sortable" title="${sortTitle}">${th("competitions.thAge")}</th>
+        <th data-sort="team_category" class="th-sortable" title="${sortTitle}">${th("competitions.thType")}</th>
+        <th data-sort="drummer" class="th-sortable" title="${sortTitle}">${th("competitions.thDrummer")}</th>
+        <th data-sort="virada" class="th-sortable" title="${sortTitle}">${th("competitions.thTurn")}</th>
+        <th data-sort="team_name" class="th-sortable" title="${sortTitle}">${th("competitions.thTeam")}</th>
+        <th data-sort="team_country" class="th-sortable" title="${sortTitle}">${th("competitions.thCountry")}</th>
+        <th data-sort="total_seconds" class="th-sortable" title="${sortTitle}">${th("competitions.thTime")}</th>
       </tr>`;
 
     layout(`
       <div class="card">
-        <h2 class="card-title">Competencias</h2>
-        <p class="muted">Sesiones subidas al finalizar la carrera en la app. Podés abrir cada una para ver gráficos, tabla y mapa (igual que en Entrenamientos).</p>
+        <h2 class="card-title">${escapeHtml(t("competitions.title"))}</h2>
+        <p class="muted">${escapeHtml(t("competitions.mainHint"))}</p>
         ${introBlock}
         ${filterBar}
         <div class="table-scroll competencias-scroll">
@@ -2587,16 +2611,17 @@ async function renderCompetencias() {
         .map(
           (r) => {
         const canOpen = canOpenCompetenciaDetail(r);
+        const em = t("account.emptyDash");
         const idCell = canOpen
           ? `<td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>`
-          : `<td><span class="muted" title="Solo podés abrir el detalle de tu equipo">#${r.id}</span></td>`;
+          : `<td><span class="muted" title="${escapeHtml(t("competitions.idLockedTitle"))}">#${r.id}</span></td>`;
         return `
       <tr>
         ${idCell}
         <td>${fmtDate(r.created_at)}</td>
-        <td>${r.target_distance_meters != null ? r.target_distance_meters + " m" : "—"}</td>
+        <td>${r.target_distance_meters != null ? r.target_distance_meters + " m" : escapeHtml(em)}</td>
         <td>${labelCompBoat(r.boat_type)}</td>
-        <td>${r.paddlers_count != null ? r.paddlers_count : "—"}</td>
+        <td>${r.paddlers_count != null ? r.paddlers_count : escapeHtml(em)}</td>
         <td>${labelCompAge(r.age_category)}</td>
         <td>${labelCompTeamCat(r.team_category)}</td>
         <td>${yn(r.drummer)}</td>
@@ -2605,9 +2630,9 @@ async function renderCompetencias() {
           r.team_logo_url
             ? `<img class="competencia-team-logo" src="${api.API}${r.team_logo_url}" width="18" height="18" alt="" crossorigin="anonymous" loading="lazy" decoding="async" /> `
             : ""
-        }${escapeHtml(r.team_name || "—")}</td>
+        }${escapeHtml(r.team_name || em)}</td>
         <td>${countryCellHtml(r.team_country)}</td>
-        <td>${r.total_seconds != null ? r.total_seconds + " s" : "—"}</td>
+        <td>${r.total_seconds != null ? r.total_seconds + " s" : escapeHtml(em)}</td>
       </tr>
     `;
           }
@@ -2615,7 +2640,7 @@ async function renderCompetencias() {
         .join("");
       document.getElementById("comp-tbody").innerHTML =
         html ||
-        `<tr><td colspan="12" class="muted">Ninguna sesión coincide con los filtros.</td></tr>`;
+        `<tr><td colspan="12" class="muted">${escapeHtml(t("competitions.noRows"))}</td></tr>`;
     }
 
     [
@@ -2649,10 +2674,10 @@ async function renderCompetencias() {
   } catch (ex) {
     layout(`
       <div class="card">
-        <h2 class="card-title">Competencias</h2>
-        <p class="msg-error">Error al cargar: ${escapeHtml(humanizeApiError(ex.message))}</p>
-        <p class="muted small">Hace falta desplegar la API con <code>GET /api/v1/sessions/competencia</code> (panel v0.2.5+).</p>
-        <button type="button" id="btn-retry-comp">Reintentar</button>
+        <h2 class="card-title">${escapeHtml(t("competitions.title"))}</h2>
+        <p class="msg-error">${escapeHtml(t("competitions.errLoad", { detail: humanizeApiError(ex.message) }))}</p>
+        <p class="muted small">${t("competitions.errDeployHint")}</p>
+        <button type="button" id="btn-retry-comp">${escapeHtml(t("competitions.retry"))}</button>
       </div>
     `,
       { wide: true },
@@ -2663,61 +2688,63 @@ async function renderCompetencias() {
 
 function routineKindLabel(k) {
   const m = {
-    warmup: "Entrar en calor",
-    salida: "Salida",
-    r1: "R1",
-    r2: "R2",
-    r3: "R3",
-    r4: "R4",
-    descanso: "Descansar",
+    warmup: "routines.kindWarmup",
+    salida: "routines.kindSalida",
+    r1: "routines.r1",
+    r2: "routines.r2",
+    r3: "routines.r3",
+    r4: "routines.r4",
+    descanso: "routines.kindDescanso",
   };
-  return m[k] || k;
+  const key = m[k];
+  return key ? t(key) : String(k);
 }
 
 function routineMetricLabel(metric) {
-  const x = { time: "Tiempo (seg)", distance: "Distancia (m)", strokes: "Paladas" };
-  return x[metric] || metric;
+  const m = { time: "routines.metricTime", distance: "routines.metricDistance", strokes: "routines.metricStrokes" };
+  const key = m[metric];
+  return key ? t(key) : String(metric);
 }
 
 function routineKindOptionsHtml(selected) {
   const opts = [
-    ["warmup", "Entrar en calor"],
-    ["salida", "Salida"],
-    ["r1", "R1"],
-    ["r2", "R2"],
-    ["r3", "R3"],
-    ["r4", "R4"],
-    ["descanso", "Descansar"],
+    ["warmup", "routines.kindWarmup"],
+    ["salida", "routines.kindSalida"],
+    ["r1", "routines.r1"],
+    ["r2", "routines.r2"],
+    ["r3", "routines.r3"],
+    ["r4", "routines.r4"],
+    ["descanso", "routines.kindDescanso"],
   ];
   return opts
     .map(
       ([v, lab]) =>
-        `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(lab)}</option>`
+        `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(t(lab))}</option>`
     )
     .join("");
 }
 
 function routineMetricOptionsHtml(selected) {
   const opts = [
-    ["time", "Tiempo (seg)"],
-    ["distance", "Distancia (m)"],
-    ["strokes", "Paladas"],
+    ["time", "routines.metricTime"],
+    ["distance", "routines.metricDistance"],
+    ["strokes", "routines.metricStrokes"],
   ];
   return opts
     .map(
       ([v, lab]) =>
-        `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(lab)}</option>`
+        `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(t(lab))}</option>`
     )
     .join("");
 }
 
 async function renderRutinasHub() {
-  layout(`<p class="loading-line">Cargando rutinas…</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("routines.loading"))}</p>`);
   try {
     const teams = await api.apiMyTeams();
     if (!teams.length) {
       layout(
-        `<div class="card"><p>No tenés equipos. Creá uno en <a class="link" href="#/teams">Equipo</a>.</p></div>`
+        `<div class="card"><p>${t("routines.noTeams")}</p></div>`
       );
       return;
     }
@@ -2736,29 +2763,29 @@ async function renderRutinasHub() {
       <tr>
         <td>${escapeHtml(r.name)}</td>
         <td>${r.exercises?.length ?? 0}</td>
-        <td><a class="link" href="#/rutinas/${r.id}/view">Ver rutina</a></td>
-        <td><a class="link" href="#/rutinas/${r.id}">Editar</a></td>
-        <td><button type="button" class="secondary btn-sm btn-rutina-del" data-id="${r.id}">Borrar</button></td>
+        <td><a class="link" href="#/rutinas/${r.id}/view">${escapeHtml(t("routines.viewLink"))}</a></td>
+        <td><a class="link" href="#/rutinas/${r.id}">${escapeHtml(t("routines.editLink"))}</a></td>
+        <td><button type="button" class="secondary btn-sm btn-rutina-del" data-id="${r.id}">${escapeHtml(t("routines.delete"))}</button></td>
       </tr>`
       )
       .join("");
     layout(
       `
-      <p><a class="link" href="#/">Home</a></p>
+      <p><a class="link" href="#/">${escapeHtml(t("nav.home"))}</a></p>
       <div class="card">
-        <h2 class="card-title">Rutinas</h2>
-        <p class="muted small">Elegí el equipo y gestioná rutinas de entrenamiento (ejercicios por tiempo, distancia o paladas).</p>
+        <h2 class="card-title">${escapeHtml(t("routines.title"))}</h2>
+        <p class="muted small">${escapeHtml(t("routines.toolbarHint"))}</p>
         <div class="rutinas-toolbar">
           <div class="rutinas-team-field">
-            <label for="sel-rutinas-team">Equipo</label>
+            <label for="sel-rutinas-team">${escapeHtml(t("routines.team"))}</label>
             <select id="sel-rutinas-team">${teamOpts}</select>
           </div>
-          <a class="btn-inline primary rutinas-new-btn" href="#/rutinas/new">Nueva rutina</a>
+          <a class="btn-inline primary rutinas-new-btn" href="#/rutinas/new">${escapeHtml(t("routines.newRoutine"))}</a>
         </div>
         <div class="table-scroll">
           <table class="sessions-list-table">
-            <thead><tr><th>Nombre</th><th>Ejercicios</th><th>Ver</th><th>Editar</th><th>Borrar</th></tr></thead>
-            <tbody>${rows || `<tr><td colspan="5" class="muted">No hay rutinas. Creá una con <strong>Nueva rutina</strong>.</td></tr>`}</tbody>
+            <thead><tr><th>${escapeHtml(t("routines.thName"))}</th><th>${escapeHtml(t("routines.thExercises"))}</th><th>${escapeHtml(t("routines.thView"))}</th><th>${escapeHtml(t("routines.thEdit"))}</th><th>${escapeHtml(t("routines.thDelete"))}</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="5" class="muted">${t("routines.emptyTable")}</td></tr>`}</tbody>
           </table>
         </div>
       </div>
@@ -2772,7 +2799,7 @@ async function renderRutinasHub() {
     document.querySelectorAll(".btn-rutina-del").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const rid = Number(btn.getAttribute("data-id"));
-        if (!confirm("¿Borrar esta rutina?")) return;
+        if (!confirm(t("routines.deleteConfirm"))) return;
         try {
           await api.apiDeleteRoutine(rid);
           route();
@@ -2787,12 +2814,12 @@ async function renderRutinasHub() {
 }
 
 async function renderRutinasNew() {
-  layout(`<p class="loading-line">Cargando…</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("routines.loadingGeneric"))}</p>`);
   try {
     const teams = await api.apiMyTeams();
     if (!teams.length) {
       layout(
-        `<div class="card"><p>No tenés equipos. <a class="link" href="#/teams">Equipo</a></p></div>`
+        `<div class="card"><p>${t("routines.noTeamsShort")}</p></div>`
       );
       return;
     }
@@ -2806,17 +2833,17 @@ async function renderRutinasNew() {
       .join("");
     layout(
       `
-      <p><a class="link" href="#/rutinas">← Rutinas</a></p>
+      <p><a class="link" href="#/rutinas">${escapeHtml(t("routines.back"))}</a></p>
       <div class="card narrow">
-        <h2 class="card-title">Nueva rutina</h2>
-        <p class="muted small">Primero el nombre; después podrás agregar ejercicios uno a uno.</p>
-        <label for="new-routine-team">Equipo</label>
+        <h2 class="card-title">${escapeHtml(t("routines.newTitle"))}</h2>
+        <p class="muted small">${escapeHtml(t("routines.newHint"))}</p>
+        <label for="new-routine-team">${escapeHtml(t("routines.newTeam"))}</label>
         <select id="new-routine-team">${teamOpts}</select>
-        <label for="new-routine-name">Nombre de la rutina</label>
-        <input id="new-routine-name" type="text" maxlength="200" required placeholder="Ej. Base semanal" />
+        <label for="new-routine-name">${escapeHtml(t("routines.newRoutineName"))}</label>
+        <input id="new-routine-name" type="text" maxlength="200" required placeholder="${escapeHtml(t("routines.placeholderName"))}" />
         <p style="margin-top:0.75rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
-          <button type="button" class="primary" id="btn-routine-create">Crear y continuar</button>
-          <a class="link" href="#/rutinas">Cancelar</a>
+          <button type="button" class="primary" id="btn-routine-create">${escapeHtml(t("routines.createContinue"))}</button>
+          <a class="link" href="#/rutinas">${escapeHtml(t("routines.cancel"))}</a>
         </p>
         <p id="new-routine-err" class="msg-error"></p>
       </div>
@@ -2828,7 +2855,7 @@ async function renderRutinasNew() {
       const errEl = document.getElementById("new-routine-err");
       errEl.textContent = "";
       if (!name) {
-        errEl.textContent = "Indicá un nombre.";
+        errEl.textContent = t("routines.nameRequired");
         return;
       }
       try {
@@ -2846,7 +2873,7 @@ async function renderRutinasNew() {
 }
 
 async function renderRutinasViewer(id) {
-  layout(`<p class="loading-line">Cargando rutina…</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("routines.loadingOne"))}</p>`);
   try {
     const data = await api.apiGetRoutine(id);
     const rows = (data.exercises || [])
@@ -2861,14 +2888,14 @@ async function renderRutinasViewer(id) {
       .join("");
     layout(
       `
-      <p><a class="link" href="#/rutinas">← Rutinas</a></p>
+      <p><a class="link" href="#/rutinas">${escapeHtml(t("routines.back"))}</a></p>
       <div class="card" style="max-width:720px">
         <h2 class="card-title">${escapeHtml(data.name)}</h2>
-        <p class="muted small">Solo lectura · <a class="link" href="#/rutinas/${Number(id)}">Editar rutina</a></p>
+        <p class="muted small">${t("routines.viewerReadOnly", { id: String(Number(id)) })}</p>
         <div class="table-scroll">
           <table class="sessions-list-table">
-            <thead><tr><th>Tipo</th><th>Valor</th><th>Medida</th></tr></thead>
-            <tbody>${rows || `<tr><td colspan="3" class="muted">Sin ejercicios.</td></tr>`}</tbody>
+            <thead><tr><th>${escapeHtml(t("routines.thType"))}</th><th>${escapeHtml(t("routines.thValue"))}</th><th>${escapeHtml(t("routines.thMeasure"))}</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="3" class="muted">${escapeHtml(t("routines.noExercises"))}</td></tr>`}</tbody>
           </table>
         </div>
       </div>
@@ -2877,13 +2904,13 @@ async function renderRutinasViewer(id) {
     );
   } catch (ex) {
     layout(
-      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/rutinas">Volver</a></p></div>`
+      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/rutinas">${escapeHtml(t("sessionDetail.backShort"))}</a></p></div>`
     );
   }
 }
 
 async function renderRutinasEditor(id) {
-  layout(`<p class="loading-line">Cargando rutina…</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("routines.loadingOne"))}</p>`);
   try {
     const data = await api.apiGetRoutine(id);
     let exercises = (data.exercises || []).map((e) => ({
@@ -2894,9 +2921,12 @@ async function renderRutinasEditor(id) {
 
     function tableHtml() {
       if (!exercises.length) {
-        return `<tr><td colspan="5" class="muted">Todavía no agregaste ejercicios.</td></tr>`;
+        return `<tr><td colspan="5" class="muted">${escapeHtml(t("routines.emptyExercises"))}</td></tr>`;
       }
       const last = exercises.length - 1;
+      const tu = escapeHtml(t("routines.upTitle"));
+      const td = escapeHtml(t("routines.downTitle"));
+      const rm = escapeHtml(t("teams.remove"));
       return exercises
         .map(
           (ex, idx) => `
@@ -2905,10 +2935,10 @@ async function renderRutinasEditor(id) {
           <td>${escapeHtml(String(ex.value))}</td>
           <td>${escapeHtml(routineMetricLabel(ex.metric))}</td>
           <td class="rutina-ex-order-cell">
-            <button type="button" class="secondary btn-sm btn-ex-up" data-i="${idx}" ${idx === 0 ? "disabled" : ""} title="Subir">↑</button>
-            <button type="button" class="secondary btn-sm btn-ex-down" data-i="${idx}" ${idx === last ? "disabled" : ""} title="Bajar">↓</button>
+            <button type="button" class="secondary btn-sm btn-ex-up" data-i="${idx}" ${idx === 0 ? "disabled" : ""} title="${tu}">↑</button>
+            <button type="button" class="secondary btn-sm btn-ex-down" data-i="${idx}" ${idx === last ? "disabled" : ""} title="${td}">↓</button>
           </td>
-          <td><button type="button" class="secondary btn-sm btn-ex-del" data-i="${idx}">Quitar</button></td>
+          <td><button type="button" class="secondary btn-sm btn-ex-del" data-i="${idx}">${rm}</button></td>
         </tr>`
         )
         .join("");
@@ -2921,42 +2951,42 @@ async function renderRutinasEditor(id) {
 
     layout(
       `
-      <p><a class="link" href="#/rutinas">← Rutinas</a></p>
+      <p><a class="link" href="#/rutinas">${escapeHtml(t("routines.back"))}</a></p>
       <div class="card" style="max-width:720px">
-        <h2 class="card-title">Editar rutina</h2>
-        <label for="routine-name">Nombre</label>
+        <h2 class="card-title">${escapeHtml(t("routines.editorTitle"))}</h2>
+        <label for="routine-name">${escapeHtml(t("teams.labelName"))}</label>
         <input id="routine-name" type="text" maxlength="200" value="${escapeHtml(data.name)}" />
-        <h3 class="subheading" style="margin-top:1rem">Ejercicios</h3>
-        <p class="muted small">Agregá de a uno: tipo, medida y valor. Podés reordenar con ↑ ↓.</p>
+        <h3 class="subheading" style="margin-top:1rem">${escapeHtml(t("routines.exercisesHeading"))}</h3>
+        <p class="muted small">${t("routines.editorHint")}</p>
         <div class="table-scroll">
           <table class="sessions-list-table rutina-ex-table">
-            <thead><tr><th>Tipo</th><th>Valor</th><th>Medida</th><th>Orden</th><th></th></tr></thead>
+            <thead><tr><th>${escapeHtml(t("routines.thType"))}</th><th>${escapeHtml(t("routines.thValue"))}</th><th>${escapeHtml(t("routines.thMeasure"))}</th><th>${escapeHtml(t("routines.thOrder"))}</th><th></th></tr></thead>
             <tbody id="rutina-ex-tbody">${tableHtml()}</tbody>
           </table>
         </div>
         <div class="rutina-add-ex" style="margin-top:0.75rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius);background:#fafcff">
-          <p class="muted small" style="margin-top:0">Nuevo ejercicio</p>
+          <p class="muted small" style="margin-top:0">${escapeHtml(t("routines.newExercise"))}</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.5rem;align-items:end">
             <div>
-              <label for="add-ex-kind">Tipo</label>
+              <label for="add-ex-kind">${escapeHtml(t("routines.addKind"))}</label>
               <select id="add-ex-kind">${routineKindOptionsHtml("warmup")}</select>
             </div>
             <div>
-              <label for="add-ex-metric">Medida</label>
+              <label for="add-ex-metric">${escapeHtml(t("routines.addMetric"))}</label>
               <select id="add-ex-metric">${routineMetricOptionsHtml("time")}</select>
             </div>
             <div>
-              <label for="add-ex-val">Valor</label>
+              <label for="add-ex-val">${escapeHtml(t("routines.addValue"))}</label>
               <input id="add-ex-val" type="number" min="0" step="any" placeholder="0" />
             </div>
             <div>
-              <button type="button" class="secondary" id="btn-add-exercise">Agregar</button>
+              <button type="button" class="secondary" id="btn-add-exercise">${escapeHtml(t("routines.add"))}</button>
             </div>
           </div>
         </div>
         <p style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
-          <button type="button" class="primary" id="btn-save-routine">Guardar rutina</button>
-          <a class="link" href="#/rutinas" id="link-cancel-routine">Cancelar</a>
+          <button type="button" class="primary" id="btn-save-routine">${escapeHtml(t("routines.saveRoutine"))}</button>
+          <a class="link" href="#/rutinas" id="link-cancel-routine">${escapeHtml(t("routines.cancel"))}</a>
         </p>
         <p id="routine-edit-err" class="msg-error"></p>
       </div>
@@ -2972,7 +3002,7 @@ async function renderRutinasEditor(id) {
       const errEl = document.getElementById("routine-edit-err");
       errEl.textContent = "";
       if (Number.isNaN(val) || val < 0) {
-        errEl.textContent = "Completá un valor numérico válido (≥ 0).";
+        errEl.textContent = t("routines.errValue");
         return;
       }
       exercises.push({ kind, metric, value: val });
@@ -3016,7 +3046,7 @@ async function renderRutinasEditor(id) {
       const errEl = document.getElementById("routine-edit-err");
       errEl.textContent = "";
       if (!name) {
-        errEl.textContent = "El nombre no puede estar vacío.";
+        errEl.textContent = t("routines.errName");
         return;
       }
       try {
@@ -3032,7 +3062,7 @@ async function renderRutinasEditor(id) {
     });
   } catch (ex) {
     layout(
-      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/rutinas">Volver</a></p></div>`
+      `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/rutinas">${escapeHtml(t("routines.back"))}</a></p></div>`
     );
   }
 }
