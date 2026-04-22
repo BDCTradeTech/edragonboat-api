@@ -67,6 +67,38 @@
     "languageLabel": "言語",
     "noTeamHtml": "チームに所属していません。<a class=\"link\" href=\"#/teams/new\">チーム</a>で作成できます。"
   },
+  "sessions": {
+    "loading": "トレーニングを読み込み中…",
+    "title": "フリートレーニング",
+    "filterLabel": "チーム",
+    "filterHint": "アプリの <code>teamName</code> がこのチーム名と一致するセッションだけを表示（大文字・小文字は区別しません）。",
+    "noTeamHintHtml": "チーム未所属：<strong>すべて</strong>のトレーニングを表示。<strong>チーム</strong>メニューで作成し、名前で絞り込めます。",
+    "empty": "条件に合うセッションがありません。",
+    "emptyHintWithTeamHtml": "アプリではチーム名を <strong>{teamName}</strong> と同じにしてください。",
+    "emptyHintNoTeam": "このアカウントでアプリにトレーニングを保存してください。",
+    "sortTitle": "並び替え",
+    "colId": "ID",
+    "colDate": "日付",
+    "colTeam": "チーム",
+    "colTime": "時間",
+    "colDistance": "距離",
+    "colStrokes": "ストローク",
+    "dayLabel": "日",
+    "btnChart": "地図表示",
+    "dayMapTitle": "当日の地図",
+    "dayMapAria": "選択日の合算地図",
+    "dayMapHint": "当日サマリー付き地図をダウンロード（JPG）。",
+    "btnDownloadJpg": "地図をダウンロード（JPG）",
+    "dayNoDates": "— 日付なし —",
+    "loadingMap": "地図を読み込み中…",
+    "errorLoad": "読み込みに失敗: {detail}",
+    "retry": "再試行",
+    "jpgExportError": "JPGを生成できません（地図タイルの読み込み中のことがあります）。地図の表示を待って再試行するか、スクリーンショットを使ってください。",
+    "mapSummaryTeam": "チーム",
+    "mapSummaryDate": "日付",
+    "mapSummaryTotalDistance": "合計距離",
+    "mapSummarySessions": "セッション"
+  },
   "errors": {
     "notFoundDeploy": "リソースが見つかりません (404)。更新した app/main.py（/api/v1/profile と DELETE /api/v1/equipo/{id} のルート）またはプロジェクト全体をアップロードし、sudo systemctl restart edragonboat-api を実行してください。"
   }

@@ -67,6 +67,38 @@
     "languageLabel": "Langue",
     "noTeamHtml": "Vous n'avez pas d'équipe. Vous pouvez en créer une dans <a class=\"link\" href=\"#/teams/new\">Équipe</a>."
   },
+  "sessions": {
+    "loading": "Chargement des entraînements…",
+    "title": "Entraînement libre",
+    "filterLabel": "Équipe",
+    "filterHint": "Seules les séances dont le <code>teamName</code> dans l'application correspond au nom de cette équipe (sans tenir compte de la casse) sont listées.",
+    "noTeamHintHtml": "Sans équipe : <strong>tous</strong> vos entraînements sont affichés. Créez-en une dans le menu <strong>Équipe</strong> pour filtrer par nom.",
+    "empty": "Aucune séance ne correspond à ce critère.",
+    "emptyHintWithTeamHtml": "Dans l'application, la séance doit utiliser le même nom d'équipe que <strong>{teamName}</strong>.",
+    "emptyHintNoTeam": "Enregistrez une séance dans l'application avec ce compte.",
+    "sortTitle": "Trier",
+    "colId": "Id",
+    "colDate": "Date",
+    "colTeam": "Équipe",
+    "colTime": "Durée",
+    "colDistance": "Distance",
+    "colStrokes": "Coupes",
+    "dayLabel": "Jour",
+    "btnChart": "Carte",
+    "dayMapTitle": "Carte du jour",
+    "dayMapAria": "Carte combinée pour le jour choisi",
+    "dayMapHint": "Téléchargez la carte avec le résumé du jour (JPG).",
+    "btnDownloadJpg": "Télécharger la carte (JPG)",
+    "dayNoDates": "— Aucune date —",
+    "loadingMap": "Chargement de la carte…",
+    "errorLoad": "Impossible de charger : {detail}",
+    "retry": "Réessayer",
+    "jpgExportError": "Impossible de générer le JPG (souvent pendant le chargement des tuiles de carte). Attendez le chargement de la carte et réessayez, ou faites une capture d'écran.",
+    "mapSummaryTeam": "Équipe",
+    "mapSummaryDate": "Date",
+    "mapSummaryTotalDistance": "Distance totale",
+    "mapSummarySessions": "Séances"
+  },
   "errors": {
     "notFoundDeploy": "Ressource introuvable (404). Déployez le fichier app/main.py à jour (routes /api/v1/profile et DELETE /api/v1/equipo/{id}) ou le projet entier, puis : sudo systemctl restart edragonboat-api"
   }

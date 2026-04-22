@@ -467,7 +467,7 @@ function sessionSortTimeMs(sess) {
 }
 
 async function renderSessionsList() {
-  layout(`<p class="loading-line">Cargando entrenamientos…</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("sessions.loading"))}</p>`);
   try {
     const teams = await api.apiMyTeams();
     let teamFilter = sessionStorage.getItem(SESSION_TEAM_FILTER_KEY);
@@ -490,7 +490,7 @@ async function renderSessionsList() {
     const filterBlock =
       teams.length >= 1
         ? `<div class="session-team-filter">
-            <label for="sel-session-team">Equipo</label>
+            <label for="sel-session-team">${escapeHtml(t("sessions.filterLabel"))}</label>
             <select id="sel-session-team">
               ${teams
                 .map(
@@ -499,21 +499,21 @@ async function renderSessionsList() {
                 )
                 .join("")}
             </select>
-            <p class="muted small">Solo se listan sesiones cuyo <code>teamName</code> en la app coincide con el nombre de este equipo (sin distinguir mayúsculas).</p>
+            <p class="muted small">${t("sessions.filterHint")}</p>
           </div>`
-        : `<p class="muted">No tenés equipo: se muestran <strong>todos</strong> tus entrenamientos. Creá uno desde el menú <strong>Equipo</strong> para filtrar por nombre.</p>`;
+        : `<p class="muted">${t("sessions.noTeamHintHtml")}</p>`;
 
     if (!rows.length) {
       layout(`
         <div class="card">
-          <h2 class="card-title">Entrenamientos libres</h2>
+          <h2 class="card-title">${escapeHtml(t("sessions.title"))}</h2>
           ${filterBlock}
-          <p>No hay sesiones para este criterio.</p>
+          <p>${escapeHtml(t("sessions.empty"))}</p>
           <p class="muted">
             ${
               teams.length >= 1
-                ? `En la app, el entrenamiento debe usar el mismo nombre de equipo que <strong>${escapeHtml(currentTeamName)}</strong>.`
-                : "Pausá un entrenamiento en la app con esta cuenta."
+                ? t("sessions.emptyHintWithTeamHtml", { teamName: escapeHtml(currentTeamName) })
+                : escapeHtml(t("sessions.emptyHintNoTeam"))
             }
           </p>
         </div>
@@ -525,14 +525,15 @@ async function renderSessionsList() {
       return;
     }
 
+    const sortTi = escapeHtml(t("sessions.sortTitle"));
     const theadRow = `
               <tr>
-                <th data-sort="id" class="th-sortable" title="Ordenar">Id</th>
-                <th data-sort="created_at" class="th-sortable" title="Ordenar">Fecha</th>
-                <th data-sort="team_name" class="th-sortable" title="Ordenar">Equipo</th>
-                <th data-sort="total_seconds" class="th-sortable" title="Ordenar">Tiempo</th>
-                <th data-sort="distance_meters" class="th-sortable" title="Ordenar">Distancia</th>
-                <th data-sort="paladas" class="th-sortable" title="Ordenar">Paladas</th>
+                <th data-sort="id" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colId"))}</th>
+                <th data-sort="created_at" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colDate"))}</th>
+                <th data-sort="team_name" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colTeam"))}</th>
+                <th data-sort="total_seconds" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colTime"))}</th>
+                <th data-sort="distance_meters" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colDistance"))}</th>
+                <th data-sort="paladas" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colStrokes"))}</th>
               </tr>`;
 
     const sortState = { sortKey: "created_at", sortDir: "desc" };
@@ -568,19 +569,19 @@ async function renderSessionsList() {
                 `<option value="${escapeHtml(k)}">${escapeHtml(fmtDateDdMmYyFromYmdKey(k))}</option>`
             )
             .join("")
-        : `<option value="">— Sin fechas —</option>`;
+        : `<option value="">${escapeHtml(t("sessions.dayNoDates"))}</option>`;
 
     layout(
       `
       <div class="card">
-        <h2 class="card-title">Entrenamientos libres</h2>
+        <h2 class="card-title">${escapeHtml(t("sessions.title"))}</h2>
         ${filterBlock}
         <div class="session-day-filter">
           <div class="session-day-filter-fields">
-            <label for="sel-session-day">Día</label>
+            <label for="sel-session-day">${escapeHtml(t("sessions.dayLabel"))}</label>
             <select id="sel-session-day">${dayOpts}</select>
           </div>
-          <button type="button" class="secondary session-day-map-btn" id="btn-session-day-map">Graficar</button>
+          <button type="button" class="secondary session-day-map-btn" id="btn-session-day-map">${escapeHtml(t("sessions.btnChart"))}</button>
         </div>
         <div class="table-scroll">
           <table class="sessions-list-table">
@@ -590,13 +591,13 @@ async function renderSessionsList() {
         </div>
       </div>
       <div id="sessions-day-map-panel" class="card" style="margin-top:1rem;display:none" data-day-key="">
-        <h3 class="card-title" style="margin-top:0">Mapa del día</h3>
+        <h3 class="card-title" style="margin-top:0">${escapeHtml(t("sessions.dayMapTitle"))}</h3>
         <div id="sessions-day-map-export-root" class="session-map-export-root session-map-export-root--ig-story">
           <div id="sessions-day-summary" class="session-map-export-summary"></div>
-          <div id="sessions-day-map" class="session-map-host session-map-host--ig" role="region" aria-label="Mapa combinado del día"></div>
+          <div id="sessions-day-map" class="session-map-host session-map-host--ig" role="region" aria-label="${escapeHtml(t("sessions.dayMapAria"))}"></div>
         </div>
-        <p class="muted small map-export-hint">Descargá el mapa con el resumen del día (JPG).</p>
-        <button type="button" class="secondary btn-sm" id="btn-sessions-day-map-jpg">Descargar Mapa (JPG)</button>
+        <p class="muted small map-export-hint">${escapeHtml(t("sessions.dayMapHint"))}</p>
+        <button type="button" class="secondary btn-sm" id="btn-sessions-day-map-jpg">${escapeHtml(t("sessions.btnDownloadJpg"))}</button>
       </div>
     `,
       { wide: true }
@@ -637,7 +638,7 @@ async function renderSessionsList() {
       const dayRows = rows.filter((r) => localDateKeyFromIso(r.created_at) === dayKey);
       const teamNameForExport = dayRows[0]?.team_name || "";
       panel.dataset.teamNameForExport = teamNameForExport;
-      sumEl.innerHTML = `<p class="muted">Cargando mapa…</p>`;
+      sumEl.innerHTML = `<p class="muted">${escapeHtml(t("sessions.loadingMap"))}</p>`;
       mapEl.innerHTML = "";
       try {
         const fetched = await Promise.all(ids.map((id) => api.apiGetSession(id)));
@@ -686,16 +687,14 @@ async function renderSessionsList() {
         await exportVerticalMapJpeg(root, mapEl, `${safeMapJpgTeamSegment(teamName)}-${fmtDateDdMmYyFromYmdKey(dayKey)}.jpg`);
       } catch (e) {
         console.error(e);
-        alert(
-          "No se pudo generar el JPG (a veces por las teselas del mapa). Esperá a que cargue el mapa y reintentá, o usá captura de pantalla."
-        );
+        alert(t("sessions.jpgExportError"));
       }
     });
   } catch (ex) {
     layout(`
       <div class="card">
-        <p class="msg-error">Error al cargar: ${escapeHtml(humanizeApiError(ex.message))}</p>
-        <button type="button" id="btn-retry">Reintentar</button>
+        <p class="msg-error">${escapeHtml(t("sessions.errorLoad", { detail: humanizeApiError(ex.message) }))}</p>
+        <button type="button" id="btn-retry">${escapeHtml(t("sessions.retry"))}</button>
       </div>
     `);
     document.getElementById("btn-retry").addEventListener("click", route);
@@ -1337,11 +1336,11 @@ function buildAggDayMapSummaryHtml(dayYmdKey, totalMeters, sessionCount, teamNam
   const dist =
     totalMeters != null && Number.isFinite(totalMeters)
       ? `${escapeHtml(formatIntEsThousands(totalMeters))} m`
-      : "—";
+      : t("account.emptyDash");
   const ses = formatIntEsThousands(sessionCount);
   const tn = teamName && String(teamName).trim();
   const equipoRow = tn
-    ? `<div><span class="sms-label">Equipo</span><span class="sms-val">${escapeHtml(tn)}</span></div>`
+    ? `<div><span class="sms-label">${escapeHtml(t("sessions.mapSummaryTeam"))}</span><span class="sms-val">${escapeHtml(tn)}</span></div>`
     : "";
   const logoBlock = mapSummaryLogoHtml(teamLogoUrl);
   return `
@@ -1349,9 +1348,9 @@ function buildAggDayMapSummaryHtml(dayYmdKey, totalMeters, sessionCount, teamNam
       ${logoBlock}
       <div class="session-map-summary-grid">
         ${equipoRow}
-        <div><span class="sms-label">Fecha</span><span class="sms-val">${escapeHtml(fecha)}</span></div>
-        <div><span class="sms-label">Distancia total</span><span class="sms-val">${dist}</span></div>
-        <div><span class="sms-label">Sesiones</span><span class="sms-val">${escapeHtml(ses)}</span></div>
+        <div><span class="sms-label">${escapeHtml(t("sessions.mapSummaryDate"))}</span><span class="sms-val">${escapeHtml(fecha)}</span></div>
+        <div><span class="sms-label">${escapeHtml(t("sessions.mapSummaryTotalDistance"))}</span><span class="sms-val">${dist}</span></div>
+        <div><span class="sms-label">${escapeHtml(t("sessions.mapSummarySessions"))}</span><span class="sms-val">${escapeHtml(ses)}</span></div>
       </div>
     </div>
   `;
@@ -1661,9 +1660,7 @@ async function renderSessionDetail(id) {
         await exportVerticalMapJpeg(root, wrap, buildSessionMapJpegFileName(s, data.id, data.created_at));
       } catch (e) {
         console.error(e);
-        alert(
-          "No se pudo generar el JPG (a veces por las teselas del mapa). Esperá a que cargue el mapa y reintentá, o usá captura de pantalla."
-        );
+        alert(t("sessions.jpgExportError"));
       }
     });
   } catch (ex) {

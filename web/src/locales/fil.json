@@ -67,6 +67,38 @@
     "languageLabel": "Wika",
     "noTeamHtml": "Wala kang koponan. Puwedeng gumawa sa <a class=\"link\" href=\"#/teams/new\">Koponan</a>."
   },
+  "sessions": {
+    "loading": "Nilo-load ang mga training…",
+    "title": "Malayang training",
+    "filterLabel": "Koponan",
+    "filterHint": "Ang ililista lang ay ang mga session na ang <code>teamName</code> sa app ay tumutugma sa pangalan ng koponang ito (hindi sensitive sa laki ng titik).",
+    "noTeamHintHtml": "Walang koponan: ipinapakita ang <strong>lahat</strong> ng training mo. Gumawa mula sa menu <strong>Koponan</strong> para mag-filter.",
+    "empty": "Walang session sa pamantayang ito.",
+    "emptyHintWithTeamHtml": "Sa app, kailangan pareho ang pangalan ng koponan sa <strong>{teamName}</strong>.",
+    "emptyHintNoTeam": "Mag-save ng training sa app gamit ang account na ito.",
+    "sortTitle": "Ayusin",
+    "colId": "Id",
+    "colDate": "Petsa",
+    "colTeam": "Koponan",
+    "colTime": "Oras",
+    "colDistance": "Distansya",
+    "colStrokes": "Palada",
+    "dayLabel": "Araw",
+    "btnChart": "Ipakita ang mapa",
+    "dayMapTitle": "Mapa ng araw",
+    "dayMapAria": "Pinagsamang mapa para sa piling araw",
+    "dayMapHint": "I-download ang mapa may buod ng araw (JPG).",
+    "btnDownloadJpg": "I-download ang mapa (JPG)",
+    "dayNoDates": "— Walang petsa —",
+    "loadingMap": "Nilo-load ang mapa…",
+    "errorLoad": "Hindi na-load: {detail}",
+    "retry": "Subukan ulit",
+    "jpgExportError": "Hindi na-generate ang JPG (minsan dahil sa tiles ng mapa). Maghintay matapos ang mapa bago subukan, o kumuha ng screenshot.",
+    "mapSummaryTeam": "Koponan",
+    "mapSummaryDate": "Petsa",
+    "mapSummaryTotalDistance": "Kabuuang distansya",
+    "mapSummarySessions": "Mga session"
+  },
   "errors": {
     "notFoundDeploy": "Hindi nahanap ang resource (404). I-upload ang na-update na app/main.py (mga ruta /api/v1/profile at DELETE /api/v1/equipo/{id}) o ang buong proyekto, pagkatapos: sudo systemctl restart edragonboat-api"
   }

@@ -67,6 +67,38 @@
     "languageLabel": "语言",
     "noTeamHtml": "您尚未加入队伍。可在 <a class=\"link\" href=\"#/teams/new\">队伍</a> 中创建。"
   },
+  "sessions": {
+    "loading": "正在加载训练…",
+    "title": "自由训练",
+    "filterLabel": "队伍",
+    "filterHint": "仅列出应用中 <code>teamName</code> 与本队名称一致（不区分大小写）的会话。",
+    "noTeamHintHtml": "您未加入队伍：将显示<strong>全部</strong>训练。请在<strong>队伍</strong>菜单中创建队伍以按名称筛选。",
+    "empty": "当前条件下没有会话。",
+    "emptyHintWithTeamHtml": "在应用中，训练使用的队名须与 <strong>{teamName}</strong> 一致。",
+    "emptyHintNoTeam": "请使用本账号在应用中保存一次训练。",
+    "sortTitle": "排序",
+    "colId": "编号",
+    "colDate": "日期",
+    "colTeam": "队伍",
+    "colTime": "时间",
+    "colDistance": "距离",
+    "colStrokes": "划桨",
+    "dayLabel": "日期",
+    "btnChart": "显示地图",
+    "dayMapTitle": "当日地图",
+    "dayMapAria": "所选日期的合并地图",
+    "dayMapHint": "下载带当日概览的地图（JPG）。",
+    "btnDownloadJpg": "下载地图（JPG）",
+    "dayNoDates": "— 无日期 —",
+    "loadingMap": "正在加载地图…",
+    "errorLoad": "加载失败：{detail}",
+    "retry": "重试",
+    "jpgExportError": "无法生成 JPG（有时因地图瓦片仍在加载）。请等待地图加载后重试，或使用截屏。",
+    "mapSummaryTeam": "队伍",
+    "mapSummaryDate": "日期",
+    "mapSummaryTotalDistance": "总距离",
+    "mapSummarySessions": "会话数"
+  },
   "errors": {
     "notFoundDeploy": "未找到资源 (404)。请上传已更新的 app/main.py（/api/v1/profile 与 DELETE /api/v1/equipo/{id} 路由）或整个项目，然后执行：sudo systemctl restart edragonboat-api"
   }

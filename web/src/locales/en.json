@@ -67,6 +67,38 @@
     "languageLabel": "Language",
     "noTeamHtml": "You have no team. You can create one in <a class=\"link\" href=\"#/teams/new\">Team</a>."
   },
+  "sessions": {
+    "loading": "Loading training sessions…",
+    "title": "Open training",
+    "filterLabel": "Team",
+    "filterHint": "Only sessions whose <code>teamName</code> in the app matches this team’s name (case-insensitive) are listed.",
+    "noTeamHintHtml": "You have no team: <strong>all</strong> your sessions are shown. Create one from the <strong>Team</strong> menu to filter by name.",
+    "empty": "No sessions match this view.",
+    "emptyHintWithTeamHtml": "In the app, the session must use the same team name as <strong>{teamName}</strong>.",
+    "emptyHintNoTeam": "Save a session from the app with this account.",
+    "sortTitle": "Sort",
+    "colId": "Id",
+    "colDate": "Date",
+    "colTeam": "Team",
+    "colTime": "Time",
+    "colDistance": "Distance",
+    "colStrokes": "Strokes",
+    "dayLabel": "Day",
+    "btnChart": "Show map",
+    "dayMapTitle": "Map of the day",
+    "dayMapAria": "Combined map for the selected day",
+    "dayMapHint": "Download the map with the day summary (JPG).",
+    "btnDownloadJpg": "Download map (JPG)",
+    "dayNoDates": "— No dates —",
+    "loadingMap": "Loading map…",
+    "errorLoad": "Could not load: {detail}",
+    "retry": "Retry",
+    "jpgExportError": "Could not generate the JPG (sometimes because map tiles are still loading). Wait for the map to load and try again, or use a screenshot.",
+    "mapSummaryTeam": "Team",
+    "mapSummaryDate": "Date",
+    "mapSummaryTotalDistance": "Total distance",
+    "mapSummarySessions": "Sessions"
+  },
   "errors": {
     "notFoundDeploy": "Resource not found (404). Upload the updated app/main.py (routes /api/v1/profile and DELETE /api/v1/equipo/{id}) or the full project, then restart: sudo systemctl restart edragonboat-api."
   }

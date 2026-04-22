@@ -67,6 +67,38 @@
     "languageLabel": "Bahasa",
     "noTeamHtml": "Anda belum berpasukan. Boleh cipta di <a class=\"link\" href=\"#/teams/new\">Pasukan</a>."
   },
+  "sessions": {
+    "loading": "Memuatkan latihan…",
+    "title": "Latihan bebas",
+    "filterLabel": "Pasukan",
+    "filterHint": "Hanya sesi yang <code>teamName</code> dalam app sepadan dengan nama pasukan ini (tidak peka huruf besar/kecil) disenaraikan.",
+    "noTeamHintHtml": "Tiada pasukan: <strong>semua</strong> latihan dipaparkan. Cipta di menu <strong>Pasukan</strong> untuk tapisan.",
+    "empty": "Tiada sesi yang sepadan.",
+    "emptyHintWithTeamHtml": "Dalam app, latihan mesti guna nama pasukan yang sama dengan <strong>{teamName}</strong>.",
+    "emptyHintNoTeam": "Simpan latihan dalam app dengan akaun ini.",
+    "sortTitle": "Isih",
+    "colId": "Id",
+    "colDate": "Tarikh",
+    "colTeam": "Pasukan",
+    "colTime": "Masa",
+    "colDistance": "Jarak",
+    "colStrokes": "Hentakan",
+    "dayLabel": "Hari",
+    "btnChart": "Papar peta",
+    "dayMapTitle": "Peta hari",
+    "dayMapAria": "Peta gabungan untuk hari terpilih",
+    "dayMapHint": "Muat turun peta dengan ringkasan hari (JPG).",
+    "btnDownloadJpg": "Muat turun peta (JPG)",
+    "dayNoDates": "— Tiada tarikh —",
+    "loadingMap": "Memuatkan peta…",
+    "errorLoad": "Gagal memuatkan: {detail}",
+    "retry": "Cuba lagi",
+    "jpgExportError": "Tidak dapat menjana JPG (kadang-kadang sementara peta dimuatkan). Tunggu peta selesai atau ambil tangkapan skrin.",
+    "mapSummaryTeam": "Pasukan",
+    "mapSummaryDate": "Tarikh",
+    "mapSummaryTotalDistance": "Jumlah jarak",
+    "mapSummarySessions": "Sesi"
+  },
   "errors": {
     "notFoundDeploy": "Sumber tidak dijumpai (404). Muat naik app/main.py yang dikemas kini (laluan /api/v1/profile dan DELETE /api/v1/equipo/{id}) atau keseluruhan projek, kemudian: sudo systemctl restart edragonboat-api"
   }

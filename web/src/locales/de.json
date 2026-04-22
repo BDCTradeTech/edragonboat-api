@@ -67,6 +67,38 @@
     "languageLabel": "Sprache",
     "noTeamHtml": "Du bist in keinem Team. Du kannst eines unter <a class=\"link\" href=\"#/teams/new\">Team</a> anlegen."
   },
+  "sessions": {
+    "loading": "Training wird geladen…",
+    "title": "Freies Training",
+    "filterLabel": "Team",
+    "filterHint": "Es werden nur Einheiten gelistet, deren <code>teamName</code> in der App mit dem Namen dieses Teams übereinstimmt (ohne Groß-/Kleinschreibung).",
+    "noTeamHintHtml": "Ohne Team: <strong>alle</strong> deine Einheiten werden angezeigt. Lege in <strong>Team</strong> ein Team an, um zu filtern.",
+    "empty": "Keine passenden Einheiten.",
+    "emptyHintWithTeamHtml": "In der App muss dieselbe Bezeichnung wie <strong>{teamName}</strong> verwendet werden.",
+    "emptyHintNoTeam": "Speichere eine Einheit in der App mit diesem Konto.",
+    "sortTitle": "Sortieren",
+    "colId": "Id",
+    "colDate": "Datum",
+    "colTeam": "Team",
+    "colTime": "Zeit",
+    "colDistance": "Distanz",
+    "colStrokes": "Züge",
+    "dayLabel": "Tag",
+    "btnChart": "Karte",
+    "dayMapTitle": "Tageskarte",
+    "dayMapAria": "Kombinierte Karte für den gewählten Tag",
+    "dayMapHint": "Karte mit Tageszusammenfassung (JPG) herunterladen.",
+    "btnDownloadJpg": "Karte (JPG) herunterladen",
+    "dayNoDates": "— Keine Daten —",
+    "loadingMap": "Karte wird geladen…",
+    "errorLoad": "Laden fehlgeschlagen: {detail}",
+    "retry": "Erneut",
+    "jpgExportError": "JPG konnte nicht erstellt werden (manchmal wegen Kartenkacheln). Warte, bis die Karte geladen ist, oder nutze einen Screenshot.",
+    "mapSummaryTeam": "Team",
+    "mapSummaryDate": "Datum",
+    "mapSummaryTotalDistance": "Gesamtdistanz",
+    "mapSummarySessions": "Einheiten"
+  },
   "errors": {
     "notFoundDeploy": "Ressource nicht gefunden (404). Aktualisierte app/main.py hochladen (Routen /api/v1/profile und DELETE /api/v1/equipo/{id}) oder das ganze Projekt, dann: sudo systemctl restart edragonboat-api"
   }

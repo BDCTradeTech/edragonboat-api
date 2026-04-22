@@ -67,6 +67,38 @@
     "languageLabel": "Idioma",
     "noTeamHtml": "Não tem equipa. Pode criar uma em <a class=\"link\" href=\"#/teams/new\">Equipa</a>."
   },
+  "sessions": {
+    "loading": "A carregar treinos…",
+    "title": "Treino livre",
+    "filterLabel": "Equipa",
+    "filterHint": "Só aparecem sessões cujo <code>teamName</code> na app coincide com o nome desta equipa (sem distinguir maiúsculas).",
+    "noTeamHintHtml": "Sem equipa: são mostrados <strong>todos</strong> os teus treinos. Cria uma no menu <strong>Equipa</strong> para filtrar por nome.",
+    "empty": "Não há sessões com este critério.",
+    "emptyHintWithTeamHtml": "Na app, o treino deve usar o mesmo nome de equipa que <strong>{teamName}</strong>.",
+    "emptyHintNoTeam": "Grava um treino na app com esta conta.",
+    "sortTitle": "Ordenar",
+    "colId": "Id",
+    "colDate": "Data",
+    "colTeam": "Equipa",
+    "colTime": "Tempo",
+    "colDistance": "Distância",
+    "colStrokes": "Remadas",
+    "dayLabel": "Dia",
+    "btnChart": "Gráfico / mapa",
+    "dayMapTitle": "Mapa do dia",
+    "dayMapAria": "Mapa combinado do dia",
+    "dayMapHint": "Descarregar o mapa com o resumo do dia (JPG).",
+    "btnDownloadJpg": "Descarregar mapa (JPG)",
+    "dayNoDates": "— Sem datas —",
+    "loadingMap": "A carregar mapa…",
+    "errorLoad": "Erro ao carregar: {detail}",
+    "retry": "Tentar de novo",
+    "jpgExportError": "Não foi possível gerar o JPG (por vezes enquanto as teselas do mapa carregam). Espere o mapa e tente de novo, ou use captura de ecrã.",
+    "mapSummaryTeam": "Equipa",
+    "mapSummaryDate": "Data",
+    "mapSummaryTotalDistance": "Distância total",
+    "mapSummarySessions": "Sessões"
+  },
   "errors": {
     "notFoundDeploy": "Recurso não encontrado (404). Envie o ficheiro app/main.py atualizado (rotas /api/v1/profile e DELETE /api/v1/equipo/{id}) ou o projeto completo, e reinicie: sudo systemctl restart edragonboat-api."
   }
