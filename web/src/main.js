@@ -148,21 +148,21 @@ function buildSessionMapSummaryHtml(s, last, teamLogoUrl) {
     last != null && typeof last.distanceMeters === "number" && Number.isFinite(last.distanceMeters)
       ? Math.round(last.distanceMeters)
       : null;
-  const team = s.teamName ? escapeHtml(s.teamName) : "—";
+  const team = s.teamName ? escapeHtml(s.teamName) : escapeHtml(t("account.emptyDash"));
   const boat = boatTypeLabelEsp(s.boatType);
-  const paddlers = s.paddlersCount != null ? escapeHtml(String(s.paddlersCount)) : "—";
+  const paddlers = s.paddlersCount != null ? escapeHtml(String(s.paddlersCount)) : escapeHtml(t("account.emptyDash"));
   const fechaInicio = escapeHtml(fmtSessionStartMap(s.sessionStartTime));
-  const distHtml = meters != null ? `${escapeHtml(String(meters))} m` : "—";
+  const distHtml = meters != null ? `${escapeHtml(String(meters))} m` : escapeHtml(t("account.emptyDash"));
   const logoBlock = mapSummaryLogoHtml(teamLogoUrl);
   return `
     <div class="session-map-summary-head">
       ${logoBlock}
       <div class="session-map-summary-grid">
-        <div><span class="sms-label">Fecha</span><span class="sms-val">${fechaInicio}</span></div>
-        <div><span class="sms-label">Equipo</span><span class="sms-val">${team}</span></div>
-        <div><span class="sms-label">Bote</span><span class="sms-val">${boat}</span></div>
-        <div><span class="sms-label">Palistas</span><span class="sms-val">${paddlers}</span></div>
-        <div><span class="sms-label">Distancia</span><span class="sms-val">${distHtml}</span></div>
+        <div><span class="sms-label">${escapeHtml(t("sessionDetail.smsDate"))}</span><span class="sms-val">${fechaInicio}</span></div>
+        <div><span class="sms-label">${escapeHtml(t("sessionDetail.smsTeam"))}</span><span class="sms-val">${team}</span></div>
+        <div><span class="sms-label">${escapeHtml(t("sessionDetail.smsBoat"))}</span><span class="sms-val">${boat}</span></div>
+        <div><span class="sms-label">${escapeHtml(t("sessionDetail.smsPaddlers"))}</span><span class="sms-val">${paddlers}</span></div>
+        <div><span class="sms-label">${escapeHtml(t("sessionDetail.smsDistance"))}</span><span class="sms-val">${distHtml}</span></div>
       </div>
     </div>
   `;
@@ -711,16 +711,9 @@ function formatCellVal(v) {
 
 /** Etiquetas legibles para claves de métricas (tablas y ejes de gráficos). */
 function metricLabelForKey(key) {
-  const m = {
-    second: "Tiempo (segundos)",
-    distanceMeters: "Distancia (metros)",
-    speedKmh: "Velocidad (km/h)",
-    spm: "SPM",
-    paladas: "Paladas",
-    dpsMeters: "DPS (m/palada)",
-    strokePeakAccelerationMs2: "Fuerza Palada M/S2",
-  };
-  return m[key] ?? key;
+  const tr = t(`sessionDetail.metrics.${key}`);
+  if (tr === `sessionDetail.metrics.${key}`) return key;
+  return tr;
 }
 
 function dataPointColumnLabel(key) {
@@ -747,13 +740,13 @@ function buildSessionMetadataTable(session) {
       return `<tr><th scope="row">${escapeHtml(k)}</th><td>${cell}</td></tr>`;
     })
     .join("");
-  if (!rows) return `<p class="muted">Sin metadatos adicionales.</p>`;
+  if (!rows) return `<p class="muted">${escapeHtml(t("sessionDetail.noMetadata"))}</p>`;
   return `<table class="meta-table"><tbody>${rows}</tbody></table>`;
 }
 
 function buildDynamicDataPointsTable(points) {
   if (!points || !points.length)
-    return `<p class="muted">Sin puntos de muestreo.</p>`;
+    return `<p class="muted">${escapeHtml(t("sessionDetail.noSamples"))}</p>`;
   const keySet = new Set();
   points.forEach((p) =>
     Object.keys(p).forEach((k) => {
@@ -796,25 +789,25 @@ function buildExploreControlsHtml(points) {
     .join("");
   return `
     <div class="explore-chart card-inset">
-      <h4>Comparar métricas numéricas</h4>
-      <p class="muted small">Eje inferior: tiempo (segundos). Eje superior: distancia en metros (cuando hay <code>distanceMeters</code>). Podés superponer hasta tres series en Y.</p>
+      <h4>${escapeHtml(t("sessionDetail.exploreTitle"))}</h4>
+      <p class="muted small">${t("sessionDetail.exploreHint")}</p>
       <div class="explore-controls">
-        <label>Eje Y (izquierda)
+        <label>${escapeHtml(t("sessionDetail.exploreYLeft"))}
           <select id="explore-y1">${opts}</select>
         </label>
-        <label>Eje Y (derecha 1, opcional)
+        <label>${escapeHtml(t("sessionDetail.exploreYRight1"))}
           <select id="explore-y2">
-            <option value="">— Ninguna —</option>
+            <option value="">${escapeHtml(t("sessionDetail.exploreNone"))}</option>
             ${opts}
           </select>
         </label>
-        <label>Eje Y (derecha 2, opcional)
+        <label>${escapeHtml(t("sessionDetail.exploreYRight2"))}
           <select id="explore-y3">
-            <option value="">— Ninguna —</option>
+            <option value="">${escapeHtml(t("sessionDetail.exploreNone"))}</option>
             ${opts}
           </select>
         </label>
-        <button type="button" class="secondary btn-sm" id="btn-explore-apply">Actualizar gráfico</button>
+        <button type="button" class="secondary btn-sm" id="btn-explore-apply">${escapeHtml(t("sessionDetail.exploreUpdate"))}</button>
       </div>
       <div class="chart-canvas-wrap explore-wrap"><canvas id="chart-explore"></canvas></div>
     </div>`;
@@ -1376,8 +1369,7 @@ function initMultiSessionDayMap(loaded, mapHostEl) {
   }
 
   if (layers.length === 0) {
-    mapHostEl.innerHTML =
-      '<p class="muted" style="padding:1rem">No hay coordenadas GPS en las sesiones de ese día.</p>';
+    mapHostEl.innerHTML = `<p class="muted" style="padding:1rem">${escapeHtml(t("sessions.mapNoGpsDay"))}</p>`;
     mapHostEl.classList.add("session-map-empty");
     return;
   }
@@ -1399,8 +1391,8 @@ function initMultiSessionDayMap(loaded, mapHostEl) {
   L.control
     .layers(
       {
-        Mapa: osm,
-        Satélite: satellite,
+        [t("sessionDetail.mapLayerMap")]: osm,
+        [t("sessionDetail.mapLayerSatellite")]: satellite,
       },
       {},
       { position: "topright" }
@@ -1435,8 +1427,7 @@ function initSessionMap(points) {
   if (!el) return;
   const track = extractTrackLatLng(points);
   if (track.length === 0) {
-    el.innerHTML =
-      '<p class="muted" style="padding:1rem">No hay coordenadas GPS en esta sesión (grabación anterior o sin señal).</p>';
+    el.innerHTML = `<p class="muted" style="padding:1rem">${escapeHtml(t("sessionDetail.mapNoGps"))}</p>`;
     el.classList.add("session-map-empty");
     return;
   }
@@ -1461,8 +1452,8 @@ function initSessionMap(points) {
   L.control
     .layers(
       {
-        Mapa: osm,
-        Satélite: satellite,
+        [t("sessionDetail.mapLayerMap")]: osm,
+        [t("sessionDetail.mapLayerSatellite")]: satellite,
       },
       {},
       { position: "topright" }
@@ -1485,7 +1476,7 @@ function initSessionMap(points) {
 }
 
 async function renderSessionDetail(id) {
-  layout(`<p class="loading-line">Cargando sesión #${escapeHtml(id)}…</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("sessionDetail.loading", { id: String(id) }))}</p>`);
   try {
     const [data, myTeams, me] = await Promise.all([
       api.apiGetSession(id),
@@ -1500,12 +1491,13 @@ async function renderSessionDetail(id) {
 
     const last =
       s.dataPoints && s.dataPoints.length ? s.dataPoints[s.dataPoints.length - 1] : null;
+    const em = escapeHtml(t("account.emptyDash"));
     const stats = `
       <div class="stats">
-        <div class="stat">Fecha<strong>${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</strong></div>
-        <div class="stat">Tiempo total<strong>${s.totalSeconds != null ? s.totalSeconds + " s" : "—"}</strong></div>
-        <div class="stat">Distancia final<strong>${last ? last.distanceMeters.toFixed(0) + " m" : "—"}</strong></div>
-        <div class="stat">Paladas<strong>${last ? last.paladas : "—"}</strong></div>
+        <div class="stat">${escapeHtml(t("sessionDetail.statDate"))}<strong>${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</strong></div>
+        <div class="stat">${escapeHtml(t("sessionDetail.statTotalTime"))}<strong>${s.totalSeconds != null ? s.totalSeconds + " s" : em}</strong></div>
+        <div class="stat">${escapeHtml(t("sessionDetail.statFinalDistance"))}<strong>${last ? last.distanceMeters.toFixed(0) + " m" : em}</strong></div>
+        <div class="stat">${escapeHtml(t("sessionDetail.statStrokes"))}<strong>${last ? last.paladas : em}</strong></div>
       </div>
     `;
 
@@ -1513,14 +1505,14 @@ async function renderSessionDetail(id) {
 
     const tabButtons = isPaddler
       ? `
-            <button type="button" class="tab-btn active" data-tab="resumen" role="tab">Resumen</button>
-            <button type="button" class="tab-btn" data-tab="mapas" role="tab">Mapas</button>`
+            <button type="button" class="tab-btn active" data-tab="resumen" role="tab">${escapeHtml(t("sessionDetail.tabSummary"))}</button>
+            <button type="button" class="tab-btn" data-tab="mapas" role="tab">${escapeHtml(t("sessionDetail.tabMaps"))}</button>`
       : `
-            <button type="button" class="tab-btn active" data-tab="resumen" role="tab">Resumen</button>
-            <button type="button" class="tab-btn" data-tab="tabla" role="tab">Datos</button>
-            <button type="button" class="tab-btn" data-tab="graficos" role="tab">Gráficos</button>
-            <button type="button" class="tab-btn" data-tab="mapas" role="tab">Mapas</button>
-            <button type="button" class="tab-btn" data-tab="json" role="tab">JSON completo</button>`;
+            <button type="button" class="tab-btn active" data-tab="resumen" role="tab">${escapeHtml(t("sessionDetail.tabSummary"))}</button>
+            <button type="button" class="tab-btn" data-tab="tabla" role="tab">${escapeHtml(t("sessionDetail.tabData"))}</button>
+            <button type="button" class="tab-btn" data-tab="graficos" role="tab">${escapeHtml(t("sessionDetail.tabCharts"))}</button>
+            <button type="button" class="tab-btn" data-tab="mapas" role="tab">${escapeHtml(t("sessionDetail.tabMaps"))}</button>
+            <button type="button" class="tab-btn" data-tab="json" role="tab">${escapeHtml(t("sessionDetail.tabJson"))}</button>`;
 
     let tablaGraficosPanels = "";
     if (!isPaddler) {
@@ -1529,17 +1521,17 @@ async function renderSessionDetail(id) {
       const exploreBlock = buildExploreControlsHtml(s.dataPoints);
       tablaGraficosPanels = `
           <div id="panel-tabla" class="tab-panel" role="tabpanel">
-            <h3 class="subheading">Campos del entrenamiento (JSON raíz)</h3>
+            <h3 class="subheading">${escapeHtml(t("sessionDetail.headingMeta"))}</h3>
             <div class="table-scroll">${metaTable}</div>
-            <h3 class="subheading">Muestras por segundo (todas las claves de cada punto)</h3>
+            <h3 class="subheading">${escapeHtml(t("sessionDetail.headingSamples"))}</h3>
             <div class="table-scroll tall">${pointsTable}</div>
           </div>
           <div id="panel-graficos" class="tab-panel" role="tabpanel">
             <div class="chart-grid">
-              <div class="chart-box"><h4>Velocidad (km/h)</h4><div class="chart-canvas-wrap"><canvas id="chart-speed"></canvas></div></div>
-              <div class="chart-box"><h4>Ritmo (SPM)</h4><div class="chart-canvas-wrap"><canvas id="chart-spm"></canvas></div></div>
-              <div class="chart-box"><h4>DPS (m/palada)</h4><div class="chart-canvas-wrap"><canvas id="chart-dps"></canvas></div></div>
-              <div class="chart-box"><h4>Fuerza palada (m/s²)</h4><p class="muted small" style="margin:0 0 0.5rem">Picos por segundo (barra solo si hubo medición en ese segundo).</p><div class="chart-canvas-wrap"><canvas id="chart-stroke-force"></canvas></div></div>
+              <div class="chart-box"><h4>${escapeHtml(t("sessionDetail.chartSpeed"))}</h4><div class="chart-canvas-wrap"><canvas id="chart-speed"></canvas></div></div>
+              <div class="chart-box"><h4>${escapeHtml(t("sessionDetail.chartSpm"))}</h4><div class="chart-canvas-wrap"><canvas id="chart-spm"></canvas></div></div>
+              <div class="chart-box"><h4>${escapeHtml(t("sessionDetail.chartDps"))}</h4><div class="chart-canvas-wrap"><canvas id="chart-dps"></canvas></div></div>
+              <div class="chart-box"><h4>${escapeHtml(t("sessionDetail.chartForce"))}</h4><p class="muted small" style="margin:0 0 0.5rem">${escapeHtml(t("sessionDetail.chartForceHint"))}</p><div class="chart-canvas-wrap"><canvas id="chart-stroke-force"></canvas></div></div>
             </div>
             ${exploreBlock}
           </div>`;
@@ -1547,15 +1539,15 @@ async function renderSessionDetail(id) {
 
     const mapasPanel = `
           <div id="panel-mapas" class="tab-panel" role="tabpanel">
-            <p class="muted small">Recorrido del bote con los puntos GPS que envía la app (una posición por segundo, si hay señal).</p>
+            <p class="muted small">${escapeHtml(t("sessionDetail.mapIntro"))}</p>
             <div id="session-map-export-root" class="session-map-export-root session-map-export-root--ig-story">
               <div id="session-map-export-summary" class="session-map-export-summary">
                 ${sessionMapSummaryHtml}
               </div>
-              <div id="session-map" class="session-map-host session-map-host--ig" role="region" aria-label="Mapa del recorrido"></div>
+              <div id="session-map" class="session-map-host session-map-host--ig" role="region" aria-label="${escapeHtml(t("sessionDetail.mapAria"))}"></div>
             </div>
-            <p class="muted small map-export-hint">Descargá el mapa con el resumen del entrenamiento (JPG).</p>
-            <button type="button" class="secondary btn-sm" id="btn-session-map-jpg">Descargar mapa (JPG)</button>
+            <p class="muted small map-export-hint">${escapeHtml(t("sessionDetail.mapDownloadHint"))}</p>
+            <button type="button" class="secondary btn-sm" id="btn-session-map-jpg">${escapeHtml(t("sessionDetail.mapDownloadBtn"))}</button>
           </div>`;
 
     const jsonPanel = isPaddler
@@ -1566,27 +1558,27 @@ async function renderSessionDetail(id) {
           </div>`;
 
     const deleteBtn = canDelete
-      ? `<button type="button" class="btn-danger btn-sm" id="btn-delete-session">Borrar sesión</button>`
+      ? `<button type="button" class="btn-danger btn-sm" id="btn-delete-session">${escapeHtml(t("sessionDetail.delete"))}</button>`
       : "";
 
     layout(`
-      <p><a class="link" href="#/sessions">← Volver a entrenamientos</a></p>
+      <p><a class="link" href="#/sessions">${escapeHtml(t("sessionDetail.backToSessions"))}</a></p>
       <div class="card session-card">
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;justify-content:space-between;margin-bottom:0.35rem">
-          <h2 class="card-title" style="margin:0">Sesión #${data.id}</h2>
+          <h2 class="card-title" style="margin:0">${escapeHtml(t("sessionDetail.title", { id: String(data.id) }))}</h2>
           ${deleteBtn}
         </div>
-        <p class="muted">Fecha: ${fmtDate(data.created_at)}</p>
-        ${isPaddler ? `<p class="muted small">Como <strong>palista</strong> solo ves el resumen y el mapa.</p>` : ""}
+        <p class="muted">${escapeHtml(t("sessionDetail.dateUploaded", { date: fmtDate(data.created_at) }))}</p>
+        ${isPaddler ? `<p class="muted small">${t("sessionDetail.paddlerNoteHtml")}</p>` : ""}
         <div class="tabs" id="session-tabs">
           <div class="tab-list" role="tablist">
             ${tabButtons}
           </div>
           <div id="panel-resumen" class="tab-panel active" role="tabpanel">
             ${stats}
-            ${s.teamName ? `<p><strong>Equipo (en sesión):</strong> ${escapeHtml(s.teamName)}</p>` : ""}
-            ${s.boatType ? `<p><strong>Bote:</strong> ${escapeHtml(s.boatType)}</p>` : ""}
-            ${s.paddlersCount != null ? `<p><strong>Cant. palistas:</strong> ${escapeHtml(String(s.paddlersCount))}</p>` : ""}
+            ${s.teamName ? `<p><strong>${escapeHtml(t("sessionDetail.teamInSession"))}</strong> ${escapeHtml(s.teamName)}</p>` : ""}
+            ${s.boatType ? `<p><strong>${escapeHtml(t("sessionDetail.boat"))}:</strong> ${escapeHtml(s.boatType)}</p>` : ""}
+            ${s.paddlersCount != null ? `<p><strong>${escapeHtml(t("sessionDetail.paddlersCount"))}</strong> ${escapeHtml(String(s.paddlersCount))}</p>` : ""}
           </div>
           ${tablaGraficosPanels}
           ${mapasPanel}
@@ -1638,13 +1630,13 @@ async function renderSessionDetail(id) {
     });
 
     document.getElementById("btn-delete-session")?.addEventListener("click", async () => {
-      if (!confirm("¿Borrar esta sesión de entrenamiento? No se puede deshacer.")) return;
+      if (!confirm(t("sessionDetail.deleteConfirm"))) return;
       try {
         await api.apiDeleteSession(id);
         location.hash = "#/sessions";
         route();
       } catch (ex) {
-        alert(humanizeApiError(ex.message) || ex.message || "Error");
+        alert(humanizeApiError(ex.message) || ex.message || t("sessionDetail.genericError"));
       }
     });
 
@@ -1665,8 +1657,8 @@ async function renderSessionDetail(id) {
     });
   } catch (ex) {
     layout(`
-      <p><a class="link" href="#/sessions">← Volver</a></p>
-      <div class="card"><p class="msg-error">${escapeHtml(ex.message)}</p></div>
+      <p><a class="link" href="#/sessions">${escapeHtml(t("sessionDetail.backShort"))}</a></p>
+      <div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message) || ex.message)}</p></div>
     `);
   }
 }
