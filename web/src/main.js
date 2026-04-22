@@ -12,6 +12,7 @@ import {
   UI_LANGUAGES,
   applyDocumentLang,
   getStoredUiLang,
+  getUiLocale,
   setStoredUiLang,
 } from "./locale.js";
 import { t } from "./i18n.js";
@@ -39,14 +40,14 @@ function escapeHtml(s) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return "—";
+  if (!iso) return t("account.emptyDash");
   try {
-    return new Date(iso).toLocaleString("es-AR", {
+    return new Date(iso).toLocaleString(getUiLocale(), {
       dateStyle: "short",
       timeStyle: "short",
     });
   } catch {
-    return iso;
+    return String(iso);
   }
 }
 
@@ -98,18 +99,13 @@ function yn(v) {
 /** Claves de punto que no se listan en "Muestras por segundo" (privacidad / ruido en tabla). */
 const HIDDEN_DATA_POINT_KEYS = new Set(["latitude", "longitude", "locationAccuracyM"]);
 
-/** Fecha/hora de sesión para resumen y mapa: dd/mm/aaaa y hh:mm (local). */
+/** Fecha/hora de sesión para resumen y mapa (formato según locale de la UI). */
 function fmtSessionStartMap(iso) {
-  if (!iso) return "—";
+  if (!iso) return t("account.emptyDash");
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return String(iso);
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = d.getFullYear();
-    const hh = String(d.getHours()).padStart(2, "0");
-    const min = String(d.getMinutes()).padStart(2, "0");
-    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+    return d.toLocaleString(getUiLocale(), { dateStyle: "short", timeStyle: "short" });
   } catch {
     return String(iso);
   }
@@ -127,7 +123,7 @@ function localDateKeyFromIso(iso) {
 }
 
 function fmtDateDdMmYyFromYmdKey(ymd) {
-  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return "—";
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return t("account.emptyDash");
   const [y, m, d] = ymd.split("-").map(Number);
   const dd = String(d).padStart(2, "0");
   const mm = String(m).padStart(2, "0");
@@ -135,10 +131,10 @@ function fmtDateDdMmYyFromYmdKey(ymd) {
   return `${dd}-${mm}-${yy}`;
 }
 
-/** Metros u otros enteros con separador de miles (es-AR, ej. 12.345). */
+/** Metros u otros enteros con separador de miles según locale de la UI. */
 function formatIntEsThousands(n) {
-  if (n == null || !Number.isFinite(n)) return "—";
-  return Math.round(n).toLocaleString("es-AR", { maximumFractionDigits: 0 });
+  if (n == null || !Number.isFinite(n)) return t("account.emptyDash");
+  return Math.round(n).toLocaleString(getUiLocale(), { maximumFractionDigits: 0 });
 }
 
 /** Logo en resumen de mapa (pantalla y export JPG). `relativeUrl` ej. /api/v1/teams/1/logo */
@@ -567,7 +563,7 @@ async function renderSessionsList() {
 
     const dayKeys = [
       ...new Set(rows.map((r) => localDateKeyFromIso(r.created_at)).filter(Boolean)),
-    ].sort((a, b) => b.localeCompare(a));
+    ].sort((a, b) => b.localeCompare(a, getUiLocale()));
     const dayOpts =
       dayKeys.length > 0
         ? dayKeys
@@ -925,7 +921,7 @@ function renderExploreChart(points) {
 
   const scales = {
     x: {
-      title: { display: true, text: "Tiempo (segundos)" },
+      title: { display: true, text: t("sessionDetail.metrics.second") },
       ticks: { maxTicksLimit: 14 },
     },
     y1: {
@@ -941,7 +937,7 @@ function renderExploreChart(points) {
       position: "top",
       display: true,
       grid: { drawOnChartArea: false },
-      title: { display: true, text: "Distancia (metros)" },
+      title: { display: true, text: t("sessionDetail.metrics.distanceMeters") },
       ticks: {
         maxTicksLimit: 14,
         callback(tickValue) {
@@ -1058,7 +1054,7 @@ function initSessionCharts(dataPoints) {
       point: { radius: 0, hoverRadius: 0 },
     },
     scales: {
-      x: { title: { display: true, text: "Tiempo (segundos)" }, ticks: { maxTicksLimit: 12 } },
+      x: { title: { display: true, text: t("sessionDetail.metrics.second") }, ticks: { maxTicksLimit: 12 } },
     },
   };
 
@@ -1084,7 +1080,7 @@ function initSessionCharts(dataPoints) {
         labels,
         datasets: [
           {
-            label: "Velocidad (km/h)",
+            label: metricLabelForKey("speedKmh"),
             data: dataPoints.map((p) => p.speedKmh),
             borderColor: "#1565c0",
             ...lineDs,
@@ -1095,7 +1091,7 @@ function initSessionCharts(dataPoints) {
         ...common,
         scales: {
           ...common.scales,
-          y: { title: { display: true, text: "Velocidad (km/h)" } },
+          y: { title: { display: true, text: metricLabelForKey("speedKmh") } },
         },
       },
     })
@@ -1108,7 +1104,7 @@ function initSessionCharts(dataPoints) {
         labels,
         datasets: [
           {
-            label: "SPM",
+            label: metricLabelForKey("spm"),
             data: dataPoints.map((p) => p.spm),
             borderColor: "#e65100",
             ...lineDs,
@@ -1119,7 +1115,7 @@ function initSessionCharts(dataPoints) {
         ...common,
         scales: {
           ...common.scales,
-          y: { title: { display: true, text: "SPM" } },
+          y: { title: { display: true, text: metricLabelForKey("spm") } },
         },
       },
     })
@@ -1132,7 +1128,7 @@ function initSessionCharts(dataPoints) {
         labels,
         datasets: [
           {
-            label: "DPS (m/palada)",
+            label: metricLabelForKey("dpsMeters"),
             data: dpsSeries,
             borderColor: "#00897b",
             ...lineDs,
@@ -1143,7 +1139,7 @@ function initSessionCharts(dataPoints) {
         ...common,
         scales: {
           ...common.scales,
-          y: { title: { display: true, text: "DPS (m/palada)" } },
+          y: { title: { display: true, text: metricLabelForKey("dpsMeters") } },
         },
       },
     })
@@ -1156,7 +1152,7 @@ function initSessionCharts(dataPoints) {
         labels,
         datasets: [
           {
-            label: "Fuerza palada (m/s²)",
+            label: metricLabelForKey("strokePeakAccelerationMs2"),
             data: dataPoints.map((p) =>
               typeof p.strokePeakAccelerationMs2 === "number" && Number.isFinite(p.strokePeakAccelerationMs2)
                 ? p.strokePeakAccelerationMs2
@@ -1181,7 +1177,7 @@ function initSessionCharts(dataPoints) {
           ...common.scales,
           y: {
             beginAtZero: true,
-            title: { display: true, text: "m/s²" },
+            title: { display: true, text: t("common.unitMPerS2") },
           },
         },
       },
@@ -2170,8 +2166,8 @@ function rosterCellsHtml(m, canEditRoster) {
         <td><input class="roster-doc" type="text" value="${escapeHtml(m.document_number || "")}" maxlength="80" /></td>
         <td><input class="roster-birth" type="date" value="${rosterBirthInputValue(m.birth_date)}" /></td>
         <td class="muted roster-age">${m.age_years != null ? m.age_years : escapeHtml(t("account.emptyDash"))}</td>
-        <td><input class="roster-h" type="number" step="0.1" min="0" placeholder="cm" value="${m.height_cm != null ? escapeHtml(String(m.height_cm)) : ""}" /></td>
-        <td><input class="roster-w" type="number" step="0.1" min="0" placeholder="kg" value="${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : ""}" /></td>
+        <td><input class="roster-h" type="number" step="0.1" min="0" placeholder="${escapeHtml(t("teams.placeholderCm"))}" value="${m.height_cm != null ? escapeHtml(String(m.height_cm)) : ""}" /></td>
+        <td><input class="roster-w" type="number" step="0.1" min="0" placeholder="${escapeHtml(t("teams.placeholderKg"))}" value="${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : ""}" /></td>
         <td><select class="roster-side">${preferredSideOptionsHtml(m)}</select></td>`;
   }
   const d = t("account.emptyDash");
@@ -2372,7 +2368,7 @@ function compareSessionRows(sortKey, sortDir, a, b) {
     return (ta - tb) * dir;
   }
   if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
-  return String(va).localeCompare(String(vb), "es") * dir;
+  return String(va).localeCompare(String(vb), getUiLocale()) * dir;
 }
 
 function compareCompetenciaRows(sortKey, sortDir, a, b) {
@@ -2392,7 +2388,7 @@ function compareCompetenciaRows(sortKey, sortDir, a, b) {
     if (va === vb) return 0;
     return va ? -1 * dir : 1 * dir;
   }
-  return String(va).localeCompare(String(vb), "es") * dir;
+  return String(va).localeCompare(String(vb), getUiLocale()) * dir;
 }
 
 async function renderCompetencias() {

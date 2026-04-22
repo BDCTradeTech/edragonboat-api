@@ -2,7 +2,8 @@
   "common": {
     "loading": "Memuatkan…",
     "loadingProfile": "Memuatkan profil…",
-    "errorUnknown": "Ralat tidak diketahui"
+    "errorUnknown": "Ralat tidak diketahui",
+    "unitMPerS2": "m/s²"
   },
   "nav": {
     "ariaMain": "Menu utama",
@@ -209,6 +210,8 @@
     "thAge": "Age",
     "thHeight": "Height (cm)",
     "thWeight": "Weight (kg)",
+    "placeholderCm": "cm",
+    "placeholderKg": "kg",
     "thPreferredSide": "Preferred side",
     "thRole": "Role",
     "thManage": "Actions",

@@ -2,7 +2,8 @@
   "common": {
     "loading": "Naglo-load…",
     "loadingProfile": "Nilo-load ang profile…",
-    "errorUnknown": "Hindi alam na error"
+    "errorUnknown": "Hindi alam na error",
+    "unitMPerS2": "m/s²"
   },
   "nav": {
     "ariaMain": "Pangunahing menu",
@@ -209,6 +210,8 @@
     "thAge": "Age",
     "thHeight": "Height (cm)",
     "thWeight": "Weight (kg)",
+    "placeholderCm": "cm",
+    "placeholderKg": "kg",
     "thPreferredSide": "Preferred side",
     "thRole": "Role",
     "thManage": "Actions",

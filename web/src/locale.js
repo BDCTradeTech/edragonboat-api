@@ -53,3 +53,9 @@ export function setStoredUiLang(code) {
 export function applyDocumentLang(langCode) {
   document.documentElement.lang = BCP47[langCode] || langCode || BCP47[UI_LANG_DEFAULT] || "es";
 }
+
+/** BCP-47 para `Intl` (fechas, números, `localeCompare`) según el idioma guardado de la UI. */
+export function getUiLocale() {
+  const code = getStoredUiLang();
+  return BCP47[code] || BCP47[UI_LANG_DEFAULT] || "es";
+}

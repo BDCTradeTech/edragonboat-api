@@ -2,7 +2,8 @@
   "common": {
     "loading": "Chargement…",
     "loadingProfile": "Chargement du profil…",
-    "errorUnknown": "Erreur inconnue"
+    "errorUnknown": "Erreur inconnue",
+    "unitMPerS2": "m/s²"
   },
   "nav": {
     "ariaMain": "Menu principal",
@@ -209,6 +210,8 @@
     "thAge": "Age",
     "thHeight": "Height (cm)",
     "thWeight": "Weight (kg)",
+    "placeholderCm": "cm",
+    "placeholderKg": "kg",
     "thPreferredSide": "Preferred side",
     "thRole": "Role",
     "thManage": "Actions",

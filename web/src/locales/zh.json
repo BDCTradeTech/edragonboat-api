@@ -2,7 +2,8 @@
   "common": {
     "loading": "加载中…",
     "loadingProfile": "正在加载个人资料…",
-    "errorUnknown": "未知错误"
+    "errorUnknown": "未知错误",
+    "unitMPerS2": "m/s²"
   },
   "nav": {
     "ariaMain": "主导航",
@@ -209,6 +210,8 @@
     "thAge": "Age",
     "thHeight": "Height (cm)",
     "thWeight": "Weight (kg)",
+    "placeholderCm": "cm",
+    "placeholderKg": "kg",
     "thPreferredSide": "Preferred side",
     "thRole": "Role",
     "thManage": "Actions",

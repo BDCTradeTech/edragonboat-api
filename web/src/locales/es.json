@@ -2,7 +2,8 @@
   "common": {
     "loading": "Cargando…",
     "loadingProfile": "Cargando perfil…",
-    "errorUnknown": "Error desconocido"
+    "errorUnknown": "Error desconocido",
+    "unitMPerS2": "m/s²"
   },
   "nav": {
     "ariaMain": "Menú principal",
@@ -209,6 +210,8 @@
     "thAge": "Edad",
     "thHeight": "Altura (cm)",
     "thWeight": "Peso (kg)",
+    "placeholderCm": "cm",
+    "placeholderKg": "kg",
     "thPreferredSide": "Lado preferido",
     "thRole": "Rol",
     "thManage": "Gestión",
