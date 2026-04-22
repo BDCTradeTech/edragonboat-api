@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "i18n:check": "node scripts/check-i18n.mjs",
+    "build": "npm run i18n:check && vite build",
     "postbuild": "node scripts/verify-dist.mjs",
     "preview": "vite preview"
   },

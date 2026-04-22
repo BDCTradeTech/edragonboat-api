@@ -1,0 +1,12 @@
+# Fin de línea en el repo: LF (Unix). Evita avisos CRLF en Windows y diffs ruidosos.
+* text=auto eol=lf
+
+# Binarios (por si se añaden al repo)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

@@ -1,0 +1,73 @@
+{
+  "common": {
+    "loading": "Cargando…",
+    "loadingProfile": "Cargando perfil…",
+    "errorUnknown": "Error desconocido"
+  },
+  "nav": {
+    "ariaMain": "Menú principal",
+    "home": "Inicio",
+    "teams": "Equipo",
+    "routines": "Rutinas",
+    "sessions": "Entrenamientos",
+    "competitions": "Competencias",
+    "account": "Cuenta"
+  },
+  "shell": {
+    "logout": "Salir",
+    "panelVersion": "Panel v{version}"
+  },
+  "home": {
+    "title": "E-DragonBoat",
+    "lead": "Plataforma para equipos de <strong>dragon boat</strong>: registrá entrenamientos libres desde la app móvil, revisalos en este panel con gráficos, mapas GPS y exportación, y organizá tu plantel.",
+    "featTraining": "<strong>Entrenamientos:</strong> sesiones subidas desde la app, filtradas por tu equipo; detalle con resumen, tablas, gráficos (distancia, velocidad, SPM, DPS, paladas) y mapa del recorrido.",
+    "featMaps": "<strong>Mapas y JPG:</strong> recorrido sobre mapa (mapa o satélite); podés descargar una imagen con el mapa y un resumen (fecha, equipo, bote, palistas, distancia en m).",
+    "featTeam": "<strong>Equipo:</strong> datos del club y roles (capitán, entrenador, palista). El <strong>capitán</strong> puede editar nombre y país del equipo, eliminarlo e <strong>invitar</strong> por email. El <strong>entrenador</strong> ve lo mismo en entrenamientos y plantel, y puede cambiar roles y quitar miembros, pero no invita ni modifica los datos del equipo.",
+    "featAccount": "<strong>Cuenta:</strong> tu perfil, contraseña e idioma. El plantel está en <strong>Equipo</strong>.",
+    "featCompetitions": "<strong>Competencias:</strong> carreras subidas desde la app al pulsar <em>Completado</em>; mismo detalle que entrenamientos (gráficos, mapa).",
+    "btnSessions": "Ir a entrenamientos",
+    "btnTeam": "Ir a equipo",
+    "btnAccount": "Ir a cuenta"
+  },
+  "login": {
+    "title": "Iniciar sesión",
+    "subtitle": "Mismo usuario que en la app móvil y la API.",
+    "email": "Email",
+    "password": "Contraseña",
+    "submit": "Entrar",
+    "footerHtml": "¿No tenés cuenta? <a class=\"link\" href=\"#/register\">Crear cuenta</a>",
+    "errorGeneric": "No se pudo iniciar sesión."
+  },
+  "register": {
+    "title": "Crear cuenta",
+    "subtitleHtml": "Registro con email y contraseña (sin correo de verificación). Luego podés crear tu equipo en <strong>Equipo</strong>.",
+    "email": "Email",
+    "nameOptional": "Nombre (opcional)",
+    "password": "Contraseña",
+    "password2": "Repetir contraseña",
+    "submit": "Registrarse",
+    "footerHtml": "¿Ya tenés cuenta? <a class=\"link\" href=\"#/login\">Iniciar sesión</a>",
+    "errorPasswordMismatch": "Las contraseñas no coinciden.",
+    "errorPasswordShort": "La contraseña debe tener al menos 8 caracteres."
+  },
+  "account": {
+    "title": "Cuenta",
+    "emailLabel": "Email:",
+    "nameLabel": "Nombre:",
+    "emptyDash": "—",
+    "changePassword": "Cambiar contraseña",
+    "pwdCurrent": "Contraseña actual",
+    "pwdNew": "Nueva contraseña",
+    "pwdNew2": "Repetir nueva contraseña",
+    "pwdSubmit": "Guardar nueva contraseña",
+    "pwdMismatch": "Las nuevas contraseñas no coinciden.",
+    "pwdSuccess": "Contraseña actualizada.",
+    "languageTitle": "Idioma",
+    "languageHint": "Preferencia guardada en este navegador (por defecto: español).",
+    "languageLabel": "Idioma",
+    "noTeamHtml": "No tenés equipo. Podés crear uno en <a class=\"link\" href=\"#/teams/new\">Equipo</a>."
+  },
+  "errors": {
+    "notFoundDeploy": "No se encontró el recurso (404). Subí el archivo app/main.py actualizado (rutas /api/v1/profile y DELETE /api/v1/equipo/{id}) o todo el proyecto, y reiniciá: sudo systemctl restart edragonboat-api."
+  }
+}

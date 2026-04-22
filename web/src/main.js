@@ -14,6 +14,7 @@ import {
   getStoredUiLang,
   setStoredUiLang,
 } from "./locale.js";
+import { t } from "./i18n.js";
 import panelPkg from "../package.json";
 
 Chart.register(...registerables);
@@ -211,18 +212,18 @@ function layout(content, { showNav = true, wide = false } = {}) {
 
   const nav = showNav
     ? `
-    <aside class="nav-rail" aria-label="Menú principal">
+    <aside class="nav-rail" aria-label="${escapeHtml(t("nav.ariaMain"))}">
       <div class="nav-brand">E-DragonBoat</div>
       <nav class="nav-links">
-        <a class="nav-item" href="#/" data-match="home">Home</a>
-        <a class="nav-item" href="#/teams" data-match="teams">Equipo</a>
-        <a class="nav-item" href="#/rutinas" data-match="rutinas">Rutinas</a>
-        <a class="nav-item" href="#/sessions" data-match="sessions">Entrenamientos</a>
-        <a class="nav-item" href="#/competencias" data-match="competencias">Competencias</a>
-        <a class="nav-item" href="#/cuenta" data-match="cuenta">Cuenta</a>
+        <a class="nav-item" href="#/" data-match="home">${escapeHtml(t("nav.home"))}</a>
+        <a class="nav-item" href="#/teams" data-match="teams">${escapeHtml(t("nav.teams"))}</a>
+        <a class="nav-item" href="#/rutinas" data-match="rutinas">${escapeHtml(t("nav.routines"))}</a>
+        <a class="nav-item" href="#/sessions" data-match="sessions">${escapeHtml(t("nav.sessions"))}</a>
+        <a class="nav-item" href="#/competencias" data-match="competencias">${escapeHtml(t("nav.competitions"))}</a>
+        <a class="nav-item" href="#/cuenta" data-match="cuenta">${escapeHtml(t("nav.account"))}</a>
       </nav>
       <div class="nav-footer">
-        <span class="nav-version">Panel v${escapeHtml(String(panelPkg.version))}</span>
+        <span class="nav-version">${escapeHtml(t("shell.panelVersion", { version: String(panelPkg.version) }))}</span>
       </div>
     </aside>`
     : "";
@@ -237,7 +238,7 @@ function layout(content, { showNav = true, wide = false } = {}) {
             ${
               authed
                 ? `<span class="muted user-chip">${escapeHtml(email)}</span>
-                   <button type="button" class="secondary btn-sm" id="btn-logout">Salir</button>`
+                   <button type="button" class="secondary btn-sm" id="btn-logout">${escapeHtml(t("shell.logout"))}</button>`
                 : ""
             }
           </div>
@@ -279,34 +280,33 @@ function highlightNav() {
 function renderHome() {
   layout(`
     <div class="card home-hero">
-      <h2 class="card-title">E-DragonBoat</h2>
+      <h2 class="card-title">${escapeHtml(t("home.title"))}</h2>
       <p class="home-lead">
-        Plataforma para equipos de <strong>dragon boat</strong>: registrá entrenamientos libres desde la app móvil,
-        revisalos en este panel con gráficos, mapas GPS y exportación, y organizá tu plantel.
+        ${t("home.lead")}
       </p>
       <ul class="home-features">
-        <li><strong>Entrenamientos:</strong> sesiones subidas desde la app, filtradas por tu equipo; detalle con resumen, tablas, gráficos (distancia, velocidad, SPM, DPS, paladas) y mapa del recorrido.</li>
-        <li><strong>Mapas y JPG:</strong> recorrido sobre mapa (mapa o satélite); podés descargar una imagen con el mapa y un resumen (fecha, equipo, bote, palistas, distancia en m).</li>
-        <li><strong>Equipo:</strong> datos del club y roles (capitán, entrenador, palista). El <strong>capitán</strong> puede editar nombre y país del equipo, eliminarlo e <strong>invitar</strong> por email. El <strong>entrenador</strong> ve lo mismo en entrenamientos y plantel, y puede cambiar roles y quitar miembros, pero no invita ni modifica los datos del equipo.</li>
-        <li><strong>Cuenta:</strong> tu perfil, contraseña e idioma. El plantel está en <strong>Equipo</strong>.</li>
-        <li><strong>Competencias:</strong> carreras subidas desde la app al pulsar <em>Completado</em>; mismo detalle que entrenamientos (gráficos, mapa).</li>
+        <li>${t("home.featTraining")}</li>
+        <li>${t("home.featMaps")}</li>
+        <li>${t("home.featTeam")}</li>
+        <li>${t("home.featAccount")}</li>
+        <li>${t("home.featCompetitions")}</li>
       </ul>
       <div class="home-actions">
-        <a class="btn-inline primary" href="#/sessions">Ir a entrenamientos</a>
-        <a class="btn-inline" href="#/teams">Ir a equipo</a>
-        <a class="btn-inline" href="#/cuenta">Ir a cuenta</a>
+        <a class="btn-inline primary" href="#/sessions">${escapeHtml(t("home.btnSessions"))}</a>
+        <a class="btn-inline" href="#/teams">${escapeHtml(t("home.btnTeam"))}</a>
+        <a class="btn-inline" href="#/cuenta">${escapeHtml(t("home.btnAccount"))}</a>
       </div>
     </div>
   `);
 }
 
 function humanizeApiError(text) {
-  if (!text) return "Error desconocido";
-  const t = String(text);
-  if (t.includes('"Not Found"') || t === "Not Found" || t.includes("404")) {
-    return "No se encontró el recurso (404). Subí el archivo app/main.py actualizado (rutas /api/v1/profile y DELETE /api/v1/equipo/{id}) o todo el proyecto, y reiniciá: sudo systemctl restart edragonboat-api.";
+  if (!text) return t("common.errorUnknown");
+  const s = String(text);
+  if (s.includes('"Not Found"') || s === "Not Found" || s.includes("404")) {
+    return t("errors.notFoundDeploy");
   }
-  return t;
+  return s;
 }
 
 function route() {
@@ -372,17 +372,17 @@ function renderLogin() {
     `
     <div class="login-center">
       <div class="card login-card">
-        <h1 class="login-title">Iniciar sesión</h1>
-        <p class="muted">Mismo usuario que en la app móvil y la API.</p>
+        <h1 class="login-title">${escapeHtml(t("login.title"))}</h1>
+        <p class="muted">${escapeHtml(t("login.subtitle"))}</p>
         <form id="form-login">
-          <label for="email">Email</label>
+          <label for="email">${escapeHtml(t("login.email"))}</label>
           <input id="email" name="email" type="email" autocomplete="username" required />
-          <label for="password">Contraseña</label>
+          <label for="password">${escapeHtml(t("login.password"))}</label>
           <input id="password" name="password" type="password" autocomplete="current-password" required />
-          <button type="submit" class="btn-block">Entrar</button>
+          <button type="submit" class="btn-block">${escapeHtml(t("login.submit"))}</button>
           <p id="login-err" class="msg-error"></p>
         </form>
-        <p class="muted small" style="margin-top:0.75rem;text-align:center">¿No tenés cuenta? <a class="link" href="#/register">Crear cuenta</a></p>
+        <p class="muted small" style="margin-top:0.75rem;text-align:center">${t("login.footerHtml")}</p>
       </div>
     </div>
   `,
@@ -401,7 +401,7 @@ function renderLogin() {
       location.hash = "#/";
       route();
     } catch (ex) {
-      err.textContent = ex.message || "No se pudo iniciar sesión.";
+      err.textContent = ex.message || t("login.errorGeneric");
     }
   });
 }
@@ -411,21 +411,21 @@ function renderRegister() {
     `
     <div class="login-center">
       <div class="card login-card">
-        <h1 class="login-title">Crear cuenta</h1>
-        <p class="muted">Registro con email y contraseña (sin correo de verificación). Luego podés crear tu equipo en <strong>Equipo</strong>.</p>
+        <h1 class="login-title">${escapeHtml(t("register.title"))}</h1>
+        <p class="muted">${t("register.subtitleHtml")}</p>
         <form id="form-register">
-          <label for="reg-email">Email</label>
+          <label for="reg-email">${escapeHtml(t("register.email"))}</label>
           <input id="reg-email" name="email" type="email" autocomplete="username" required />
-          <label for="reg-name">Nombre (opcional)</label>
+          <label for="reg-name">${escapeHtml(t("register.nameOptional"))}</label>
           <input id="reg-name" name="full_name" type="text" maxlength="200" autocomplete="name" />
-          <label for="reg-password">Contraseña</label>
+          <label for="reg-password">${escapeHtml(t("register.password"))}</label>
           <input id="reg-password" name="password" type="password" autocomplete="new-password" required minlength="8" />
-          <label for="reg-password2">Repetir contraseña</label>
+          <label for="reg-password2">${escapeHtml(t("register.password2"))}</label>
           <input id="reg-password2" name="password2" type="password" autocomplete="new-password" required minlength="8" />
-          <button type="submit" class="btn-block">Registrarse</button>
+          <button type="submit" class="btn-block">${escapeHtml(t("register.submit"))}</button>
           <p id="reg-err" class="msg-error"></p>
         </form>
-        <p class="muted small" style="margin-top:0.75rem;text-align:center">¿Ya tenés cuenta? <a class="link" href="#/login">Iniciar sesión</a></p>
+        <p class="muted small" style="margin-top:0.75rem;text-align:center">${t("register.footerHtml")}</p>
       </div>
     </div>
   `,
@@ -441,11 +441,11 @@ function renderRegister() {
     const password = document.getElementById("reg-password").value;
     const password2 = document.getElementById("reg-password2").value;
     if (password !== password2) {
-      err.textContent = "Las contraseñas no coinciden.";
+      err.textContent = t("register.errorPasswordMismatch");
       return;
     }
     if (password.length < 8) {
-      err.textContent = "La contraseña debe tener al menos 8 caracteres.";
+      err.textContent = t("register.errorPasswordShort");
       return;
     }
     try {
@@ -3049,7 +3049,7 @@ async function renderRutinasEditor(id) {
 }
 
 async function renderAccount() {
-  layout(`<p class="loading-line">Cargando perfil…</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("common.loadingProfile"))}</p>`);
   try {
     const [me, teams] = await Promise.all([api.apiMe(), api.apiMyTeams()]);
 
@@ -3057,37 +3057,37 @@ async function renderAccount() {
 
     const noTeamMsg =
       teams.length === 0 && !isPlatformAdmin
-        ? `<div class="card" style="margin-top:1rem"><p class="muted">No tenés equipo. Podés crear uno en <a class="link" href="#/teams/new">Equipo</a>.</p></div>`
+        ? `<div class="card" style="margin-top:1rem"><p class="muted">${t("account.noTeamHtml")}</p></div>`
         : "";
 
     layout(`
       <div class="card narrow">
-        <h2 class="card-title">Cuenta</h2>
-        <p><strong>Email:</strong> ${escapeHtml(me.email)}</p>
-        <p><strong>Nombre:</strong> ${escapeHtml(me.full_name || "—")}</p>
+        <h2 class="card-title">${escapeHtml(t("account.title"))}</h2>
+        <p><strong>${escapeHtml(t("account.emailLabel"))}</strong> ${escapeHtml(me.email)}</p>
+        <p><strong>${escapeHtml(t("account.nameLabel"))}</strong> ${escapeHtml(me.full_name || t("account.emptyDash"))}</p>
       </div>
       <details class="disclosure-card card narrow" style="margin-top:1rem">
         <summary class="disclosure-summary">
-          <span>Cambiar contraseña</span>
+          <span>${escapeHtml(t("account.changePassword"))}</span>
           <span class="disclosure-chev" aria-hidden="true"></span>
         </summary>
         <div class="disclosure-body">
           <form id="form-change-password">
-            <label for="pwd-current">Contraseña actual</label>
+            <label for="pwd-current">${escapeHtml(t("account.pwdCurrent"))}</label>
             <input id="pwd-current" type="password" required autocomplete="current-password" />
-            <label for="pwd-new">Nueva contraseña</label>
+            <label for="pwd-new">${escapeHtml(t("account.pwdNew"))}</label>
             <input id="pwd-new" type="password" required minlength="8" autocomplete="new-password" />
-            <label for="pwd-new2">Repetir nueva contraseña</label>
+            <label for="pwd-new2">${escapeHtml(t("account.pwdNew2"))}</label>
             <input id="pwd-new2" type="password" required minlength="8" autocomplete="new-password" />
-            <button type="submit">Guardar nueva contraseña</button>
+            <button type="submit">${escapeHtml(t("account.pwdSubmit"))}</button>
             <p id="pwd-err" class="msg-error"></p>
           </form>
         </div>
       </details>
       <div class="card narrow" style="margin-top:1rem">
-        <h3 style="margin-top:0">Idioma</h3>
-        <p class="muted small">Preferencia guardada en este navegador (por defecto: inglés).</p>
-        <label for="sel-ui-lang">Idioma</label>
+        <h3 style="margin-top:0">${escapeHtml(t("account.languageTitle"))}</h3>
+        <p class="muted small">${escapeHtml(t("account.languageHint"))}</p>
+        <label for="sel-ui-lang">${escapeHtml(t("account.languageLabel"))}</label>
         <select id="sel-ui-lang">
           ${UI_LANGUAGES.map(
             (o) =>
@@ -3101,6 +3101,7 @@ async function renderAccount() {
     document.getElementById("sel-ui-lang")?.addEventListener("change", (e) => {
       setStoredUiLang(e.target.value);
       applyDocumentLang(e.target.value);
+      route();
     });
 
     document.getElementById("form-change-password").addEventListener("submit", async (e) => {
@@ -3113,14 +3114,14 @@ async function renderAccount() {
       const pw = document.getElementById("pwd-new").value;
       const pw2 = document.getElementById("pwd-new2").value;
       if (pw !== pw2) {
-        errEl.textContent = "Las nuevas contraseñas no coinciden.";
+        errEl.textContent = t("account.pwdMismatch");
         return;
       }
       try {
         await api.apiChangePassword(cur, pw);
         errEl.classList.remove("msg-error");
         errEl.classList.add("msg-ok");
-        errEl.textContent = "Contraseña actualizada.";
+        errEl.textContent = t("account.pwdSuccess");
         document.getElementById("pwd-current").value = "";
         document.getElementById("pwd-new").value = "";
         document.getElementById("pwd-new2").value = "";

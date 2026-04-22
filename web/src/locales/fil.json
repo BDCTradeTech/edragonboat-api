@@ -1,0 +1,73 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "loadingProfile": "Loading profile…",
+    "errorUnknown": "Unknown error"
+  },
+  "nav": {
+    "ariaMain": "Main menu",
+    "home": "Home",
+    "teams": "Team",
+    "routines": "Routines",
+    "sessions": "Training",
+    "competitions": "Races",
+    "account": "Account"
+  },
+  "shell": {
+    "logout": "Log out",
+    "panelVersion": "Panel v{version}"
+  },
+  "home": {
+    "title": "E-DragonBoat",
+    "lead": "Platform for <strong>dragon boat</strong> teams: record free training from the mobile app, review it in this panel with charts, GPS maps and export, and manage your crew.",
+    "featTraining": "<strong>Training:</strong> sessions uploaded from the app, filtered by your team; detail with summary, tables, charts (distance, speed, SPM, DPS, strokes) and course map.",
+    "featMaps": "<strong>Maps and JPG:</strong> course on map (or satellite); you can download an image with the map and a summary (date, team, boat, paddlers, distance in m).",
+    "featTeam": "<strong>Team:</strong> club data and roles (captain, coach, paddler). The <strong>captain</strong> can edit the team name and country, delete it and <strong>invite</strong> by email. The <strong>coach</strong> sees the same in training and crew, and can change roles and remove members, but cannot invite or edit team data.",
+    "featAccount": "<strong>Account:</strong> your profile, password and language. The crew is under <strong>Team</strong>.",
+    "featCompetitions": "<strong>Races:</strong> runs uploaded from the app when you tap <em>Done</em>; same detail as training (charts, map).",
+    "btnSessions": "Go to training",
+    "btnTeam": "Go to team",
+    "btnAccount": "Go to account"
+  },
+  "login": {
+    "title": "Log in",
+    "subtitle": "Same user as in the mobile app and the API.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "footerHtml": "No account? <a class=\"link\" href=\"#/register\">Create account</a>",
+    "errorGeneric": "Could not sign in."
+  },
+  "register": {
+    "title": "Create account",
+    "subtitleHtml": "Sign up with email and password (no email verification). You can then create your team in <strong>Team</strong>.",
+    "email": "Email",
+    "nameOptional": "Name (optional)",
+    "password": "Password",
+    "password2": "Confirm password",
+    "submit": "Register",
+    "footerHtml": "Already have an account? <a class=\"link\" href=\"#/login\">Log in</a>",
+    "errorPasswordMismatch": "Passwords do not match.",
+    "errorPasswordShort": "Password must be at least 8 characters."
+  },
+  "account": {
+    "title": "Account",
+    "emailLabel": "Email:",
+    "nameLabel": "Name:",
+    "emptyDash": "—",
+    "changePassword": "Change password",
+    "pwdCurrent": "Current password",
+    "pwdNew": "New password",
+    "pwdNew2": "Confirm new password",
+    "pwdSubmit": "Save new password",
+    "pwdMismatch": "The new passwords do not match.",
+    "pwdSuccess": "Password updated.",
+    "languageTitle": "Language",
+    "languageHint": "Preference stored in this browser (default: Spanish).",
+    "languageLabel": "Language",
+    "noTeamHtml": "You have no team. You can create one in <a class=\"link\" href=\"#/teams/new\">Team</a>."
+  },
+  "errors": {
+    "notFoundDeploy": "Resource not found (404). Upload the updated app/main.py (routes /api/v1/profile and DELETE /api/v1/equipo/{id}) or the full project, then restart: sudo systemctl restart edragonboat-api."
+  }
+}

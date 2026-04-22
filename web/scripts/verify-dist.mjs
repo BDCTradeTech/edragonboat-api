@@ -34,8 +34,10 @@ if (!existsSync(assetsDir)) fail("No existe dist/assets/");
 const jsFiles = readdirSync(assetsDir).filter((f) => f.endsWith(".js") && f.startsWith("index-"));
 if (!jsFiles.length) fail("No hay dist/assets/index-*.js");
 const bundle = readFileSync(resolve(assetsDir, jsFiles[0]), "utf-8");
-if (!bundle.includes('data-match="home"') || !bundle.includes("Panel v")) {
-  fail("El bundle JS no contiene el menú Home ni Panel v — código viejo o build incorrecto.");
+const hasNavHome = bundle.includes('data-match="home"');
+const hasPanelVersionI18n = bundle.includes("shell.panelVersion");
+if (!hasNavHome || !hasPanelVersionI18n) {
+  fail("El bundle JS no contiene el menú (data-match home) ni i18n shell.panelVersion — código viejo o build incorrecto.");
 }
 
 console.log(`dist/ OK — panel v${v}, favicon, Home. Subí el CONTENIDO de web/dist/ al root del sitio (no la carpeta dist).`);
