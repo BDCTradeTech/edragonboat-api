@@ -13,12 +13,19 @@ class UserRead(BaseModel):
     full_name: str | None
     is_active: bool
     is_platform_admin: bool = False
+    """es | en | pt | … — preferencia de idioma de la UI (panel / futura app)."""
+    ui_language: str | None = None
 
     model_config = {"from_attributes": True}
 
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, max_length=200)
+    ui_language: str | None = Field(
+        None,
+        max_length=8,
+        description="Código de idioma (es, en, pt, zh, fil, fr, de, ja, ms) o null para dejarlo sin fijar en el servidor.",
+    )
 
 
 class PasswordChange(BaseModel):

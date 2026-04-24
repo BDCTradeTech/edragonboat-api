@@ -89,6 +89,18 @@ def _migrate_team_membership_roster() -> None:
             conn.execute(text("UPDATE team_memberships SET sex = 'female' WHERE sex IS NULL"))
 
 
+def _migrate_users_ui_language() -> None:
+    try:
+        cols = [c["name"] for c in inspect(engine).get_columns("users")]
+    except Exception:
+        return
+    if "ui_language" in cols:
+        return
+    dialect = engine.dialect.name
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN ui_language VARCHAR(8)"))
+
+
 def _migrate_users_platform_admin() -> None:
     try:
         cols = [c["name"] for c in inspect(engine).get_columns("users")]
@@ -184,6 +196,7 @@ async def lifespan(app: FastAPI):
     _migrate_teams_logo_file()
     _migrate_sqlite_teams_country()
     _migrate_team_membership_roster()
+    _migrate_users_ui_language()
     _migrate_users_platform_admin()
     _bootstrap_platform_admin_emails()
     _ensure_platform_inbox_team()

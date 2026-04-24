@@ -12,6 +12,10 @@ class CommunityTeamItem(BaseModel):
     captain_name: str | None = None
     captain_email: str | None = None
     is_platform_inbox: bool = False
+    message_count: int = Field(
+        0,
+        description="Mensajes con este interlocutor (según tus equipos de capitán en el hilo 1:1).",
+    )
 
     @field_serializer("captain_email")
     def _mask_email(self, v: str | None) -> str | None:

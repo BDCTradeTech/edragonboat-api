@@ -24,6 +24,8 @@ const SESSION_TEAM_FILTER_KEY = "edb_team_sessions_filter";
 const RUTINAS_TEAM_KEY = "edb_rutinas_team_id";
 const COMMUNITY_FILTER_KEY = "edb_community_message_filter";
 const CONV_ALL = "all";
+const SERVER_UI_LANG_SYNC_KEY = "edb_server_ui_lang_merged";
+let _serverUiLangSyncInFlight = false;
 
 let chartInstances = [];
 
@@ -260,6 +262,11 @@ function layout(content, { showNav = true, wide = false } = {}) {
     logout.addEventListener("click", () => {
       destroyCharts();
       api.clearSession();
+      try {
+        sessionStorage.removeItem(SERVER_UI_LANG_SYNC_KEY);
+      } catch {
+        /* ignore */
+      }
       location.hash = "#/login";
       route();
     });
@@ -318,6 +325,42 @@ function humanizeApiError(text) {
 function route() {
   destroyCharts();
   applyDocumentLang(getStoredUiLang());
+
+  if (api.getToken() && !sessionStorage.getItem(SERVER_UI_LANG_SYNC_KEY) && !_serverUiLangSyncInFlight) {
+    _serverUiLangSyncInFlight = true;
+    void api
+      .apiMe()
+      .then((me) => {
+        const prev = getStoredUiLang();
+        let changed = false;
+        if (me && me.ui_language && UI_LANGUAGES.some((o) => o.code === me.ui_language) && me.ui_language !== prev) {
+          setStoredUiLang(me.ui_language);
+          applyDocumentLang(me.ui_language);
+          changed = true;
+        }
+        try {
+          sessionStorage.setItem(SERVER_UI_LANG_SYNC_KEY, "1");
+        } catch {
+          /* ignore */
+        }
+        if (changed) {
+          route();
+        }
+      })
+      .catch(() => {
+        /* ignore */
+      })
+      .finally(() => {
+        _serverUiLangSyncInFlight = false;
+        try {
+          if (!sessionStorage.getItem(SERVER_UI_LANG_SYNC_KEY)) {
+            sessionStorage.setItem(SERVER_UI_LANG_SYNC_KEY, "1");
+          }
+        } catch {
+          /* ignore */
+        }
+      });
+  }
 
   const hash = location.hash.replace(/^#\/?/, "") || "/";
   const parts = hash.split("/").filter(Boolean);
@@ -405,6 +448,11 @@ function renderLogin() {
     try {
       const data = await api.apiLogin(email, password);
       api.setSession(data.access_token, email);
+      try {
+        sessionStorage.removeItem(SERVER_UI_LANG_SYNC_KEY);
+      } catch {
+        /* ignore */
+      }
       location.hash = "#/";
       route();
     } catch (ex) {
@@ -459,6 +507,11 @@ function renderRegister() {
       await api.apiRegister(email, password, fullName || null);
       const data = await api.apiLogin(email, password);
       api.setSession(data.access_token, email);
+      try {
+        sessionStorage.removeItem(SERVER_UI_LANG_SYNC_KEY);
+      } catch {
+        /* ignore */
+      }
       location.hash = "#/";
       route();
     } catch (ex) {
@@ -3089,7 +3142,14 @@ function communityDirTeamId(row) {
   return Number.isFinite(v) ? v : null;
 }
 
-function communityDirTeamLabel(row) {
+function communityMessageCountSuffix(row) {
+  const n = row?.message_count;
+  if (n != null && Number(n) > 0) return ` (${Number(n)})`;
+  return " (-)";
+}
+
+/** Directorio 1:1 (equipo, país, capitán) — sin contador; para títulos de hilo. */
+function communityDirTeamLabelBase(row) {
   const name =
     row.team_name != null
       ? String(row.team_name)
@@ -3110,6 +3170,13 @@ function communityDirTeamLabel(row) {
   if (name) return `${name}${countryParens}`;
   if (id != null) return `#${id}`;
   return "";
+}
+
+/** Opción en el desplegable: incluye (n) o (-) de mensajes con ese interlocutor. */
+function communityDirTeamLabel(row) {
+  const base = communityDirTeamLabelBase(row);
+  if (!base) return "";
+  return `${base}${communityMessageCountSuffix(row)}`;
 }
 
 function normalizeCommunityMsg(m, myTeamIds) {
@@ -3228,10 +3295,12 @@ async function renderComunidad() {
   const others = dir
     .map((r) => {
       const id = communityDirTeamId(r);
-      return { id, label: communityDirTeamLabel(r) || (id != null ? `#${id}` : "") };
+      const display = communityDirTeamLabel(r) || (id != null ? `#${id}` : "");
+      const forThread = communityDirTeamLabelBase(r) || (id != null ? `#${id}` : display);
+      return { id, label: display, threadLabel: forThread };
     })
     .filter((o) => o.id != null && !myTeamIds.has(o.id));
-  const peerLabelById = new Map(others.map((o) => [o.id, o.label]));
+  const peerLabelById = new Map(others.map((o) => [o.id, o.threadLabel]));
   function getPeerLabel(peerId) {
     if (peerId == null) return "";
     const n = Number(peerId);
@@ -3599,9 +3668,15 @@ async function renderAccount() {
       }
     });
 
-    document.getElementById("sel-ui-lang")?.addEventListener("change", (e) => {
-      setStoredUiLang(e.target.value);
-      applyDocumentLang(e.target.value);
+    document.getElementById("sel-ui-lang")?.addEventListener("change", async (e) => {
+      const code = e.target.value;
+      setStoredUiLang(code);
+      applyDocumentLang(code);
+      try {
+        await api.apiUpdateMe({ ui_language: code || null });
+      } catch {
+        /* ignore: UI ya cambió; el usuario puede reintentar desde otra conexión */
+      }
       route();
     });
 

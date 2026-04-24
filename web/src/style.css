@@ -1055,6 +1055,10 @@ details[open] .disclosure-chev::after {
   align-items: baseline;
 }
 
+.community-who {
+  font-weight: 700;
+}
+
 .community-msg-text {
   margin: 0.35rem 0;
   white-space: pre-wrap;

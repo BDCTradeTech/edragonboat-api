@@ -14,6 +14,8 @@ from app.schemas.user import PasswordChange, UserCreate, UserRead, UserUpdate
 
 router = APIRouter()
 
+_ALLOWED_UI_LANG = frozenset({"es", "en", "pt", "zh", "fil", "fr", "de", "ja", "ms"})
+
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(body: UserCreate, db: Annotated[Session, Depends(get_db)]) -> User:
@@ -24,6 +26,7 @@ def register(body: UserCreate, db: Annotated[Session, Depends(get_db)]) -> User:
         email=body.email,
         hashed_password=hash_password(body.password),
         full_name=body.full_name,
+        ui_language="en",
     )
     db.add(user)
     db.commit()
@@ -47,6 +50,14 @@ def update_me(
     if body.full_name is not None:
         s = (body.full_name or "").strip()
         current.full_name = s or None
+    if body.ui_language is not None:
+        u = (body.ui_language or "").strip()
+        if u and u not in _ALLOWED_UI_LANG:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="ui_language no reconocido",
+            )
+        current.ui_language = u or None
     db.add(current)
     db.commit()
     db.refresh(current)

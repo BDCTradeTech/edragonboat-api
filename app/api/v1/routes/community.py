@@ -3,7 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -59,6 +59,9 @@ def _enrich_message_outs(
 ) -> list[CommunityMessageOut]:
     if not rows:
         return []
+    cfg = get_settings()
+    contact_key = (cfg.platform_contact_email or "").strip().casefold()
+    inbox_fallback = (cfg.platform_inbox_team_name or "E-DragonBoat (Admin)").strip() or "E-DragonBoat (Admin)"
     a_ids = {m.author_user_id for m in rows}
     t_ids = set()
     for m in rows:
@@ -75,13 +78,16 @@ def _enrich_message_outs(
         else:
             au = users.get(m.author_user_id)
             t_from = teams.get(m.from_team_id)
-            an = (au.full_name or "").strip() if au else ""
-            if not an and au is not None:
-                an = str(au.email)
-            if not an:
-                an = "?"
-            tn = t_from.name if t_from else "?"
-            scap = f"{an} · {tn}"
+            if t_from and au and contact_key and str(au.email).strip().casefold() == contact_key:
+                scap = (t_from.name or inbox_fallback).strip() or inbox_fallback
+            else:
+                an = (au.full_name or "").strip() if au else ""
+                if not an and au is not None:
+                    an = str(au.email)
+                if not an:
+                    an = "?"
+                tn = t_from.name if t_from else "?"
+                scap = f"{an} · {tn}"
         out.append(
             CommunityMessageOut(
                 id=m.id,
@@ -191,6 +197,35 @@ def _thread_filter(from_team: int, other: int):
     )
 
 
+def _message_count_with_team(db: Session, my_tids: set[int], other_team_id: int) -> int:
+    """Mensajes en hilos entre cualquiera de «mis» equipos capitán y other_team_id."""
+    if my_tids:
+        n = db.scalar(
+            select(func.count(CommunityMessage.id)).where(
+                or_(
+                    and_(
+                        CommunityMessage.from_team_id.in_(my_tids),
+                        CommunityMessage.to_team_id == other_team_id,
+                    ),
+                    and_(
+                        CommunityMessage.to_team_id.in_(my_tids),
+                        CommunityMessage.from_team_id == other_team_id,
+                    ),
+                )
+            )
+        )
+        return int(n or 0)
+    n = db.scalar(
+        select(func.count(CommunityMessage.id)).where(
+            or_(
+                CommunityMessage.from_team_id == other_team_id,
+                CommunityMessage.to_team_id == other_team_id,
+            )
+        )
+    )
+    return int(n or 0)
+
+
 @router.get("/teams", response_model=CommunityTeamsPage, tags=["community"])
 def list_community_directory(
     db: Annotated[Session, Depends(get_db)],
@@ -213,6 +248,7 @@ def list_community_directory(
     if not team_ids:
         return CommunityTeamsPage(teams=[])
 
+    my_tids = _my_captain_team_id_set(db, current)
     contact_key = (get_settings().platform_contact_email or "").strip().casefold()
     out: list[CommunityTeamItem] = []
     for team_id in team_ids:
@@ -234,6 +270,7 @@ def list_community_directory(
         _m, cap_user = row
         cname = (cap_user.full_name or "").strip() or None
         is_inbox = bool(contact_key) and str(cap_user.email).strip().casefold() == contact_key
+        msg_count = _message_count_with_team(db, my_tids, team.id)
         out.append(
             CommunityTeamItem(
                 team_id=team.id,
@@ -242,6 +279,7 @@ def list_community_directory(
                 captain_name=cname,
                 captain_email=cap_user.email,
                 is_platform_inbox=is_inbox,
+                message_count=msg_count,
             )
         )
     out.sort(key=lambda x: (0 if x.is_platform_inbox else 1, (x.team_name or "").casefold(), x.team_id))

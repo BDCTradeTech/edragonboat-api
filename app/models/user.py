@@ -15,6 +15,8 @@ class User(Base):
     full_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
     is_platform_admin: Mapped[bool] = mapped_column(default=False, nullable=False)
+    # Código de idioma de la UI (es, en, …) para panel / móvil; null = no fijar en servidor.
+    ui_language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     memberships: Mapped[list["TeamMembership"]] = relationship(
