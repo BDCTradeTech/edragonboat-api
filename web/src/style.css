@@ -1079,3 +1079,45 @@ details[open] .disclosure-chev::after {
 .community-composer textarea {
   margin-bottom: 0.5rem;
 }
+
+.community-textarea-w {
+  width: 100%;
+  max-width: 100%;
+  min-width: min(100%, 40rem);
+  box-sizing: border-box;
+}
+
+.account-subh {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1.1rem 0 0.35rem;
+}
+
+.account-name-form {
+  margin: 0.75rem 0 0.25rem;
+}
+
+.account-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.account-name-input {
+  flex: 1 1 16rem;
+  min-width: 12rem;
+  max-width: 32rem;
+}
+
+.account-roles-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+.account-roles-list li {
+  margin: 0.35rem 0;
+  padding: 0;
+}

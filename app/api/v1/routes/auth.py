@@ -10,7 +10,7 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.token import Token
-from app.schemas.user import PasswordChange, UserCreate, UserRead
+from app.schemas.user import PasswordChange, UserCreate, UserRead, UserUpdate
 
 router = APIRouter()
 
@@ -34,6 +34,22 @@ def register(body: UserCreate, db: Annotated[Session, Depends(get_db)]) -> User:
 @router.get("/me", response_model=UserRead)
 def me(current: Annotated[User, Depends(get_current_user)]) -> User:
     """Perfil del usuario autenticado (panel web / app)."""
+    return current
+
+
+@router.patch("/me", response_model=UserRead, tags=["auth"])
+def update_me(
+    body: UserUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Actualizar perfil (p. ej. nombre y apellido)."""
+    if body.full_name is not None:
+        s = (body.full_name or "").strip()
+        current.full_name = s or None
+    db.add(current)
+    db.commit()
+    db.refresh(current)
     return current
 
 

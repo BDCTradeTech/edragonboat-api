@@ -7,6 +7,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.community_message import CommunityMessage
 from app.models.membership import TeamMembership, TeamRole
@@ -34,6 +35,68 @@ def _captain_team_ids(db: Session, user_id: int) -> list[int]:
             .order_by(TeamMembership.team_id)
         ).all()
     )
+
+
+def _my_captain_team_id_set(db: Session, current: User) -> set[int]:
+    return set(_captain_team_ids(db, current.id))
+
+
+def _peer_for_message(m: CommunityMessage, my_tids: set[int]) -> int:
+    if m.from_team_id in my_tids and m.to_team_id not in my_tids:
+        return m.to_team_id
+    if m.to_team_id in my_tids and m.from_team_id not in my_tids:
+        return m.from_team_id
+    if m.from_team_id in my_tids and m.to_team_id in my_tids:
+        return m.to_team_id
+    return m.to_team_id if m.from_team_id in my_tids else m.from_team_id
+
+
+def _enrich_message_outs(
+    db: Session,
+    rows: list[CommunityMessage],
+    current: User,
+    my_tids: set[int],
+) -> list[CommunityMessageOut]:
+    if not rows:
+        return []
+    a_ids = {m.author_user_id for m in rows}
+    t_ids = set()
+    for m in rows:
+        t_ids.add(m.from_team_id)
+        t_ids.add(m.to_team_id)
+    users = {u.id: u for u in db.scalars(select(User).where(User.id.in_(a_ids)))}
+    teams = {t.id: t for t in db.scalars(select(Team).where(Team.id.in_(t_ids)))}
+    out: list[CommunityMessageOut] = []
+    for m in rows:
+        is_mine = m.author_user_id == current.id
+        peer = _peer_for_message(m, my_tids)
+        if is_mine:
+            scap = ""
+        else:
+            au = users.get(m.author_user_id)
+            t_from = teams.get(m.from_team_id)
+            an = (au.full_name or "").strip() if au else ""
+            if not an and au is not None:
+                an = str(au.email)
+            if not an:
+                an = "?"
+            tn = t_from.name if t_from else "?"
+            scap = f"{an} · {tn}"
+        out.append(
+            CommunityMessageOut(
+                id=m.id,
+                body=m.body,
+                created_at=m.created_at,
+                from_team_id=m.from_team_id,
+                to_team_id=m.to_team_id,
+                from_my_team=is_mine,
+                is_mine=is_mine,
+                in_reply_to=m.in_reply_to_id,
+                peer_team_id=peer,
+                sender_caption=scap,
+            )
+        )
+    return out
 
 
 def _resolve_captain_from_team(db: Session, current: User, other_team_id: int) -> int:
@@ -91,9 +154,6 @@ def _resolve_read_from_team(
     other_team_id: int,
     from_team_id: int | None,
 ) -> int | None:
-    """
-    Identifica 'nuestro' lado del hilo 1:1. None = sin mensajes aún (solo admin, sin from_team_id).
-    """
     if not current.is_platform_admin:
         return _resolve_captain_from_team(db, current, other_team_id)
 
@@ -153,6 +213,7 @@ def list_community_directory(
     if not team_ids:
         return CommunityTeamsPage(teams=[])
 
+    contact_key = (get_settings().platform_contact_email or "").strip().casefold()
     out: list[CommunityTeamItem] = []
     for team_id in team_ids:
         team = db.get(Team, team_id)
@@ -172,6 +233,7 @@ def list_community_directory(
             continue
         _m, cap_user = row
         cname = (cap_user.full_name or "").strip() or None
+        is_inbox = bool(contact_key) and str(cap_user.email).strip().casefold() == contact_key
         out.append(
             CommunityTeamItem(
                 team_id=team.id,
@@ -179,9 +241,39 @@ def list_community_directory(
                 country=team.country,
                 captain_name=cname,
                 captain_email=cap_user.email,
+                is_platform_inbox=is_inbox,
             )
         )
+    out.sort(key=lambda x: (0 if x.is_platform_inbox else 1, (x.team_name or "").casefold(), x.team_id))
     return CommunityTeamsPage(teams=out)
+
+
+@router.get("/feed", response_model=CommunityMessagesPage, tags=["community"])
+def list_community_feed(
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+) -> CommunityMessagesPage:
+    """Todas las conversaciones del usuario (capitán) mezcladas, orden por fecha."""
+    my_tids = _my_captain_team_id_set(db, current)
+    if not my_tids and not current.is_platform_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo los capitanes pueden ver el buzón de comunidad",
+        )
+    if not my_tids:
+        return CommunityMessagesPage(messages=[])
+    q = (
+        select(CommunityMessage)
+        .where(
+            or_(
+                CommunityMessage.from_team_id.in_(my_tids),
+                CommunityMessage.to_team_id.in_(my_tids),
+            )
+        )
+        .order_by(CommunityMessage.created_at.asc(), CommunityMessage.id.asc())
+    )
+    rows = list(db.scalars(q).all())
+    return CommunityMessagesPage(messages=_enrich_message_outs(db, rows, current, my_tids))
 
 
 @router.get("/messages", response_model=CommunityMessagesPage, tags=["community"])
@@ -201,26 +293,14 @@ def list_community_messages(
     if from_side is None:
         return CommunityMessagesPage(messages=[])
 
+    my_tids = _my_captain_team_id_set(db, current)
     q = (
         select(CommunityMessage)
         .where(_thread_filter(from_side, other_team_id))
         .order_by(CommunityMessage.created_at.asc(), CommunityMessage.id.asc())
     )
     rows = list(db.scalars(q).all())
-    out: list[CommunityMessageOut] = []
-    for m in rows:
-        out.append(
-            CommunityMessageOut(
-                id=m.id,
-                body=m.body,
-                created_at=m.created_at,
-                from_team_id=m.from_team_id,
-                to_team_id=m.to_team_id,
-                from_my_team=m.from_team_id == from_side,
-                in_reply_to=m.in_reply_to_id,
-            )
-        )
-    return CommunityMessagesPage(messages=out)
+    return CommunityMessagesPage(messages=_enrich_message_outs(db, rows, current, my_tids))
 
 
 @router.post("/messages", response_model=CommunityMessageOut, status_code=status.HTTP_201_CREATED, tags=["community"])
@@ -232,12 +312,6 @@ def post_community_message(
     oteam = db.get(Team, body.other_team_id)
     if oteam is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
-
-    if current.is_platform_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="La mensajería de comunidad es entre capitanes; los administradores no publican aquí",
-        )
 
     from_team = _resolve_captain_from_team(db, current, body.other_team_id)
     o_cap = db.scalar(
@@ -277,15 +351,8 @@ def post_community_message(
     db.add(msg)
     db.commit()
     db.refresh(msg)
-    return CommunityMessageOut(
-        id=msg.id,
-        body=msg.body,
-        created_at=msg.created_at,
-        from_team_id=msg.from_team_id,
-        to_team_id=msg.to_team_id,
-        from_my_team=True,
-        in_reply_to=msg.in_reply_to_id,
-    )
+    my_tids = _my_captain_team_id_set(db, current)
+    return _enrich_message_outs(db, [msg], current, my_tids)[0]
 
 
 @router.delete("/messages/{message_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["community"])

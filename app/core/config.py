@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     app_public_url: str = "https://app.edragonboat.com"
     # Emails (minúsculas) separados por coma: al arrancar la API se marca is_platform_admin=1 en esos usuarios.
     platform_admin_emails: str = ""
+    # Cuenta de contacto (Comunidad): se crea un equipo fijo y este usuario como capitán para mensajería.
+    platform_contact_email: str = "diegolas@gmail.com"
+    platform_inbox_team_name: str = "E-DragonBoat (Administración)"
 
 
 @lru_cache

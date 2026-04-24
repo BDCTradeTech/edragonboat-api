@@ -22,7 +22,8 @@ Chart.register(...registerables);
 
 const SESSION_TEAM_FILTER_KEY = "edb_team_sessions_filter";
 const RUTINAS_TEAM_KEY = "edb_rutinas_team_id";
-const COMMUNITY_OTHER_TEAM_KEY = "edb_community_other_team_id";
+const COMMUNITY_FILTER_KEY = "edb_community_message_filter";
+const CONV_ALL = "all";
 
 let chartInstances = [];
 
@@ -3112,14 +3113,19 @@ function normalizeCommunityMsg(m, myTeamIds) {
   const id = m.id != null ? Number(m.id) : null;
   const body = m.body != null ? String(m.body) : m.text != null ? String(m.text) : "";
   const created = m.created_at || m.createdAt || "";
-  let fromMine = m.from_my_team === true || m.is_mine === true;
-  if (!fromMine && m.from_team_id != null) {
-    fromMine = myTeamIds.has(Number(m.from_team_id));
+  let isMine = m.is_mine === true;
+  if (m.is_mine === undefined) {
+    isMine = m.from_my_team === true;
+    if (!isMine && m.from_team_id != null) {
+      isMine = myTeamIds.has(Number(m.from_team_id));
+    }
   }
   let inReplyTo = m.in_reply_to;
   if (inReplyTo == null) inReplyTo = m.inReplyTo;
   inReplyTo = inReplyTo != null ? Number(inReplyTo) : null;
-  return { id, body, created, fromMine, inReplyTo };
+  const peerTeamId = m.peer_team_id != null ? Number(m.peer_team_id) : null;
+  const senderCaption = m.sender_caption != null ? String(m.sender_caption) : "";
+  return { id, body, created, isMine, fromMine: isMine, inReplyTo, peerTeamId, senderCaption };
 }
 
 function buildCommunityThreadHtml(list) {
@@ -3137,7 +3143,10 @@ function buildCommunityThreadHtml(list) {
   });
   return sorted
     .map((m) => {
-      const who = m.fromMine ? t("community.fromMine") : t("community.fromOther");
+      const who =
+        m.isMine || m.fromMine
+          ? escapeHtml(t("community.fromMine"))
+          : escapeHtml(m.senderCaption || t("community.fromOther"));
       const when = fmtDate(m.created);
       const ref =
         m.inReplyTo != null
@@ -3150,20 +3159,21 @@ function buildCommunityThreadHtml(list) {
             }</p>`
           : "";
       const delBtn =
-        m.fromMine && m.id != null
+        (m.isMine || m.fromMine) && m.id != null
           ? `<button type="button" class="secondary btn-sm com-del" data-mid="${m.id}">${escapeHtml(
               t("community.delete")
             )}</button>`
           : "";
-      return `<div class="community-msg" data-mid="${m.id}">
+      const ppeer = m.peerTeamId != null && Number.isFinite(m.peerTeamId) ? String(m.peerTeamId) : "";
+      return `<div class="community-msg" data-mid="${m.id}" data-peer="${ppeer}">
         <div class="community-msg-head">
-          <span class="community-who">${escapeHtml(who)}</span>
+          <span class="community-who">${who}</span>
           <time class="muted small" datetime="">${escapeHtml(when)}</time>
         </div>
         ${ref}
         <p class="community-msg-text">${escapeHtml(m.body)}</p>
         <div class="community-msg-actions">
-          <button type="button" class="secondary btn-sm com-rep" data-mid="${m.id}">${escapeHtml(
+          <button type="button" class="secondary btn-sm com-rep" data-mid="${m.id}" data-peer="${ppeer}">${escapeHtml(
             t("community.reply")
           )}</button>
           ${delBtn}
@@ -3211,26 +3221,28 @@ async function renderComunidad() {
     })
     .filter((o) => o.id != null && !myTeamIds.has(o.id));
 
-  let selected = sessionStorage.getItem(COMMUNITY_OTHER_TEAM_KEY) || "";
-  if (!selected || !others.some((o) => String(o.id) === selected)) {
-    selected = others[0] != null ? String(others[0].id) : "";
-    if (selected) sessionStorage.setItem(COMMUNITY_OTHER_TEAM_KEY, selected);
+  let selected = sessionStorage.getItem(COMMUNITY_FILTER_KEY) || CONV_ALL;
+  if (selected !== CONV_ALL && !others.some((o) => String(o.id) === selected)) {
+    selected = CONV_ALL;
   }
 
   const selectOpts =
     others.length === 0
       ? `<option value="">${escapeHtml(t("community.selectTeam"))}</option>`
-      : others
+      : `<option value="${CONV_ALL}"${selected === CONV_ALL ? " selected" : ""}>${escapeHtml(
+          t("community.filterAll")
+        )}</option>${others
           .map(
             (o) =>
               `<option value="${o.id}"${String(o.id) === selected ? " selected" : ""}>${escapeHtml(
                 o.label || `#${o.id}`
               )}</option>`
           )
-          .join("");
+          .join("")}`;
 
-  const disabledNoPeer = !selected;
-  const threadPlaceholder = disabledNoPeer
+  const hasNoOthers = others.length === 0;
+  const composerLocked = hasNoOthers || selected === CONV_ALL;
+  const threadPlaceholder = hasNoOthers
     ? `<p class="muted">${escapeHtml(t("community.noTeamsInDirectory"))}</p>`
     : `<p class="muted">${escapeHtml(t("common.loading"))}</p>`;
 
@@ -3244,24 +3256,27 @@ async function renderComunidad() {
       <p class="muted">${escapeHtml(t("community.subtitle"))}</p>
       <div class="community-toolbar">
         <div class="community-select-wrap">
-          <label for="com-sel-team">${escapeHtml(t("community.selectTeam"))}</label>
-          <select id="com-sel-team" ${others.length ? "" : "disabled"}>
+          <label for="com-sel-convo">${escapeHtml(t("community.conversationFilter"))}</label>
+          <select id="com-sel-convo" ${others.length ? "" : "disabled"}>
             ${selectOpts}
           </select>
         </div>
-        <button type="button" class="secondary" id="com-refresh" ${disabledNoPeer ? "disabled" : ""}>${escapeHtml(
+        <button type="button" class="secondary" id="com-refresh" ${hasNoOthers ? "disabled" : ""}>${escapeHtml(
           t("community.refresh")
         )}</button>
       </div>
       <p id="com-err" class="msg-error" style="display:none" role="alert"></p>
+      <p id="com-write-hint" class="muted small" style="display:none">${escapeHtml(
+        t("community.writeRequiresContact")
+      )}</p>
       <div id="com-reply-bar" class="community-reply-bar" style="display:none"></div>
       <div id="com-thread" class="community-thread">${threadPlaceholder}</div>
       <form id="com-form" class="community-composer">
         <label for="com-body">${escapeHtml(t("community.messagePlaceholder"))}</label>
-        <textarea id="com-body" rows="3" class="com-text" placeholder="${escapeHtml(
+        <textarea id="com-body" rows="4" class="com-text community-textarea-w" placeholder="${escapeHtml(
           t("community.messagePlaceholder")
-        )}" ${disabledNoPeer ? "disabled" : ""}></textarea>
-        <button type="submit" class="primary" id="com-submit" ${disabledNoPeer ? "disabled" : ""}>${escapeHtml(
+        )}" ${composerLocked ? "disabled" : ""}></textarea>
+        <button type="submit" class="primary" id="com-submit" ${composerLocked ? "disabled" : ""}>${escapeHtml(
           t("community.send")
         )}</button>
       </form>
@@ -3274,8 +3289,16 @@ async function renderComunidad() {
   const form = document.getElementById("com-form");
   const replyBar = document.getElementById("com-reply-bar");
   const refreshBtn = document.getElementById("com-refresh");
-  const sel = document.getElementById("com-sel-team");
+  const sel = document.getElementById("com-sel-convo");
   const subBtn = document.getElementById("com-submit");
+  const writeHint = document.getElementById("com-write-hint");
+
+  function setComposerState() {
+    const locked = hasNoOthers || selected === CONV_ALL;
+    if (bodyEl) bodyEl.disabled = locked;
+    if (subBtn) subBtn.disabled = locked;
+    if (writeHint) writeHint.style.display = selected === CONV_ALL && !hasNoOthers ? "block" : "none";
+  }
 
   function setErr(text) {
     if (!errEl) return;
@@ -3312,13 +3335,16 @@ async function renderComunidad() {
   }
 
   async function doRefresh() {
-    if (!selected) {
+    if (hasNoOthers) {
       lastNormalized = [];
       threadEl.innerHTML = `<p class="muted">${escapeHtml(t("community.noTeamsInDirectory"))}</p>`;
       return;
     }
     try {
-      const raw = await api.apiCommunityMessages(selected);
+      const raw =
+        selected === CONV_ALL
+          ? await api.apiCommunityFeed()
+          : await api.apiCommunityMessages(Number(selected));
       const arr = unwrapCommunityMessages(raw)
         .map((m) => normalizeCommunityMsg(m, myTeamIds))
         .filter((m) => m.id != null);
@@ -3340,14 +3366,12 @@ async function renderComunidad() {
   if (sel) {
     sel.addEventListener("change", (e) => {
       selected = e.target.value;
-      if (selected) sessionStorage.setItem(COMMUNITY_OTHER_TEAM_KEY, selected);
-      else sessionStorage.removeItem(COMMUNITY_OTHER_TEAM_KEY);
-      if (refreshBtn) refreshBtn.disabled = !selected;
-      if (bodyEl) bodyEl.disabled = !selected;
-      if (subBtn) subBtn.disabled = !selected;
+      if (selected) sessionStorage.setItem(COMMUNITY_FILTER_KEY, selected);
+      else sessionStorage.removeItem(COMMUNITY_FILTER_KEY);
       replyToId = null;
       replyToSnippet = "";
       updateReplyBar();
+      setComposerState();
       if (selected) {
         doRefresh();
       } else {
@@ -3356,6 +3380,7 @@ async function renderComunidad() {
       }
     });
   }
+  setComposerState();
 
   if (refreshBtn) {
     refreshBtn.addEventListener("click", () => {
@@ -3401,12 +3426,31 @@ async function renderComunidad() {
   if (form) {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (!selected) return;
+      if (hasNoOthers) return;
       const text = (bodyEl.value || "").trim();
       if (!text) return;
+      let targetTeam = null;
+      if (selected === CONV_ALL) {
+        if (replyToId != null) {
+          const ref = lastNormalized.find((x) => x.id === replyToId);
+          if (ref && ref.peerTeamId != null) {
+            targetTeam = ref.peerTeamId;
+          }
+        }
+        if (targetTeam == null) {
+          setErr(t("community.writeRequiresContact"));
+          return;
+        }
+      } else {
+        targetTeam = Number(selected);
+      }
+      if (!targetTeam || !Number.isFinite(targetTeam)) {
+        setErr(t("community.writeRequiresContact"));
+        return;
+      }
       try {
         await api.apiPostCommunityMessage({
-          otherTeamId: Number(selected),
+          otherTeamId: targetTeam,
           body: text,
           inReplyTo: replyToId,
         });
@@ -3427,7 +3471,7 @@ async function renderComunidad() {
     });
   }
 
-  if (!disabledNoPeer) {
+  if (!hasNoOthers) {
     await doRefresh();
   }
 }
@@ -3444,11 +3488,38 @@ async function renderAccount() {
         ? `<div class="card" style="margin-top:1rem"><p class="muted">${t("account.noTeamHtml")}</p></div>`
         : "";
 
+    const membershipBlock =
+      teams.length === 0
+        ? `<p class="muted">${escapeHtml(t("account.noMembershipLine"))}</p>`
+        : `<ul class="account-roles-list">
+            ${teams
+              .map(
+                (x) =>
+                  `<li><span class="account-role-pill"><strong>${escapeHtml(roleLabel(x.role))}</strong> — ${escapeHtml(
+                    x.team.name
+                  )}</span></li>`
+              )
+              .join("")}
+          </ul>`;
+
     layout(`
       <div class="card narrow">
         <h2 class="card-title">${escapeHtml(t("account.title"))}</h2>
         <p><strong>${escapeHtml(t("account.emailLabel"))}</strong> ${escapeHtml(me.email)}</p>
-        <p><strong>${escapeHtml(t("account.nameLabel"))}</strong> ${escapeHtml(me.full_name || t("account.emptyDash"))}</p>
+        <form id="form-profile-name" class="account-name-form">
+          <label for="full-name-input">${escapeHtml(t("account.fullNameLabel"))}</label>
+          <div class="account-name-row">
+            <input type="text" id="full-name-input" class="account-name-input" maxlength="200" value="${escapeHtml(
+              me.full_name || ""
+            )}" />
+            <button type="submit" class="primary">${escapeHtml(t("account.saveName"))}</button>
+          </div>
+          <p id="name-err" class="msg-error" style="display:none"></p>
+          <p id="name-ok" class="msg-ok" style="display:none"></p>
+        </form>
+        <h3 class="account-subh">${escapeHtml(t("account.roleAndTeamTitle"))}</h3>
+        <p class="muted small">${escapeHtml(t("account.roleAndTeamReadOnly"))}</p>
+        ${membershipBlock}
       </div>
       <details class="disclosure-card card narrow" style="margin-top:1rem">
         <summary class="disclosure-summary">
@@ -3481,6 +3552,35 @@ async function renderAccount() {
       </div>
       ${noTeamMsg}
     `);
+
+    document.getElementById("form-profile-name")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("name-err");
+      const okEl = document.getElementById("name-ok");
+      if (errEl) {
+        errEl.textContent = "";
+        errEl.style.display = "none";
+      }
+      if (okEl) {
+        okEl.textContent = "";
+        okEl.style.display = "none";
+      }
+      const v = (document.getElementById("full-name-input")?.value || "").trim();
+      try {
+        await api.apiUpdateMe({ full_name: v || null });
+        if (okEl) {
+          okEl.textContent = t("account.nameSaved");
+          okEl.classList.add("msg-ok");
+          okEl.style.display = "block";
+        }
+      } catch (ex) {
+        if (errEl) {
+          errEl.textContent = humanizeApiError(ex.message) || String(ex.message);
+          errEl.classList.add("msg-error");
+          errEl.style.display = "block";
+        }
+      }
+    });
 
     document.getElementById("sel-ui-lang")?.addEventListener("change", (e) => {
       setStoredUiLang(e.target.value);

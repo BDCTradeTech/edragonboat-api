@@ -127,6 +127,45 @@ def _bootstrap_platform_admin_emails() -> None:
         db.close()
 
 
+def _ensure_platform_inbox_team() -> None:
+    """Crea el equipo de contacto (Comunidad) y hace capitán a platform_contact_email si el usuario existe."""
+    cfg = get_settings()
+    email = (cfg.platform_contact_email or "").strip().lower()
+    if not email:
+        return
+    tname = (cfg.platform_inbox_team_name or "E-DragonBoat (Administración)").strip() or "E-DragonBoat (Administración)"
+    db = SessionLocal()
+    try:
+        user = db.scalar(select(User).where(func.lower(User.email) == email))
+        if user is None:
+            return
+        team = db.scalar(select(Team).where(Team.name == tname).limit(1))
+        if team is None:
+            team = Team(name=tname, country=None)
+            db.add(team)
+            db.flush()
+        existing = db.scalar(
+            select(TeamMembership).where(
+                TeamMembership.user_id == user.id,
+                TeamMembership.team_id == team.id,
+            )
+        )
+        if existing is None:
+            db.add(
+                TeamMembership(
+                    user_id=user.id,
+                    team_id=team.id,
+                    role=TeamRole.captain,
+                    sex="female",
+                )
+            )
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import app.models.community_message  # noqa: F401
@@ -142,6 +181,7 @@ async def lifespan(app: FastAPI):
     _migrate_team_membership_roster()
     _migrate_users_platform_admin()
     _bootstrap_platform_admin_emails()
+    _ensure_platform_inbox_team()
     data_dir = Path(get_settings().data_dir)
     (data_dir / "team_logos").mkdir(parents=True, exist_ok=True)
     yield

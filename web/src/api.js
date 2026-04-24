@@ -64,6 +64,16 @@ export async function apiRegister(email, password, fullName = null) {
   return res.json();
 }
 
+export async function apiUpdateMe(partial) {
+  const res = await fetch(`${API}/api/v1/auth/me`, {
+    method: "PATCH",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(partial),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function apiMe() {
   /** Preferir `/me` y `/auth/me` (UserRead completo); `/profile` como alias por compatibilidad con proxies viejos. */
   const paths = ["/api/v1/me", "/api/v1/auth/me", "/api/v1/profile"];
@@ -342,6 +352,13 @@ export async function apiCommunityMessages(otherTeamId) {
     `${API}/api/v1/community/messages?other_team_id=${encodeURIComponent(String(otherTeamId))}`,
     { headers: authHeaders() }
   );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/** Todos los hilos (mezcla) para un capitán. */
+export async function apiCommunityFeed() {
+  const res = await fetch(`${API}/api/v1/community/feed`, { headers: authHeaders() });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

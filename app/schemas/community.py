@@ -11,6 +11,7 @@ class CommunityTeamItem(BaseModel):
     country: str | None = None
     captain_name: str | None = None
     captain_email: str | None = None
+    is_platform_inbox: bool = False
 
     @field_serializer("captain_email")
     def _mask_email(self, v: str | None) -> str | None:
@@ -31,7 +32,10 @@ class CommunityMessageOut(BaseModel):
     from_team_id: int
     to_team_id: int
     from_my_team: bool
+    is_mine: bool
     in_reply_to: int | None = None
+    peer_team_id: int
+    sender_caption: str = ""
 
 
 class CommunityMessagesPage(BaseModel):
