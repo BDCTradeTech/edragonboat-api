@@ -7,7 +7,7 @@ import { toJpeg } from "html-to-image";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import * as api from "./api.js";
-import { countrySelectOptionsHtml, countryCellHtml } from "./countries.js";
+import { countrySelectOptionsHtml, countryCellHtml, getCountryNameForUi } from "./countries.js";
 import {
   UI_LANGUAGES,
   applyDocumentLang,
@@ -3102,9 +3102,12 @@ function communityDirTeamLabel(row) {
       : row.captain_display != null
         ? String(row.captain_display)
         : "";
+  const ctry =
+    row.country != null && String(row.country).trim() !== "" ? getCountryNameForUi(String(row.country)) : "";
+  const countryParens = ctry ? ` (${ctry})` : "";
   const id = communityDirTeamId(row);
-  if (name && cap) return `${name} · ${cap}`;
-  if (name) return name;
+  if (name && cap) return `${name}${countryParens} · ${cap}`;
+  if (name) return `${name}${countryParens}`;
   if (id != null) return `#${id}`;
   return "";
 }
@@ -3128,7 +3131,7 @@ function normalizeCommunityMsg(m, myTeamIds) {
   return { id, body, created, isMine, fromMine: isMine, inReplyTo, peerTeamId, senderCaption };
 }
 
-function buildCommunityThreadHtml(list) {
+function buildCommunityThreadHtml(list, getPeerLabel) {
   if (!list.length) {
     return `<p class="muted">${escapeHtml(t("community.noMessages"))}</p>`;
   }
@@ -3143,10 +3146,18 @@ function buildCommunityThreadHtml(list) {
   });
   return sorted
     .map((m) => {
-      const who =
-        m.isMine || m.fromMine
-          ? escapeHtml(t("community.fromMine"))
-          : escapeHtml(m.senderCaption || t("community.fromOther"));
+      let who;
+      if (m.isMine || m.fromMine) {
+        const pl =
+          typeof getPeerLabel === "function" && m.peerTeamId != null
+            ? getPeerLabel(m.peerTeamId)
+            : "";
+        who = pl
+          ? escapeHtml(t("community.fromMineTo", { peer: pl }))
+          : escapeHtml(t("community.fromMine"));
+      } else {
+        who = escapeHtml(m.senderCaption || t("community.fromOther"));
+      }
       const when = fmtDate(m.created);
       const ref =
         m.inReplyTo != null
@@ -3220,6 +3231,14 @@ async function renderComunidad() {
       return { id, label: communityDirTeamLabel(r) || (id != null ? `#${id}` : "") };
     })
     .filter((o) => o.id != null && !myTeamIds.has(o.id));
+  const peerLabelById = new Map(others.map((o) => [o.id, o.label]));
+  function getPeerLabel(peerId) {
+    if (peerId == null) return "";
+    const n = Number(peerId);
+    if (!Number.isFinite(n)) return "";
+    if (peerLabelById.has(n)) return String(peerLabelById.get(n) || "");
+    return `#${n}`;
+  }
 
   let selected = sessionStorage.getItem(COMMUNITY_FILTER_KEY) || CONV_ALL;
   if (selected !== CONV_ALL && !others.some((o) => String(o.id) === selected)) {
@@ -3349,7 +3368,7 @@ async function renderComunidad() {
         .map((m) => normalizeCommunityMsg(m, myTeamIds))
         .filter((m) => m.id != null);
       lastNormalized = arr;
-      threadEl.innerHTML = buildCommunityThreadHtml(arr);
+      threadEl.innerHTML = buildCommunityThreadHtml(arr, getPeerLabel);
       setErr("");
     } catch (ex) {
       const h = humanizeApiError(ex.message);
@@ -3517,8 +3536,6 @@ async function renderAccount() {
           <p id="name-err" class="msg-error" style="display:none"></p>
           <p id="name-ok" class="msg-ok" style="display:none"></p>
         </form>
-        <h3 class="account-subh">${escapeHtml(t("account.roleAndTeamTitle"))}</h3>
-        <p class="muted small">${escapeHtml(t("account.roleAndTeamReadOnly"))}</p>
         ${membershipBlock}
       </div>
       <details class="disclosure-card card narrow" style="margin-top:1rem">

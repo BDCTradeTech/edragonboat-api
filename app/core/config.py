@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     platform_admin_emails: str = ""
     # Cuenta de contacto (Comunidad): se crea un equipo fijo y este usuario como capitán para mensajería.
     platform_contact_email: str = "diegolas@gmail.com"
-    platform_inbox_team_name: str = "E-DragonBoat (Administración)"
+    platform_inbox_team_name: str = "E-DragonBoat (Admin)"
 
 
 @lru_cache

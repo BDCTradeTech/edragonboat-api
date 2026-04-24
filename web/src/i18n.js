@@ -1,6 +1,6 @@
 /**
  * Internacionalización del panel (claves anidadas: nav.sessions, shell.logout).
- * Fallback: idioma en curso → UI_LANG_DEFAULT (es) → se muestra la clave.
+ * Fallback: idioma en curso → UI_LANG_DEFAULT (en) → se muestra la clave.
  *
  * Idiomas actuales (mismas claves en los 9): es, en, pt, zh, fil, fr, de, ja, ms — alineados con `UI_LANGUAGES` en locale.js.
  *

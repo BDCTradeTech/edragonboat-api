@@ -5,9 +5,25 @@
  */
 
 import countries from "i18n-iso-countries";
+import de from "i18n-iso-countries/langs/de.json";
+import en from "i18n-iso-countries/langs/en.json";
 import es from "i18n-iso-countries/langs/es.json";
+import fr from "i18n-iso-countries/langs/fr.json";
+import ja from "i18n-iso-countries/langs/ja.json";
+import ms from "i18n-iso-countries/langs/ms.json";
+import pt from "i18n-iso-countries/langs/pt.json";
+import zh from "i18n-iso-countries/langs/zh.json";
 
+import { getStoredUiLang } from "./locale.js";
+
+countries.registerLocale(de);
+countries.registerLocale(en);
 countries.registerLocale(es);
+countries.registerLocale(fr);
+countries.registerLocale(ja);
+countries.registerLocale(ms);
+countries.registerLocale(pt);
+countries.registerLocale(zh);
 
 const EXCLUDE_CODES = new Set(["PS"]);
 
@@ -47,6 +63,41 @@ function getNameToCodeMap() {
 export function getCountryCodeFromSpanishName(countryName) {
   if (!countryName || !String(countryName).trim()) return null;
   return getNameToCodeMap().get(String(countryName).trim().toLowerCase()) || null;
+}
+
+const UI_TO_I18N = {
+  zh: "zh",
+  en: "en",
+  fil: "en",
+  fr: "fr",
+  de: "de",
+  ja: "ja",
+  ms: "ms",
+  pt: "pt",
+  es: "es",
+};
+
+/**
+ * Muestra el país (BD: nombre oficial en ES o ISO-3166-1 alfa-2) en el idioma de la UI.
+ * @param {string | null | undefined} stored
+ * @returns {string}
+ */
+export function getCountryNameForUi(stored) {
+  if (stored == null) return "";
+  const raw = String(stored).trim();
+  if (!raw) return "";
+  let code = null;
+  if (raw.length === 2 && /^[A-Za-z]{2}$/.test(raw)) {
+    code = raw.toUpperCase();
+  } else {
+    code = getCountryCodeFromSpanishName(raw);
+  }
+  if (code) {
+    const l = UI_TO_I18N[getStoredUiLang()] || "en";
+    const n = countries.getName(code, l) || countries.getName(code, "en");
+    if (n) return n;
+  }
+  return raw;
 }
 
 /** Emoji de bandera regional (🇦🇷) a partir de código ISO alpha-2. */

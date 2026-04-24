@@ -1,11 +1,11 @@
 /**
  * Preferencia de idioma de la interfaz (panel web, no la app móvil).
- * Idioma por defecto: español (primera visita o sin clave en localStorage).
+ * Idioma por defecto: inglés (primera visita o sin clave en localStorage; p. ej. registro).
  */
 export const UI_LANG_KEY = "edb_ui_lang";
 
 /** Código BCP47 corto alineado con UI_LANGUAGES; usado como fallback de i18n. */
-export const UI_LANG_DEFAULT = "es";
+export const UI_LANG_DEFAULT = "en";
 
 /** Orden alfabético por nombre en inglés. */
 export const UI_LANGUAGES = [
@@ -51,11 +51,11 @@ export function setStoredUiLang(code) {
 }
 
 export function applyDocumentLang(langCode) {
-  document.documentElement.lang = BCP47[langCode] || langCode || BCP47[UI_LANG_DEFAULT] || "es";
+  document.documentElement.lang = BCP47[langCode] || langCode || BCP47[UI_LANG_DEFAULT] || "en";
 }
 
 /** BCP-47 para `Intl` (fechas, números, `localeCompare`) según el idioma guardado de la UI. */
 export function getUiLocale() {
   const code = getStoredUiLang();
-  return BCP47[code] || BCP47[UI_LANG_DEFAULT] || "es";
+  return BCP47[code] || BCP47[UI_LANG_DEFAULT] || "en";
 }

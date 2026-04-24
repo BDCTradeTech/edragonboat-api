@@ -133,7 +133,8 @@ def _ensure_platform_inbox_team() -> None:
     email = (cfg.platform_contact_email or "").strip().lower()
     if not email:
         return
-    tname = (cfg.platform_inbox_team_name or "E-DragonBoat (Administración)").strip() or "E-DragonBoat (Administración)"
+    tname = (cfg.platform_inbox_team_name or "E-DragonBoat (Admin)").strip() or "E-DragonBoat (Admin)"
+    _legacy = "E-DragonBoat (Administración)"
     db = SessionLocal()
     try:
         user = db.scalar(select(User).where(func.lower(User.email) == email))
@@ -141,9 +142,13 @@ def _ensure_platform_inbox_team() -> None:
             return
         team = db.scalar(select(Team).where(Team.name == tname).limit(1))
         if team is None:
+            team = db.scalar(select(Team).where(Team.name == _legacy).limit(1))
+        if team is None:
             team = Team(name=tname, country=None)
             db.add(team)
             db.flush()
+        if team is not None and team.name != tname:
+            team.name = tname
         existing = db.scalar(
             select(TeamMembership).where(
                 TeamMembership.user_id == user.id,
