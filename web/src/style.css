@@ -1009,3 +1009,73 @@ details[open] .disclosure-chev::after {
     height: 200px;
   }
 }
+
+/* Comunidad (mensajes entre capitanes) */
+.community-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin: 1rem 0;
+}
+
+.community-select-wrap {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.community-select-wrap select {
+  max-width: 100%;
+  margin-bottom: 0;
+}
+
+.community-thread {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  max-height: min(52vh, 480px);
+  overflow: auto;
+  background: #fafcfe;
+}
+
+.community-msg {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.community-msg:last-child {
+  border-bottom: none;
+}
+
+.community-msg-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.community-msg-text {
+  margin: 0.35rem 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.community-msg-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.community-reply-bar-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+
+.community-composer textarea {
+  margin-bottom: 0.5rem;
+}

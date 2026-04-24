@@ -328,3 +328,40 @@ export async function apiListRegatas() {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+/** Directorio de equipos con los que se puede abrir hilo (mensajería entre capitanes). */
+export async function apiCommunityTeams() {
+  const res = await fetch(`${API}/api/v1/community/teams`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+/** Mensajes con otro equipo (hilo 1:1). */
+export async function apiCommunityMessages(otherTeamId) {
+  const res = await fetch(
+    `${API}/api/v1/community/messages?other_team_id=${encodeURIComponent(String(otherTeamId))}`,
+    { headers: authHeaders() }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function apiPostCommunityMessage({ otherTeamId, body, inReplyTo = null }) {
+  const payload = { other_team_id: otherTeamId, body: String(body).trim() };
+  if (inReplyTo != null) payload.in_reply_to = inReplyTo;
+  const res = await fetch(`${API}/api/v1/community/messages`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function apiDeleteCommunityMessage(messageId) {
+  const res = await fetch(`${API}/api/v1/community/messages/${messageId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}

@@ -1,5 +1,5 @@
 /**
- * Panel web E-DragonBoat — home, entrenamientos, competencias, equipo, cuenta.
+ * Panel web E-DragonBoat — home, entrenamientos, competencias, comunidad, equipo, cuenta.
  */
 
 import { Chart, registerables } from "chart.js";
@@ -22,6 +22,7 @@ Chart.register(...registerables);
 
 const SESSION_TEAM_FILTER_KEY = "edb_team_sessions_filter";
 const RUTINAS_TEAM_KEY = "edb_rutinas_team_id";
+const COMMUNITY_OTHER_TEAM_KEY = "edb_community_other_team_id";
 
 let chartInstances = [];
 
@@ -222,6 +223,7 @@ function layout(content, { showNav = true, wide = false } = {}) {
         <a class="nav-item" href="#/rutinas" data-match="rutinas">${escapeHtml(t("nav.routines"))}</a>
         <a class="nav-item" href="#/sessions" data-match="sessions">${escapeHtml(t("nav.sessions"))}</a>
         <a class="nav-item" href="#/competencias" data-match="competencias">${escapeHtml(t("nav.competitions"))}</a>
+        <a class="nav-item" href="#/comunidad" data-match="comunidad">${escapeHtml(t("nav.community"))}</a>
         <a class="nav-item" href="#/cuenta" data-match="cuenta">${escapeHtml(t("nav.account"))}</a>
       </nav>
       <div class="nav-footer">
@@ -271,6 +273,7 @@ function highlightNav() {
   if (hash[0] === "sessions" || hash[0] === "session") key = "sessions";
   else if (hash[0] === "teams") key = "teams";
   else if (hash[0] === "rutinas") key = "rutinas";
+  else if (hash[0] === "comunidad") key = "comunidad";
   else if (hash[0] === "cuenta") key = "cuenta";
   else if (hash[0] === "regatas" || hash[0] === "competencias") key = "competencias";
 
@@ -355,6 +358,7 @@ function route() {
     return route();
   }
   if (parts[0] === "competencias") return renderCompetencias();
+  if (parts[0] === "comunidad") return renderComunidad();
   if (parts[0] === "cuenta") return renderAccount();
   if (parts[0] === "rutinas") {
     if (!parts[1]) return renderRutinasHub();
@@ -3060,6 +3064,371 @@ async function renderRutinasEditor(id) {
     layout(
       `<div class="card"><p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p><p><a class="link" href="#/rutinas">${escapeHtml(t("routines.back"))}</a></p></div>`
     );
+  }
+}
+
+function unwrapCommunityDir(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.teams)) return data.teams;
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
+}
+
+function unwrapCommunityMessages(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.messages)) return data.messages;
+  return [];
+}
+
+function communityDirTeamId(row) {
+  if (row == null) return null;
+  const n = row.team_id != null ? row.team_id : row.id;
+  if (n == null || n === "") return null;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : null;
+}
+
+function communityDirTeamLabel(row) {
+  const name =
+    row.team_name != null
+      ? String(row.team_name)
+      : row.name != null
+        ? String(row.name)
+        : "";
+  const cap =
+    row.captain_name != null
+      ? String(row.captain_name)
+      : row.captain_display != null
+        ? String(row.captain_display)
+        : "";
+  const id = communityDirTeamId(row);
+  if (name && cap) return `${name} · ${cap}`;
+  if (name) return name;
+  if (id != null) return `#${id}`;
+  return "";
+}
+
+function normalizeCommunityMsg(m, myTeamIds) {
+  const id = m.id != null ? Number(m.id) : null;
+  const body = m.body != null ? String(m.body) : m.text != null ? String(m.text) : "";
+  const created = m.created_at || m.createdAt || "";
+  let fromMine = m.from_my_team === true || m.is_mine === true;
+  if (!fromMine && m.from_team_id != null) {
+    fromMine = myTeamIds.has(Number(m.from_team_id));
+  }
+  let inReplyTo = m.in_reply_to;
+  if (inReplyTo == null) inReplyTo = m.inReplyTo;
+  inReplyTo = inReplyTo != null ? Number(inReplyTo) : null;
+  return { id, body, created, fromMine, inReplyTo };
+}
+
+function buildCommunityThreadHtml(list) {
+  if (!list.length) {
+    return `<p class="muted">${escapeHtml(t("community.noMessages"))}</p>`;
+  }
+  const byId = new Map();
+  for (const m of list) {
+    if (m.id != null) byId.set(m.id, m);
+  }
+  const sorted = [...list].sort((a, b) => {
+    const ta = new Date(a.created).getTime();
+    const tb = new Date(b.created).getTime();
+    return (Number.isNaN(ta) ? 0 : ta) - (Number.isNaN(tb) ? 0 : tb);
+  });
+  return sorted
+    .map((m) => {
+      const who = m.fromMine ? t("community.fromMine") : t("community.fromOther");
+      const when = fmtDate(m.created);
+      const ref =
+        m.inReplyTo != null
+          ? `<p class="muted small" style="margin:0.25rem 0 0 0">${escapeHtml(
+              t("community.replyBadge", { id: m.inReplyTo })
+            )}${
+              byId.has(m.inReplyTo)
+                ? ` — ${escapeHtml(String(byId.get(m.inReplyTo).body).slice(0, 64))}…`
+                : ""
+            }</p>`
+          : "";
+      const delBtn =
+        m.fromMine && m.id != null
+          ? `<button type="button" class="secondary btn-sm com-del" data-mid="${m.id}">${escapeHtml(
+              t("community.delete")
+            )}</button>`
+          : "";
+      return `<div class="community-msg" data-mid="${m.id}">
+        <div class="community-msg-head">
+          <span class="community-who">${escapeHtml(who)}</span>
+          <time class="muted small" datetime="">${escapeHtml(when)}</time>
+        </div>
+        ${ref}
+        <p class="community-msg-text">${escapeHtml(m.body)}</p>
+        <div class="community-msg-actions">
+          <button type="button" class="secondary btn-sm com-rep" data-mid="${m.id}">${escapeHtml(
+            t("community.reply")
+          )}</button>
+          ${delBtn}
+        </div>
+      </div>`;
+    })
+    .join("");
+}
+
+async function renderComunidad() {
+  layout(`<p class="loading-line">${escapeHtml(t("common.loading"))}</p>`);
+  let me;
+  let myTeams;
+  let dirRaw;
+  try {
+    [me, myTeams, dirRaw] = await Promise.all([api.apiMe(), api.apiMyTeams(), api.apiCommunityTeams()]);
+  } catch (ex) {
+    const detail = humanizeApiError(ex.message);
+    const is404 = /not found|404/i.test(detail) || /not found|404/i.test(String(ex.message));
+    layout(
+      `<div class="card"><h2 class="card-title">${escapeHtml(t("community.title"))}</h2>
+        <p class="msg-error">${escapeHtml(t("community.loadFailed"))}</p>
+        <p class="muted small">${escapeHtml(detail)}</p>
+        ${is404 ? `<p class="muted small">${escapeHtml(t("community.unavailable"))}</p>` : ""}</div>`
+    );
+    return;
+  }
+
+  const isAdmin = me.is_platform_admin === true;
+  if (myTeams.length === 0 && !isAdmin) {
+    layout(
+      `<div class="card"><h2 class="card-title">${escapeHtml(t("community.title"))}</h2>
+        <p class="muted">${escapeHtml(t("community.noMyTeam"))}</p>
+        <p class="small"><a class="link" href="#/teams/new">${escapeHtml(t("nav.teams"))}</a></p></div>`
+    );
+    return;
+  }
+
+  const myTeamIds = new Set(myTeams.map((x) => x.team.id));
+  const dir = unwrapCommunityDir(dirRaw);
+  const others = dir
+    .map((r) => {
+      const id = communityDirTeamId(r);
+      return { id, label: communityDirTeamLabel(r) || (id != null ? `#${id}` : "") };
+    })
+    .filter((o) => o.id != null && !myTeamIds.has(o.id));
+
+  let selected = sessionStorage.getItem(COMMUNITY_OTHER_TEAM_KEY) || "";
+  if (!selected || !others.some((o) => String(o.id) === selected)) {
+    selected = others[0] != null ? String(others[0].id) : "";
+    if (selected) sessionStorage.setItem(COMMUNITY_OTHER_TEAM_KEY, selected);
+  }
+
+  const selectOpts =
+    others.length === 0
+      ? `<option value="">${escapeHtml(t("community.selectTeam"))}</option>`
+      : others
+          .map(
+            (o) =>
+              `<option value="${o.id}"${String(o.id) === selected ? " selected" : ""}>${escapeHtml(
+                o.label || `#${o.id}`
+              )}</option>`
+          )
+          .join("");
+
+  const disabledNoPeer = !selected;
+  const threadPlaceholder = disabledNoPeer
+    ? `<p class="muted">${escapeHtml(t("community.noTeamsInDirectory"))}</p>`
+    : `<p class="muted">${escapeHtml(t("common.loading"))}</p>`;
+
+  let replyToId = null;
+  let replyToSnippet = "";
+  let lastNormalized = [];
+
+  layout(`
+    <div class="card">
+      <h2 class="card-title">${escapeHtml(t("community.title"))}</h2>
+      <p class="muted">${escapeHtml(t("community.subtitle"))}</p>
+      <div class="community-toolbar">
+        <div class="community-select-wrap">
+          <label for="com-sel-team">${escapeHtml(t("community.selectTeam"))}</label>
+          <select id="com-sel-team" ${others.length ? "" : "disabled"}>
+            ${selectOpts}
+          </select>
+        </div>
+        <button type="button" class="secondary" id="com-refresh" ${disabledNoPeer ? "disabled" : ""}>${escapeHtml(
+          t("community.refresh")
+        )}</button>
+      </div>
+      <p id="com-err" class="msg-error" style="display:none" role="alert"></p>
+      <div id="com-reply-bar" class="community-reply-bar" style="display:none"></div>
+      <div id="com-thread" class="community-thread">${threadPlaceholder}</div>
+      <form id="com-form" class="community-composer">
+        <label for="com-body">${escapeHtml(t("community.messagePlaceholder"))}</label>
+        <textarea id="com-body" rows="3" class="com-text" placeholder="${escapeHtml(
+          t("community.messagePlaceholder")
+        )}" ${disabledNoPeer ? "disabled" : ""}></textarea>
+        <button type="submit" class="primary" id="com-submit" ${disabledNoPeer ? "disabled" : ""}>${escapeHtml(
+          t("community.send")
+        )}</button>
+      </form>
+    </div>
+  `);
+
+  const errEl = document.getElementById("com-err");
+  const threadEl = document.getElementById("com-thread");
+  const bodyEl = document.getElementById("com-body");
+  const form = document.getElementById("com-form");
+  const replyBar = document.getElementById("com-reply-bar");
+  const refreshBtn = document.getElementById("com-refresh");
+  const sel = document.getElementById("com-sel-team");
+  const subBtn = document.getElementById("com-submit");
+
+  function setErr(text) {
+    if (!errEl) return;
+    if (text) {
+      errEl.style.display = "block";
+      errEl.textContent = text;
+    } else {
+      errEl.style.display = "none";
+      errEl.textContent = "";
+    }
+  }
+
+  function updateReplyBar() {
+    if (!replyBar) return;
+    if (replyToId == null) {
+      replyBar.style.display = "none";
+      replyBar.innerHTML = "";
+      return;
+    }
+    replyBar.style.display = "block";
+    replyBar.innerHTML = `
+      <div class="card-inset community-reply-bar-inner">
+        <span class="small">${escapeHtml(t("community.replyingTo", { snippet: replyToSnippet }))}</span>
+        <button type="button" class="secondary btn-sm" id="com-clear-reply">${escapeHtml(
+          t("community.clearReply")
+        )}</button>
+      </div>
+    `;
+    document.getElementById("com-clear-reply")?.addEventListener("click", () => {
+      replyToId = null;
+      replyToSnippet = "";
+      updateReplyBar();
+    });
+  }
+
+  async function doRefresh() {
+    if (!selected) {
+      lastNormalized = [];
+      threadEl.innerHTML = `<p class="muted">${escapeHtml(t("community.noTeamsInDirectory"))}</p>`;
+      return;
+    }
+    try {
+      const raw = await api.apiCommunityMessages(selected);
+      const arr = unwrapCommunityMessages(raw)
+        .map((m) => normalizeCommunityMsg(m, myTeamIds))
+        .filter((m) => m.id != null);
+      lastNormalized = arr;
+      threadEl.innerHTML = buildCommunityThreadHtml(arr);
+      setErr("");
+    } catch (ex) {
+      const h = humanizeApiError(ex.message);
+      if (/not found|404/i.test(h) || /not found|404/i.test(String(ex.message))) {
+        setErr(t("community.unavailable"));
+      } else if (/403|forbidden/i.test(h) || /403/i.test(String(ex.message))) {
+        setErr(t("community.forbidden"));
+      } else {
+        setErr(h);
+      }
+    }
+  }
+
+  if (sel) {
+    sel.addEventListener("change", (e) => {
+      selected = e.target.value;
+      if (selected) sessionStorage.setItem(COMMUNITY_OTHER_TEAM_KEY, selected);
+      else sessionStorage.removeItem(COMMUNITY_OTHER_TEAM_KEY);
+      if (refreshBtn) refreshBtn.disabled = !selected;
+      if (bodyEl) bodyEl.disabled = !selected;
+      if (subBtn) subBtn.disabled = !selected;
+      replyToId = null;
+      replyToSnippet = "";
+      updateReplyBar();
+      if (selected) {
+        doRefresh();
+      } else {
+        lastNormalized = [];
+        threadEl.innerHTML = `<p class="muted">${escapeHtml(t("community.noTeamsInDirectory"))}</p>`;
+      }
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      doRefresh();
+    });
+  }
+
+  if (threadEl) {
+    threadEl.addEventListener("click", (ev) => {
+      const tEl = ev.target;
+      if (tEl.classList.contains("com-rep")) {
+        const mid = Number(tEl.getAttribute("data-mid"));
+        const m = lastNormalized.find((x) => x.id === mid);
+        if (m) {
+          replyToId = mid;
+          replyToSnippet = m.body.length > 90 ? `${m.body.slice(0, 90)}…` : m.body;
+          updateReplyBar();
+          bodyEl?.focus();
+        }
+      }
+      if (tEl.classList.contains("com-del")) {
+        const mid = Number(tEl.getAttribute("data-mid"));
+        if (mid && globalThis.confirm(t("community.deleteConfirm"))) {
+          (async () => {
+            try {
+              await api.apiDeleteCommunityMessage(mid);
+              setErr("");
+              await doRefresh();
+            } catch (ex) {
+              const h = humanizeApiError(ex.message);
+              if (/403|forbidden/i.test(h) || /403/i.test(String(ex.message))) {
+                setErr(t("community.forbidden"));
+              } else {
+                setErr(h);
+              }
+            }
+          })();
+        }
+      }
+    });
+  }
+
+  if (form) {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!selected) return;
+      const text = (bodyEl.value || "").trim();
+      if (!text) return;
+      try {
+        await api.apiPostCommunityMessage({
+          otherTeamId: Number(selected),
+          body: text,
+          inReplyTo: replyToId,
+        });
+        bodyEl.value = "";
+        replyToId = null;
+        replyToSnippet = "";
+        updateReplyBar();
+        await doRefresh();
+        setErr("");
+      } catch (ex) {
+        const h = humanizeApiError(ex.message);
+        if (/403|forbidden/i.test(h) || /403/i.test(String(ex.message))) {
+          setErr(t("community.forbidden"));
+        } else {
+          setErr(h);
+        }
+      }
+    });
+  }
+
+  if (!disabledNoPeer) {
+    await doRefresh();
   }
 }
 
