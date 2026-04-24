@@ -2,6 +2,8 @@
  * Cliente HTTP del panel (Bearer JWT).
  */
 
+import { setSessionUserId } from "./locale.js";
+
 const TOKEN_KEY = "edb_token";
 const EMAIL_KEY = "edb_email";
 
@@ -20,6 +22,7 @@ export function setSession(token, email) {
 export function clearSession() {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(EMAIL_KEY);
+  setSessionUserId(null);
 }
 
 export function getEmail() {

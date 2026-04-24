@@ -13,6 +13,7 @@ import {
   applyDocumentLang,
   getStoredUiLang,
   getUiLocale,
+  setSessionUserId,
   setStoredUiLang,
 } from "./locale.js";
 import { t } from "./i18n.js";
@@ -331,6 +332,9 @@ function route() {
     void api
       .apiMe()
       .then((me) => {
+        if (me && me.id != null) {
+          setSessionUserId(me.id);
+        }
         const prev = getStoredUiLang();
         let changed = false;
         if (me && me.ui_language && UI_LANGUAGES.some((o) => o.code === me.ui_language) && me.ui_language !== prev) {
@@ -453,6 +457,18 @@ function renderLogin() {
       } catch {
         /* ignore */
       }
+      try {
+        const me = await api.apiMe();
+        if (me && me.id != null) {
+          setSessionUserId(me.id);
+          if (me.ui_language && UI_LANGUAGES.some((o) => o.code === me.ui_language)) {
+            setStoredUiLang(me.ui_language);
+            applyDocumentLang(me.ui_language);
+          }
+        }
+      } catch {
+        /* El route seguirá con /me para fijar idioma y usuario */
+      }
       location.hash = "#/";
       route();
     } catch (ex) {
@@ -509,6 +525,18 @@ function renderRegister() {
       api.setSession(data.access_token, email);
       try {
         sessionStorage.removeItem(SERVER_UI_LANG_SYNC_KEY);
+      } catch {
+        /* ignore */
+      }
+      try {
+        const me = await api.apiMe();
+        if (me && me.id != null) {
+          setSessionUserId(me.id);
+          if (me.ui_language && UI_LANGUAGES.some((o) => o.code === me.ui_language)) {
+            setStoredUiLang(me.ui_language);
+            applyDocumentLang(me.ui_language);
+          }
+        }
       } catch {
         /* ignore */
       }
