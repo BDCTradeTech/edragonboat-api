@@ -129,6 +129,7 @@ def _bootstrap_platform_admin_emails() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import app.models.community_message  # noqa: F401
     import app.models.libre_session_upload  # noqa: F401
     import app.models.membership  # noqa: F401
     import app.models.team  # noqa: F401
@@ -182,8 +183,9 @@ def deploy_check() -> dict[str, object]:
     """Sin autenticación: usá esto para ver si el proceso usa este código (curl local o vía Caddy)."""
     return {
         "ok": True,
-        "build": "platform-admin-emails-env-2026-04-05",
+        "build": "community-messages-2026-04-05",
         "has_panel_routes": True,
+        "has_community_routes": True,
         "invite_creates_user": True,
         "panel_invite_path": "/api/v1/panel/teams/{team_id}/members",
     }
