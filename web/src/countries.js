@@ -15,6 +15,7 @@ import pt from "i18n-iso-countries/langs/pt.json";
 import zh from "i18n-iso-countries/langs/zh.json";
 
 import { getStoredUiLang } from "./locale.js";
+import { escapeHtml } from "./utils.js";
 
 countries.registerLocale(de);
 countries.registerLocale(en);
@@ -149,14 +150,6 @@ export function countrySelectOptionsHtml(selectedName) {
     }),
   ];
   return parts.join("");
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 function escapeAttr(s) {

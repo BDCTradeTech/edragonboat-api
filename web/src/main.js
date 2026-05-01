@@ -17,6 +17,7 @@ import {
   setStoredUiLang,
 } from "./locale.js";
 import { t } from "./i18n.js";
+import { escapeHtml } from "./utils.js";
 import panelPkg from "../package.json";
 
 Chart.register(...registerables);
@@ -35,14 +36,6 @@ function destroyCharts() {
   chartInstances = [];
 }
 
-function escapeHtml(s) {
-  if (!s) return "";
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function fmtDate(iso) {
   if (!iso) return t("account.emptyDash");
@@ -3099,9 +3092,9 @@ async function renderRutinasEditor(id) {
       if (up && !up.disabled) {
         const i = Number(up.getAttribute("data-i"));
         if (i > 0) {
-          const t = exercises[i - 1];
+          const tmp = exercises[i - 1];
           exercises[i - 1] = exercises[i];
-          exercises[i] = t;
+          exercises[i] = tmp;
           render();
         }
         return;
@@ -3109,9 +3102,9 @@ async function renderRutinasEditor(id) {
       if (down && !down.disabled) {
         const i = Number(down.getAttribute("data-i"));
         if (i < exercises.length - 1) {
-          const t = exercises[i + 1];
+          const tmp = exercises[i + 1];
           exercises[i + 1] = exercises[i];
-          exercises[i] = t;
+          exercises[i] = tmp;
           render();
         }
         return;
