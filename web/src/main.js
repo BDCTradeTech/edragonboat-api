@@ -1217,17 +1217,20 @@ async function renderSessionsList() {
       `
       <div class="card">
         <h2 class="card-title">${escapeHtml(t("sessions.title"))}</h2>
-        ${filterBlock}
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;margin-top:12px">
-          <select id="filter-year" style="${selectStyle}">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          ${teams.length >= 1 ? `<select id="sel-session-team" style="${selectStyle};min-width:130px">
+            ${teamSelectOptions}
+          </select>` : ""}
+          <select id="filter-year" style="${selectStyle};min-width:130px">
             ${buildSelectOpts(allYears, (y) => String(y), "Todos los años")}
           </select>
-          <select id="filter-month" style="${selectStyle}">
+          <select id="filter-month" style="${selectStyle};min-width:130px">
             <option value="">Todos los meses</option>
           </select>
-          <select id="filter-day" style="${selectStyle}">
+          <select id="filter-day" style="${selectStyle};min-width:130px">
             <option value="">Todos los días</option>
           </select>
+          <button id="btn-ver-dia" style="padding:6px 14px;font-size:13px;border-radius:8px;border:none;background:#185fa5;color:#fff;cursor:pointer">Ver día</button>
         </div>
         <div id="sessions-summary" style="font-size:12px;color:#94a3b8;margin-bottom:8px"></div>
         <div class="table-scroll">
@@ -1324,9 +1327,9 @@ async function renderSessionsList() {
           const initial = (s.team_name || "?")[0].toUpperCase();
           const dist =
             s.distance_meters != null
-              ? `${(s.distance_meters / 1000).toFixed(2)} km`
+              ? `${Math.round(s.distance_meters)} m`
               : em;
-          const dur = s.total_seconds != null ? `${s.total_seconds} s` : em;
+          const dur = s.total_seconds != null ? `${Math.floor(s.total_seconds / 60)}:${String(s.total_seconds % 60).padStart(2, "0")}` : em;
           return `<tr>
             <td><span style="color:#94a3b8;font-size:12px">#${s.id}</span></td>
             <td><span class="team-avatar">${escapeHtml(initial)}</span>${escapeHtml(s.team_name || "—")}</td>
@@ -1339,12 +1342,11 @@ async function renderSessionsList() {
         })
         .join("");
 
-      // Conectar botones "Ver" al modal
+      // Conectar botones "Ver" para navegar al detalle
       tbody.querySelectorAll(".btn-ver").forEach((btn) => {
         btn.addEventListener("click", () => {
-          const id = Number(btn.dataset.id);
-          const session = rows.find((r) => r.id === id);
-          if (session) openDayModal(session, filtered.length ? filtered : rows);
+          const id = btn.dataset.id;
+          location.hash = `#/session/${id}`;
         });
       });
     }
@@ -1378,6 +1380,27 @@ async function renderSessionsList() {
         sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, sel.value);
         route();
       }
+    });
+
+    // Botón "Ver día"
+    document.getElementById("btn-ver-dia")?.addEventListener("click", () => {
+      const dyVal = document.getElementById("filter-day")?.value || "";
+      const yrVal = document.getElementById("filter-year")?.value || "";
+      const moVal = document.getElementById("filter-month")?.value || "";
+
+      // Determinar la sesión objetivo
+      const filtered = getFilteredRows();
+      const pool = filtered.length ? filtered : rows;
+
+      let target;
+      if (dyVal && yrVal && moVal !== "") {
+        // Hay día seleccionado: usar la sesión más reciente de ese día
+        target = [...pool].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+      } else {
+        // Sin día: usar el día más reciente de todas las sesiones visibles
+        target = [...rows].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+      }
+      if (target) openDayModal(target, rows);
     });
 
   } catch (ex) {
