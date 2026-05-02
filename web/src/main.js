@@ -357,7 +357,17 @@ async function renderHome() {
       <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Sesiones</div><span class="stat-number" id="home-stat-sessions">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">entrenamientos</div><div class="stat-bar" style="background:#185fa5"></div></div>
       <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Miembros</div><span class="stat-number" id="home-stat-members">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">en el plantel</div><div class="stat-bar" style="background:#16a34a"></div></div>
       <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Competencias</div><span class="stat-number" id="home-stat-comps">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">carreras</div><div class="stat-bar" style="background:#7c3aed"></div></div>
-      <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Mi equipo</div><div id="home-stat-team-logo" style="margin:4px 0 2px"><span class="stat-number" id="home-stat-teams">—</span></div><div style="font-size:12px;color:#94a3b8;margin-top:4px">registrados</div><div class="stat-bar" style="background:#d97706"></div></div>
+      <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px" id="home-stat-team-label">Mi equipo</div><div id="home-stat-team-logo" style="margin:4px 0 2px"><span class="stat-number" id="home-stat-teams">—</span></div><div style="font-size:12px;color:#94a3b8;margin-top:4px" id="home-stat-team-country">registrados</div><div class="stat-bar" style="background:#d97706"></div></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-title">Km recorridos — últimos 6 meses</div>
+        <canvas id="home-chart-km" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Sesiones por mes</div>
+        <canvas id="home-chart-sessions" height="180"></canvas>
+      </div>
     </div>
     <div class="features-grid">
       <div class="feature-card">
@@ -385,16 +395,18 @@ async function renderHome() {
         <a class="feature-link" href="#/sessions">Ver más →</a>
       </div>
     </div>
-    <div class="card" style="margin-bottom:1rem">
-      <h2 class="section-title">Cumpleaños del equipo</h2>
-      <div id="home-birthdays"><p class="muted" style="font-size:13px">Cargando...</p></div>
-    </div>
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <h2 class="section-title" style="margin:0">Últimas sesiones</h2>
-        <a class="feature-link" href="#/sessions">Ver todas →</a>
+    <div class="bottom-grid">
+      <div class="card" style="align-self:start">
+        <h2 class="section-title">Cumpleaños del equipo</h2>
+        <div id="home-birthdays"><p class="muted" style="font-size:13px">Cargando...</p></div>
       </div>
-      <div id="home-recent-sessions"><p class="muted" style="font-size:13px">Cargando...</p></div>
+      <div class="card" style="align-self:start">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <h2 class="section-title" style="margin:0">Últimas sesiones</h2>
+          <a class="feature-link" href="#/sessions">Ver todas →</a>
+        </div>
+        <div id="home-recent-sessions"><p class="muted" style="font-size:13px">Cargando...</p></div>
+      </div>
     </div>
   `);
 
@@ -422,15 +434,33 @@ async function renderHome() {
         }
       }
 
-      // Stat-card de equipo: mostrar logo o inicial del nombre
-      const teamLogoCardEl = document.getElementById("home-stat-team-logo");
-      if (teamLogoCardEl && teams.length) {
+      // Stat-card de equipo: nombre real del equipo como label, país como subtexto
+      if (teams.length) {
         const firstTeam = teams[0].team;
-        if (firstTeam.logo_url) {
-          teamLogoCardEl.innerHTML = `<img src="${api.API}${escapeHtml(firstTeam.logo_url)}" style="width:44px;height:44px;object-fit:contain;background:#fff;border-radius:8px;" alt="Logo">`;
-        } else {
-          const initial = (firstTeam.name || "?")[0].toUpperCase();
-          teamLogoCardEl.innerHTML = `<div class="feature-icon" style="margin-bottom:0"><span style="font-size:18px;font-weight:700;color:#185fa5">${escapeHtml(initial)}</span></div>`;
+        const teamLabelEl = document.getElementById("home-stat-team-label");
+        if (teamLabelEl && firstTeam.name) {
+          teamLabelEl.textContent = escapeHtml(firstTeam.name);
+        }
+        const teamCountryEl = document.getElementById("home-stat-team-country");
+        if (teamCountryEl) {
+          const countryRaw = firstTeam.country || firstTeam.country_code || null;
+          if (countryRaw) {
+            const countryName = getCountryNameForUi(String(countryRaw));
+            teamCountryEl.textContent = countryName || String(countryRaw);
+          } else {
+            teamCountryEl.textContent = "registrados";
+          }
+        }
+
+        // Stat-card de equipo: mostrar logo o inicial del nombre
+        const teamLogoCardEl = document.getElementById("home-stat-team-logo");
+        if (teamLogoCardEl) {
+          if (firstTeam.logo_url) {
+            teamLogoCardEl.innerHTML = `<img src="${api.API}${escapeHtml(firstTeam.logo_url)}" style="width:44px;height:44px;object-fit:contain;background:#fff;border-radius:8px;" alt="Logo">`;
+          } else {
+            const initial = (firstTeam.name || "?")[0].toUpperCase();
+            teamLogoCardEl.innerHTML = `<div class="feature-icon" style="margin-bottom:0"><span style="font-size:18px;font-weight:700;color:#185fa5">${escapeHtml(initial)}</span></div>`;
+          }
         }
       }
 
@@ -454,6 +484,86 @@ async function renderHome() {
       const statComps = document.getElementById("home-stat-comps");
       if (statComps) statComps.textContent = String(comps.length);
 
+      // Charts — últimos 6 meses
+      const now = new Date();
+      const monthNames6 = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+      const last6Months = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+        return { year: d.getFullYear(), month: d.getMonth() };
+      });
+      const chartLabels = last6Months.map(({ month }) => monthNames6[month]);
+
+      const kmPerMonth = last6Months.map(({ year, month }) =>
+        sessions
+          .filter((s) => {
+            const d = new Date(s.created_at);
+            return d.getFullYear() === year && d.getMonth() === month;
+          })
+          .reduce((sum, s) => sum + (s.distance_meters != null ? s.distance_meters : 0), 0) / 1000
+      );
+      const kmRounded = kmPerMonth.map((v) => Math.round(v * 10) / 10);
+
+      const sessionsPerMonth = last6Months.map(({ year, month }) =>
+        sessions.filter((s) => {
+          const d = new Date(s.created_at);
+          return d.getFullYear() === year && d.getMonth() === month;
+        }).length
+      );
+
+      const canvasKm = document.getElementById("home-chart-km");
+      const canvasSess = document.getElementById("home-chart-sessions");
+
+      if (canvasKm) {
+        chartInstances.push(
+          new Chart(canvasKm, {
+            type: "bar",
+            data: {
+              labels: chartLabels,
+              datasets: [{
+                data: kmRounded,
+                backgroundColor: chartLabels.map((_, i) => i === chartLabels.length - 1 ? "#185fa5" : "#b5d4f4"),
+                borderRadius: 6,
+                borderSkipped: false,
+              }],
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true, grid: { color: "#f1f5f9" } },
+                x: { grid: { display: false } },
+              },
+            },
+          })
+        );
+      }
+
+      if (canvasSess) {
+        chartInstances.push(
+          new Chart(canvasSess, {
+            type: "line",
+            data: {
+              labels: chartLabels,
+              datasets: [{
+                data: sessionsPerMonth,
+                borderColor: "#185fa5",
+                backgroundColor: "rgba(24,95,165,0.08)",
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: "#185fa5",
+                pointRadius: 4,
+              }],
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true, grid: { color: "#f1f5f9" } },
+                x: { grid: { display: false } },
+              },
+            },
+          })
+        );
+      }
+
       // Cumpleaños
       const bdEl = document.getElementById("home-birthdays");
       if (bdEl) {
@@ -464,7 +574,7 @@ async function renderHome() {
           const sorted = withBd
             .map((m) => ({ m, days: daysUntilBirthday(m.birth_date) }))
             .sort((a, b) => a.days - b.days)
-            .slice(0, 5);
+            .slice(0, 4);
           const monthNames = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
           const rows = sorted.map(({ m, days }) => {
             const bd = new Date(m.birth_date);
@@ -492,10 +602,10 @@ async function renderHome() {
         if (!sessions.length) {
           rsEl.innerHTML = `<p class="muted" style="font-size:13px">Sin sesiones registradas.</p>`;
         } else {
-          const last3 = [...sessions]
+          const last4 = [...sessions]
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-            .slice(0, 3);
-          const rows = last3.map((r) => {
+            .slice(0, 4);
+          const rows = last4.map((r) => {
             const fecha = fmtDate(r.created_at);
             const dist = r.distance_meters != null ? `${Math.round(r.distance_meters)} m` : "—";
             const badge = r.is_competition

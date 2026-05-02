@@ -1596,12 +1596,28 @@ details[open] .disclosure-chev::after {
   border-bottom: none;
 }
 
+/* ── Home charts grid ── */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.chart-card { background: #fff; border: 0.5px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+.chart-card-title { font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 16px; }
+
+/* ── Home bottom grid (cumpleaños + últimas sesiones) ── */
+.bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+
 @media (max-width: 768px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
   .features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bottom-grid {
     grid-template-columns: 1fr;
   }
 }
