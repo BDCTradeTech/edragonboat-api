@@ -962,6 +962,184 @@ function sessionSortTimeMs(sess) {
 
 async function renderSessionsList() {
   layout(`<p class="loading-line">${escapeHtml(t("sessions.loading"))}</p>`);
+
+  // Cierra y destruye el modal de día si está abierto
+  function closeDayModal() {
+    const overlay = document.getElementById("day-modal-overlay");
+    if (overlay) {
+      // Destruir mapa Leaflet si existe para evitar memory leaks
+      const mapEl = document.getElementById("modal-map");
+      if (mapEl && mapEl._edbMap) {
+        mapEl._edbMap.remove();
+        mapEl._edbMap = null;
+      }
+      overlay.remove();
+    }
+  }
+
+  // Abre el modal "Ver día" para una sesión clickeada
+  async function openDayModal(clickedSession, allSessions) {
+    closeDayModal();
+
+    const clickedDayKey = localDateKeyFromIso(clickedSession.created_at);
+    const clickedTeamId = clickedSession.team_id;
+    // Agrupar: mismo día Y mismo equipo
+    const daySessions = allSessions.filter(
+      (s) =>
+        localDateKeyFromIso(s.created_at) === clickedDayKey &&
+        (clickedTeamId == null || s.team_id == null || s.team_id === clickedTeamId)
+    );
+
+    // Calcular stats básicas de la lista (distancia y palistas provienen de los campos planos)
+    const totalDistKm = daySessions
+      .reduce((sum, s) => sum + (s.distance_meters != null ? s.distance_meters : 0), 0) / 1000;
+    const avgPaddlers = daySessions.length
+      ? Math.round(
+          daySessions.reduce((sum, s) => sum + (s.paddlers_count != null ? s.paddlers_count : 0), 0) /
+            daySessions.length
+        )
+      : 0;
+
+    const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    const dayDate = new Date(clickedSession.created_at);
+    const dayLabel = `${dayDate.getDate()} de ${MONTH_NAMES[dayDate.getMonth()]} ${dayDate.getFullYear()}`;
+    const teamLabel = escapeHtml(clickedSession.team_name || "");
+
+    const statCardStyle = "background:#f8fafc;border-radius:10px;border:0.5px solid #e2e8f0;padding:14px 16px;text-align:center";
+
+    const overlay = document.createElement("div");
+    overlay.id = "day-modal-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px";
+
+    overlay.innerHTML = `
+      <div id="day-modal" style="background:#fff;border-radius:16px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column">
+        <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between">
+          <div>
+            <div style="font-size:17px;font-weight:700;color:#1e293b" id="modal-title">Resumen del día</div>
+            <div style="font-size:13px;color:#94a3b8;margin-top:2px" id="modal-subtitle">${escapeHtml(dayLabel)}${teamLabel ? " · " + teamLabel : ""}</div>
+          </div>
+          <button id="modal-close-btn" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1;padding:0 4px">×</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 24px 0" id="modal-stats">
+          <div style="${statCardStyle}">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Sesiones</div>
+            <div style="font-size:22px;font-weight:700;color:#185fa5">${daySessions.length}</div>
+          </div>
+          <div style="${statCardStyle}">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Distancia total</div>
+            <div style="font-size:22px;font-weight:700;color:#185fa5">${totalDistKm.toFixed(2)} km</div>
+          </div>
+          <div style="${statCardStyle}">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Palistas prom.</div>
+            <div style="font-size:22px;font-weight:700;color:#185fa5">${avgPaddlers || "—"}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 24px" id="modal-body">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">Recorridos</div>
+            <div id="modal-map" style="height:220px;border-radius:10px;overflow:hidden;border:0.5px solid #e2e8f0"></div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">Sesiones del día</div>
+            <div id="modal-sessions-list" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto"></div>
+          </div>
+        </div>
+        <div style="padding:12px 24px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:0.5px solid #e2e8f0;margin-top:4px">
+          <button id="modal-download-btn" style="padding:7px 16px;font-size:13px;border-radius:8px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">Descargar JPG</button>
+          <button id="modal-close-btn2" style="padding:7px 16px;font-size:13px;border-radius:8px;border:none;background:#185fa5;color:#fff;cursor:pointer">Cerrar</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Cerrar al click en overlay (fuera del modal)
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeDayModal();
+    });
+    document.getElementById("modal-close-btn").addEventListener("click", closeDayModal);
+    document.getElementById("modal-close-btn2").addEventListener("click", closeDayModal);
+
+    // Lista de sesiones del día
+    const listEl = document.getElementById("modal-sessions-list");
+    if (listEl) {
+      listEl.innerHTML = daySessions
+        .map((s) => {
+          const hora = s.created_at
+            ? new Date(s.created_at).toLocaleTimeString(getUiLocale(), { hour: "2-digit", minute: "2-digit" })
+            : "—";
+          const dist =
+            s.distance_meters != null
+              ? `${(s.distance_meters / 1000).toFixed(2)} km`
+              : "—";
+          const dur = s.total_seconds != null ? `${s.total_seconds} s` : "—";
+          return `<div style="background:#f8fafc;border-radius:8px;border:0.5px solid #e2e8f0;padding:10px 12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:13px;font-weight:600;color:#1e293b">${escapeHtml(hora)}</span>
+              <a href="#/session/${s.id}" id="modal-detail-link-${s.id}" style="color:#185fa5;font-size:12px;text-decoration:none">Ver detalle →</a>
+            </div>
+            <div style="font-size:12px;color:#64748b;display:flex;gap:12px">
+              <span>Dist: ${escapeHtml(dist)}</span>
+              <span>Dur: ${escapeHtml(dur)}</span>
+            </div>
+          </div>`;
+        })
+        .join("");
+
+      // Cada "Ver detalle →" cierra el modal
+      daySessions.forEach((s) => {
+        document.getElementById(`modal-detail-link-${s.id}`)?.addEventListener("click", closeDayModal);
+      });
+    }
+
+    // Mapa Leaflet: cargar datos de todas las sesiones del día
+    const mapEl = document.getElementById("modal-map");
+    if (mapEl) {
+      try {
+        const fetched = await Promise.all(daySessions.map((s) => api.apiGetSession(s.id)));
+        const loaded = fetched.map((d) => ({
+          session: d.session,
+          dataPoints: d.session.dataPoints || [],
+        }));
+        loaded.sort((a, b) => sessionSortTimeMs(a.session) - sessionSortTimeMs(b.session));
+
+        const hasGps = loaded.some((l) => extractTrackLatLng(l.dataPoints).length > 0);
+        if (!hasGps) {
+          mapEl.innerHTML = `<p style="color:#94a3b8;font-size:13px;padding:16px">Sin datos de recorrido</p>`;
+        } else {
+          initMultiSessionDayMap(loaded, mapEl);
+        }
+      } catch {
+        mapEl.innerHTML = `<p style="color:#94a3b8;font-size:13px;padding:16px">Sin datos de recorrido</p>`;
+      }
+    }
+
+    // Descargar JPG del modal
+    document.getElementById("modal-download-btn")?.addEventListener("click", async () => {
+      const modalEl = document.getElementById("day-modal");
+      if (!modalEl) return;
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => setTimeout(r, 300));
+      try {
+        const pixelRatio = Math.min(2, Math.max(1.25, window.devicePixelRatio || 1));
+        const dataUrl = await toJpeg(modalEl, {
+          quality: 0.92,
+          pixelRatio,
+          cacheBust: true,
+          backgroundColor: "#ffffff",
+        });
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = `${safeMapJpgTeamSegment(clickedSession.team_name || "")}-${fmtDateDdMmYyFromYmdKey(clickedDayKey)}.jpg`;
+        a.click();
+      } catch (e) {
+        console.error(e);
+        alert(t("sessions.jpgExportError"));
+      }
+    });
+  }
+
   try {
     const teams = await api.apiMyTeams();
     let teamFilter = sessionStorage.getItem(SESSION_TEAM_FILTER_KEY);
@@ -992,7 +1170,6 @@ async function renderSessionsList() {
             <select id="sel-session-team">
               ${teamSelectOptions}
             </select>
-            <p class="muted small">${t("sessions.filterHint")}</p>
           </div>`
         : `<p class="muted">${t("sessions.noTeamHintHtml")}</p>`;
 
@@ -1021,98 +1198,179 @@ async function renderSessionsList() {
       return;
     }
 
-    const sortTi = escapeHtml(t("sessions.sortTitle"));
-    const theadRow = `
-              <tr>
-                <th data-sort="id" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colId"))}</th>
-                <th data-sort="created_at" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colDate"))}</th>
-                <th data-sort="team_name" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colTeam"))}</th>
-                <th data-sort="total_seconds" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colTime"))}</th>
-                <th data-sort="distance_meters" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colDistance"))}</th>
-                <th data-sort="paladas" class="th-sortable" title="${sortTi}">${escapeHtml(t("sessions.colStrokes"))}</th>
-              </tr>`;
+    // ── Filtros encadenados ──────────────────────────────────────────
+    const MONTH_NAMES_FILTER = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-    const sortState = { sortKey: "created_at", sortDir: "desc" };
-
-    function renderSessionsTableBody() {
-      const em = escapeHtml(t("account.emptyDash"));
-      const sorted = [...rows].sort((a, b) => compareSessionRows(sortState.sortKey, sortState.sortDir, a, b));
-      const tableRows = sorted
-        .map(
-          (r) => `
-      <tr>
-        <td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>
-        <td>${fmtDate(r.created_at)}</td>
-        <td>${r.team_name ? `<span class="team-avatar">${escapeHtml(r.team_name[0].toUpperCase())}</span>${escapeHtml(r.team_name)}` : em}</td>
-        <td>${r.total_seconds != null ? r.total_seconds + " s" : em}</td>
-        <td>${r.distance_meters != null ? r.distance_meters.toFixed(0) + " m" : em}</td>
-        <td>${r.paladas != null ? r.paladas : em}</td>
-      </tr>
-    `
-        )
-        .join("");
-      const tbody = document.getElementById("sessions-tbody");
-      if (tbody) tbody.innerHTML = tableRows;
+    /** Devuelve opciones <option> para un select a partir de un array de valores. */
+    function buildSelectOpts(values, labelFn, allLabel) {
+      const allOpt = `<option value="">${escapeHtml(allLabel)}</option>`;
+      return allOpt + values.map((v) => `<option value="${escapeHtml(String(v))}">${escapeHtml(labelFn(v))}</option>`).join("");
     }
 
-    const dayKeys = [
-      ...new Set(rows.map((r) => localDateKeyFromIso(r.created_at)).filter(Boolean)),
-    ].sort((a, b) => b.localeCompare(a, getUiLocale()));
-    const dayOpts =
-      dayKeys.length > 0
-        ? dayKeys
-            .map(
-              (k) =>
-                `<option value="${escapeHtml(k)}">${escapeHtml(fmtDateDdMmYyFromYmdKey(k))}</option>`
-            )
-            .join("")
-        : `<option value="">${escapeHtml(t("sessions.dayNoDates"))}</option>`;
+    const selectStyle = "padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;background:#fff;cursor:pointer";
+
+    // Años únicos ordenados desc
+    const allYears = [...new Set(rows.map((r) => new Date(r.created_at).getFullYear()))].sort((a, b) => b - a);
 
     layout(
       `
       <div class="card">
         <h2 class="card-title">${escapeHtml(t("sessions.title"))}</h2>
         ${filterBlock}
-        <div class="session-day-filter">
-          <div class="session-day-filter-fields">
-            <label for="sel-session-day">${escapeHtml(t("sessions.dayLabel"))}</label>
-            <select id="sel-session-day">${dayOpts}</select>
-          </div>
-          <button type="button" class="secondary session-day-map-btn" id="btn-session-day-map">${escapeHtml(t("sessions.btnChart"))}</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;margin-top:12px">
+          <select id="filter-year" style="${selectStyle}">
+            ${buildSelectOpts(allYears, (y) => String(y), "Todos los años")}
+          </select>
+          <select id="filter-month" style="${selectStyle}">
+            <option value="">Todos los meses</option>
+          </select>
+          <select id="filter-day" style="${selectStyle}">
+            <option value="">Todos los días</option>
+          </select>
         </div>
+        <div id="sessions-summary" style="font-size:12px;color:#94a3b8;margin-bottom:8px"></div>
         <div class="table-scroll">
-          <table class="sessions-list-table">
-            <thead id="sessions-thead">${theadRow}</thead>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Equipo</th>
+                <th>Fecha</th>
+                <th>Palistas</th>
+                <th>Distancia</th>
+                <th>Duración</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody id="sessions-tbody"></tbody>
           </table>
         </div>
       </div>
-      <div id="sessions-day-map-panel" class="card" style="margin-top:1rem;display:none" data-day-key="">
-        <h3 class="card-title" style="margin-top:0">${escapeHtml(t("sessions.dayMapTitle"))}</h3>
-        <div id="sessions-day-map-export-root" class="session-map-export-root session-map-export-root--ig-story">
-          <div id="sessions-day-summary" class="session-map-export-summary"></div>
-          <div id="sessions-day-map" class="session-map-host session-map-host--ig" role="region" aria-label="${escapeHtml(t("sessions.dayMapAria"))}"></div>
-        </div>
-        <p class="muted small map-export-hint">${escapeHtml(t("sessions.dayMapHint"))}</p>
-        <button type="button" class="secondary btn-sm" id="btn-sessions-day-map-jpg">${escapeHtml(t("sessions.btnDownloadJpg"))}</button>
-      </div>
     `,
       { wide: true }
     );
-    renderSessionsTableBody();
-    document.getElementById("sessions-thead")?.addEventListener("click", (e) => {
-      const th = e.target.closest("th[data-sort]");
-      if (!th) return;
-      const key = th.getAttribute("data-sort");
-      if (!key) return;
-      if (sortState.sortKey === key) {
-        sortState.sortDir = sortState.sortDir === "asc" ? "desc" : "asc";
+
+    // ── Lógica de filtros encadenados ────────────────────────────────
+
+    function getFilteredRows() {
+      const yr = document.getElementById("filter-year")?.value || "";
+      const mo = document.getElementById("filter-month")?.value || "";
+      const dy = document.getElementById("filter-day")?.value || "";
+      return rows.filter((r) => {
+        const d = new Date(r.created_at);
+        if (yr && d.getFullYear() !== Number(yr)) return false;
+        if (mo && d.getMonth() !== Number(mo)) return false;
+        if (dy && d.getDate() !== Number(dy)) return false;
+        return true;
+      });
+    }
+
+    function rebuildMonthSelect(yearVal) {
+      const moSel = document.getElementById("filter-month");
+      if (!moSel) return;
+      const filtered = yearVal ? rows.filter((r) => new Date(r.created_at).getFullYear() === Number(yearVal)) : rows;
+      const months = [...new Set(filtered.map((r) => new Date(r.created_at).getMonth()))].sort((a, b) => a - b);
+      moSel.innerHTML = buildSelectOpts(months, (m) => MONTH_NAMES_FILTER[m], "Todos los meses");
+      moSel.value = "";
+    }
+
+    function rebuildDaySelect(yearVal, monthVal) {
+      const dySel = document.getElementById("filter-day");
+      if (!dySel) return;
+      const filtered = rows.filter((r) => {
+        const d = new Date(r.created_at);
+        if (yearVal && d.getFullYear() !== Number(yearVal)) return false;
+        if (monthVal !== "" && d.getMonth() !== Number(monthVal)) return false;
+        return true;
+      });
+      const days = [...new Set(filtered.map((r) => new Date(r.created_at).getDate()))].sort((a, b) => a - b);
+      dySel.innerHTML = buildSelectOpts(days, (d) => String(d), "Todos los días");
+      dySel.value = "";
+    }
+
+    function updateSummary(filtered) {
+      const summaryEl = document.getElementById("sessions-summary");
+      if (!summaryEl) return;
+      const yr = document.getElementById("filter-year")?.value || "";
+      const mo = document.getElementById("filter-month")?.value || "";
+      const dy = document.getElementById("filter-day")?.value || "";
+      let periodo = "";
+      if (yr && mo !== "" && dy) {
+        periodo = `${dy} de ${MONTH_NAMES_FILTER[Number(mo)]} ${yr}`;
+      } else if (yr && mo !== "") {
+        periodo = `${MONTH_NAMES_FILTER[Number(mo)]} ${yr}`;
+      } else if (yr) {
+        periodo = yr;
       } else {
-        sortState.sortKey = key;
-        sortState.sortDir = key === "created_at" || key === "id" ? "desc" : "asc";
+        periodo = "todos los períodos";
       }
-      renderSessionsTableBody();
+      summaryEl.textContent = `Mostrando ${filtered.length} sesiones · ${periodo}`;
+    }
+
+    function applyFilters() {
+      const filtered = getFilteredRows();
+      updateSummary(filtered);
+      const tbody = document.getElementById("sessions-tbody");
+      if (!tbody) return;
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">Sin sesiones para el período seleccionado</td></tr>`;
+        return;
+      }
+      const em = escapeHtml(t("account.emptyDash"));
+      tbody.innerHTML = filtered
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .map((s) => {
+          const initial = (s.team_name || "?")[0].toUpperCase();
+          const dist =
+            s.distance_meters != null
+              ? `${(s.distance_meters / 1000).toFixed(2)} km`
+              : em;
+          const dur = s.total_seconds != null ? `${s.total_seconds} s` : em;
+          return `<tr>
+            <td><span style="color:#94a3b8;font-size:12px">#${s.id}</span></td>
+            <td><span class="team-avatar">${escapeHtml(initial)}</span>${escapeHtml(s.team_name || "—")}</td>
+            <td>${escapeHtml(fmtDate(s.created_at))}</td>
+            <td>${s.paddlers_count != null ? s.paddlers_count : em}</td>
+            <td>${escapeHtml(dist)}</td>
+            <td>${escapeHtml(dur)}</td>
+            <td><button class="btn btn-ver" data-id="${s.id}" style="padding:4px 10px;font-size:12px;background:#f1f5f9;color:#185fa5;border:0.5px solid #e2e8f0">Ver</button></td>
+          </tr>`;
+        })
+        .join("");
+
+      // Conectar botones "Ver" al modal
+      tbody.querySelectorAll(".btn-ver").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = Number(btn.dataset.id);
+          const session = rows.find((r) => r.id === id);
+          if (session) openDayModal(session, filtered.length ? filtered : rows);
+        });
+      });
+    }
+
+    // Inicializar selects encadenados
+    rebuildMonthSelect("");
+    rebuildDaySelect("", "");
+    applyFilters();
+
+    // Cambio de año: recalcula meses y días
+    document.getElementById("filter-year")?.addEventListener("change", (e) => {
+      rebuildMonthSelect(e.target.value);
+      rebuildDaySelect(e.target.value, "");
+      applyFilters();
     });
+
+    // Cambio de mes: recalcula días
+    document.getElementById("filter-month")?.addEventListener("change", (e) => {
+      const yr = document.getElementById("filter-year")?.value || "";
+      rebuildDaySelect(yr, e.target.value);
+      applyFilters();
+    });
+
+    // Cambio de día: solo filtra
+    document.getElementById("filter-day")?.addEventListener("change", applyFilters);
+
+    // Cambio de equipo: recarga la página
     document.getElementById("sel-session-team")?.addEventListener("change", (e) => {
       const sel = e.target;
       if (sel && sel.value) {
@@ -1121,75 +1379,6 @@ async function renderSessionsList() {
       }
     });
 
-    document.getElementById("btn-session-day-map")?.addEventListener("click", async () => {
-      const sel = document.getElementById("sel-session-day");
-      const dayKey = sel?.value;
-      if (!dayKey || !dayKeys.length) return;
-      const ids = rows
-        .filter((r) => localDateKeyFromIso(r.created_at) === dayKey)
-        .map((r) => r.id);
-      if (!ids.length) return;
-      const panel = document.getElementById("sessions-day-map-panel");
-      const sumEl = document.getElementById("sessions-day-summary");
-      const mapEl = document.getElementById("sessions-day-map");
-      if (!panel || !sumEl || !mapEl) return;
-      panel.style.display = "block";
-      panel.dataset.dayKey = dayKey;
-      const dayRows = rows.filter((r) => localDateKeyFromIso(r.created_at) === dayKey);
-      const teamNameForExport = dayRows[0]?.team_name || "";
-      panel.dataset.teamNameForExport = teamNameForExport;
-      sumEl.innerHTML = `<p class="muted">${escapeHtml(t("sessions.loadingMap"))}</p>`;
-      mapEl.innerHTML = "";
-      try {
-        const fetched = await Promise.all(ids.map((id) => api.apiGetSession(id)));
-        const loaded = fetched.map((d) => ({
-          session: d.session,
-          dataPoints: d.session.dataPoints || [],
-        }));
-        loaded.sort((a, b) => sessionSortTimeMs(a.session) - sessionSortTimeMs(b.session));
-        let totalM = 0;
-        for (const L of loaded) {
-          const pts = L.dataPoints;
-          if (pts && pts.length) {
-            const last = pts[pts.length - 1];
-            if (typeof last.distanceMeters === "number" && Number.isFinite(last.distanceMeters)) {
-              totalM += last.distanceMeters;
-            }
-          }
-        }
-        const dayLogoUrl = dayRows.find((r) => r.team_logo_url)?.team_logo_url || null;
-        sumEl.innerHTML = buildAggDayMapSummaryHtml(
-          dayKey,
-          totalM,
-          loaded.length,
-          teamNameForExport,
-          dayLogoUrl
-        );
-        initMultiSessionDayMap(loaded, mapEl);
-      } catch (ex) {
-        sumEl.innerHTML = `<p class="msg-error">${escapeHtml(humanizeApiError(ex.message))}</p>`;
-        mapEl.innerHTML = "";
-      }
-    });
-
-    document.getElementById("btn-sessions-day-map-jpg")?.addEventListener("click", async () => {
-      const panel = document.getElementById("sessions-day-map-panel");
-      const dayKey = panel?.dataset?.dayKey;
-      if (!dayKey) return;
-      const teamName = panel?.dataset?.teamNameForExport || "";
-      const mapEl = document.getElementById("sessions-day-map");
-      const root = document.getElementById("sessions-day-map-export-root");
-      if (!root) return;
-      await new Promise((r) => requestAnimationFrame(r));
-      await new Promise((r) => requestAnimationFrame(r));
-      await new Promise((r) => setTimeout(r, 300));
-      try {
-        await exportVerticalMapJpeg(root, mapEl, `${safeMapJpgTeamSegment(teamName)}-${fmtDateDdMmYyFromYmdKey(dayKey)}.jpg`);
-      } catch (e) {
-        console.error(e);
-        alert(t("sessions.jpgExportError"));
-      }
-    });
   } catch (ex) {
     layout(`
       <div class="card">
