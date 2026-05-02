@@ -1164,21 +1164,39 @@ async function renderSessionsList() {
       .map((x) => `<option value="${x.team.id}" ${String(x.team.id) === teamFilter ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`)
       .join("");
 
-    const filterBlock =
-      teams.length >= 1
-        ? `<div class="session-team-filter">
-            <p class="muted small" style="margin-bottom:0.4rem">${escapeHtml(t("sessions.filterLabel"))}</p>
-            <select id="sel-session-team">
-              ${teamSelectOptions}
-            </select>
-          </div>`
-        : `<p class="muted">${t("sessions.noTeamHintHtml")}</p>`;
+    // ── Filtros encadenados ──────────────────────────────────────────
+    const MONTH_NAMES_FILTER = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+    /** Devuelve opciones <option> para un select a partir de un array de valores. */
+    function buildSelectOpts(values, labelFn, allLabel) {
+      const allOpt = `<option value="">${escapeHtml(allLabel)}</option>`;
+      return allOpt + values.map((v) => `<option value="${escapeHtml(String(v))}">${escapeHtml(labelFn(v))}</option>`).join("");
+    }
+
+    const selectStyle = "padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;background:#fff;cursor:pointer";
+
+    // Años únicos ordenados desc
+    const allYears = [...new Set(rows.map((r) => new Date(r.created_at).getFullYear()))].sort((a, b) => b - a);
+
+    const filterRowHtml = `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          ${teams.length >= 1 ? `<select id="sel-session-team" style="${selectStyle};min-width:130px">${teamSelectOptions}</select><div style="width:1px;height:24px;background:#e2e8f0;align-self:center"></div>` : ""}
+          <select id="filter-year" style="${selectStyle};min-width:130px">
+            ${buildSelectOpts(allYears, (y) => String(y), "Todos los años")}
+          </select>
+          <select id="filter-month" style="${selectStyle};min-width:130px">
+            <option value="">Todos los meses</option>
+          </select>
+          <select id="filter-day" style="${selectStyle};min-width:130px">
+            <option value="">Todos los días</option>
+          </select>
+          <button id="btn-ver-dia" style="padding:6px 14px;font-size:13px;border-radius:8px;border:none;background:#185fa5;color:#fff;cursor:pointer">Ver día</button>
+        </div>`;
 
     if (!rows.length) {
       layout(`
         <div class="card">
           <h2 class="card-title">${escapeHtml(t("sessions.title"))}</h2>
-          ${filterBlock}
+          ${teams.length >= 1 ? filterRowHtml : `<p class="muted">${t("sessions.noTeamHintHtml")}</p>`}
           <p>${escapeHtml(t("sessions.empty"))}</p>
           <p class="muted">
             ${
@@ -1199,39 +1217,11 @@ async function renderSessionsList() {
       return;
     }
 
-    // ── Filtros encadenados ──────────────────────────────────────────
-    const MONTH_NAMES_FILTER = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-
-    /** Devuelve opciones <option> para un select a partir de un array de valores. */
-    function buildSelectOpts(values, labelFn, allLabel) {
-      const allOpt = `<option value="">${escapeHtml(allLabel)}</option>`;
-      return allOpt + values.map((v) => `<option value="${escapeHtml(String(v))}">${escapeHtml(labelFn(v))}</option>`).join("");
-    }
-
-    const selectStyle = "padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;background:#fff;cursor:pointer";
-
-    // Años únicos ordenados desc
-    const allYears = [...new Set(rows.map((r) => new Date(r.created_at).getFullYear()))].sort((a, b) => b - a);
-
     layout(
       `
       <div class="card">
         <h2 class="card-title">${escapeHtml(t("sessions.title"))}</h2>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-          ${teams.length >= 1 ? `<select id="sel-session-team" style="${selectStyle};min-width:130px">
-            ${teamSelectOptions}
-          </select>` : ""}
-          <select id="filter-year" style="${selectStyle};min-width:130px">
-            ${buildSelectOpts(allYears, (y) => String(y), "Todos los años")}
-          </select>
-          <select id="filter-month" style="${selectStyle};min-width:130px">
-            <option value="">Todos los meses</option>
-          </select>
-          <select id="filter-day" style="${selectStyle};min-width:130px">
-            <option value="">Todos los días</option>
-          </select>
-          <button id="btn-ver-dia" style="padding:6px 14px;font-size:13px;border-radius:8px;border:none;background:#185fa5;color:#fff;cursor:pointer">Ver día</button>
-        </div>
+        ${filterRowHtml}
         <div id="sessions-summary" style="font-size:12px;color:#94a3b8;margin-bottom:8px"></div>
         <div class="table-scroll">
           <table>
@@ -2208,7 +2198,7 @@ async function renderSessionDetail(id) {
     const stats = `
       <div class="stats">
         <div class="stat">${escapeHtml(t("sessionDetail.statDate"))}<strong>${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</strong></div>
-        <div class="stat">${escapeHtml(t("sessionDetail.statTotalTime"))}<strong>${s.totalSeconds != null ? s.totalSeconds + " s" : em}</strong></div>
+        <div class="stat">${escapeHtml(t("sessionDetail.statTotalTime"))}<strong>${s.totalSeconds != null ? `${Math.floor(s.totalSeconds / 60)}:${String(s.totalSeconds % 60).padStart(2, "0")}` : em}</strong></div>
         <div class="stat">${escapeHtml(t("sessionDetail.statFinalDistance"))}<strong>${last ? last.distanceMeters.toFixed(0) + " m" : em}</strong></div>
         <div class="stat">${escapeHtml(t("sessionDetail.statStrokes"))}<strong>${last ? last.paladas : em}</strong></div>
       </div>
@@ -2274,13 +2264,24 @@ async function renderSessionDetail(id) {
       ? `<button type="button" class="btn-danger btn-sm" id="btn-delete-session">${escapeHtml(t("sessionDetail.delete"))}</button>`
       : "";
 
+    const infoItems = [
+      s.teamName ? `<div style="padding:8px 0;border-bottom:0.5px solid #f1f5f9"><span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">${escapeHtml(t("sessionDetail.teamInSession"))}</span><div style="font-weight:500;color:#1e293b;margin-top:2px">${escapeHtml(s.teamName)}</div></div>` : "",
+      s.boatType ? `<div style="padding:8px 0;border-bottom:0.5px solid #f1f5f9"><span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">${escapeHtml(t("sessionDetail.boat"))}</span><div style="font-weight:500;color:#1e293b;margin-top:2px">${escapeHtml(s.boatType)}</div></div>` : "",
+      s.paddlersCount != null ? `<div style="padding:8px 0"><span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">${escapeHtml(t("sessionDetail.paddlersCount"))}</span><div style="font-weight:500;color:#1e293b;margin-top:2px">${escapeHtml(String(s.paddlersCount))}</div></div>` : "",
+    ].filter(Boolean).join("");
+
     layout(`
-      <p><a class="link" href="#/sessions">${escapeHtml(t("sessionDetail.backToSessions"))}</a></p>
-      <div class="card session-card">
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.75rem;justify-content:space-between;margin-bottom:0.35rem">
-          <h2 class="card-title" style="margin:0">${escapeHtml(t("sessionDetail.title", { id: String(data.id) }))}</h2>
-          ${deleteBtn}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <a class="link" href="#/sessions" style="font-size:13px;color:#185fa5;text-decoration:none">← Volver</a>
+          <span style="color:#e2e8f0">|</span>
+          <button id="btn-nav-prev" style="padding:4px 10px;font-size:12px;border-radius:6px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">← Anterior</button>
+          <button id="btn-nav-next" style="padding:4px 10px;font-size:12px;border-radius:6px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">Siguiente →</button>
         </div>
+        <h2 style="margin:0;font-size:16px;font-weight:700;color:#1e293b">${escapeHtml(t("sessionDetail.title", { id: String(data.id) }))}</h2>
+        <div>${deleteBtn || "<div></div>"}</div>
+      </div>
+      <div class="card session-card">
         <p class="muted">${escapeHtml(t("sessionDetail.dateUploaded", { date: fmtDate(data.created_at) }))}</p>
         ${isPaddler ? `<p class="muted small">${t("sessionDetail.paddlerNoteHtml")}</p>` : ""}
         <div class="tabs" id="session-tabs">
@@ -2289,9 +2290,7 @@ async function renderSessionDetail(id) {
           </div>
           <div id="panel-resumen" class="tab-panel active" role="tabpanel">
             ${stats}
-            ${s.teamName ? `<p><strong>${escapeHtml(t("sessionDetail.teamInSession"))}</strong> ${escapeHtml(s.teamName)}</p>` : ""}
-            ${s.boatType ? `<p><strong>${escapeHtml(t("sessionDetail.boat"))}:</strong> ${escapeHtml(s.boatType)}</p>` : ""}
-            ${s.paddlersCount != null ? `<p><strong>${escapeHtml(t("sessionDetail.paddlersCount"))}</strong> ${escapeHtml(String(s.paddlersCount))}</p>` : ""}
+            ${infoItems ? `<div style="background:#f8fafc;border-radius:10px;border:0.5px solid #e2e8f0;padding:4px 16px;margin-top:12px">${infoItems}</div>` : ""}
           </div>
           ${tablaGraficosPanels}
           ${mapasPanel}
@@ -2299,6 +2298,40 @@ async function renderSessionDetail(id) {
         </div>
       </div>
     `);
+
+    // Navegación prev/next
+    (async () => {
+      try {
+        const teamId = myTeams.length ? myTeams[0].team.id : null;
+        if (!teamId) return;
+        const allSessions = await api.apiListSessions(teamId);
+        const sorted = [...allSessions].sort((a, b) => b.id - a.id);
+        const idx = sorted.findIndex((s) => s.id === Number(id));
+        const prevSession = idx > 0 ? sorted[idx - 1] : null;
+        const nextSession = idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null;
+
+        const btnPrev = document.getElementById("btn-nav-prev");
+        const btnNext = document.getElementById("btn-nav-next");
+        if (btnPrev) {
+          if (prevSession) {
+            btnPrev.addEventListener("click", () => { location.hash = `#/session/${prevSession.id}`; });
+          } else {
+            btnPrev.disabled = true;
+            btnPrev.style.opacity = "0.4";
+            btnPrev.style.cursor = "default";
+          }
+        }
+        if (btnNext) {
+          if (nextSession) {
+            btnNext.addEventListener("click", () => { location.hash = `#/session/${nextSession.id}`; });
+          } else {
+            btnNext.disabled = true;
+            btnNext.style.opacity = "0.4";
+            btnNext.style.cursor = "default";
+          }
+        }
+      } catch {}
+    })();
 
     const tabRoot = document.getElementById("session-tabs");
     const panels = isPaddler ? ["resumen", "mapas"] : ["resumen", "tabla", "graficos", "mapas", "json"];
