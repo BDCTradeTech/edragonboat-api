@@ -174,7 +174,7 @@ body {
 
 .page-body {
   padding: 24px;
-  max-width: 1100px;
+  max-width: none;
 }
 
 .page-body--wide {

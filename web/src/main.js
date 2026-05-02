@@ -30,6 +30,7 @@ const SERVER_UI_LANG_SYNC_KEY = "edb_server_ui_lang_merged";
 let _serverUiLangSyncInFlight = false;
 
 let chartInstances = [];
+let currentTeamLogo = null;
 
 function destroyCharts() {
   chartInstances.forEach((c) => c.destroy());
@@ -255,6 +256,7 @@ function layout(content, { showNav = true, wide = false } = {}) {
     <aside class="nav-rail" aria-label="${escapeHtml(t("nav.ariaMain"))}">
       <div class="nav-brand">
         E-DragonBoat
+        ${currentTeamLogo ? `<img src="${api.API}${currentTeamLogo}" style="width:28px;height:28px;object-fit:contain;border-radius:6px;margin-left:auto;flex-shrink:0;" alt="">` : ""}
       </div>
       <nav class="nav-links">
         <a class="nav-item" href="#/" data-match="home"><i data-lucide="home"></i>${escapeHtml(t("nav.home"))}</a>
@@ -355,7 +357,7 @@ async function renderHome() {
       <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Sesiones</div><span class="stat-number" id="home-stat-sessions">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">entrenamientos</div><div class="stat-bar" style="background:#185fa5"></div></div>
       <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Miembros</div><span class="stat-number" id="home-stat-members">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">en el plantel</div><div class="stat-bar" style="background:#16a34a"></div></div>
       <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Competencias</div><span class="stat-number" id="home-stat-comps">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">carreras</div><div class="stat-bar" style="background:#7c3aed"></div></div>
-      <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Equipos</div><span class="stat-number" id="home-stat-teams">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">registrados</div><div class="stat-bar" style="background:#d97706"></div></div>
+      <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Mi equipo</div><div id="home-stat-team-logo" style="margin:4px 0 2px"><span class="stat-number" id="home-stat-teams">—</span></div><div style="font-size:12px;color:#94a3b8;margin-top:4px">registrados</div><div class="stat-bar" style="background:#d97706"></div></div>
     </div>
     <div class="features-grid">
       <div class="feature-card">
@@ -401,6 +403,36 @@ async function renderHome() {
     try {
       const teams = await api.apiMyTeams();
       const teamId = teams.length ? teams[0].team.id : null;
+
+      // Logo del equipo principal
+      const teamLogoRelative = teams.length ? (teams[0].team.logo_url || null) : null;
+      currentTeamLogo = teamLogoRelative;
+
+      // Actualizar logo en el sidebar sin re-renderizar todo
+      const navBrandEl = document.querySelector(".nav-brand");
+      if (navBrandEl) {
+        const existingLogoImg = navBrandEl.querySelector("img");
+        if (existingLogoImg) existingLogoImg.remove();
+        if (currentTeamLogo) {
+          const img = document.createElement("img");
+          img.src = `${api.API}${currentTeamLogo}`;
+          img.style.cssText = "width:28px;height:28px;object-fit:contain;border-radius:6px;margin-left:auto;flex-shrink:0;";
+          img.alt = "";
+          navBrandEl.appendChild(img);
+        }
+      }
+
+      // Stat-card de equipo: mostrar logo o inicial del nombre
+      const teamLogoCardEl = document.getElementById("home-stat-team-logo");
+      if (teamLogoCardEl && teams.length) {
+        const firstTeam = teams[0].team;
+        if (firstTeam.logo_url) {
+          teamLogoCardEl.innerHTML = `<img src="${api.API}${escapeHtml(firstTeam.logo_url)}" style="width:44px;height:44px;object-fit:contain;background:#fff;border-radius:8px;" alt="Logo">`;
+        } else {
+          const initial = (firstTeam.name || "?")[0].toUpperCase();
+          teamLogoCardEl.innerHTML = `<div class="feature-icon" style="margin-bottom:0"><span style="font-size:18px;font-weight:700;color:#185fa5">${escapeHtml(initial)}</span></div>`;
+        }
+      }
 
       // Stat: equipos
       const statTeams = document.getElementById("home-stat-teams");
