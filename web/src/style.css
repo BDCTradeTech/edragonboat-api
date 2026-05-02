@@ -1600,7 +1600,7 @@ details[open] .disclosure-chev::after {
 .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
 .chart-card { background: #fff; border: 0.5px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; }
 .chart-card-title { font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 10px; }
-.chart-canvas-wrap { position: relative; height: 120px; }
+.chart-canvas-wrap { position: relative; height: 80px; }
 
 /* ── Home bottom grid (cumpleaños + últimas sesiones) ── */
 .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
