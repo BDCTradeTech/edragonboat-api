@@ -362,11 +362,11 @@ async function renderHome() {
     <div class="charts-grid">
       <div class="chart-card">
         <div class="chart-card-title">Km recorridos — últimos 6 meses</div>
-        <canvas id="home-chart-km" height="180"></canvas>
+        <div class="chart-canvas-wrap"><canvas id="home-chart-km"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-card-title">Sesiones por mes</div>
-        <canvas id="home-chart-sessions" height="180"></canvas>
+        <div class="chart-canvas-wrap"><canvas id="home-chart-sessions"></canvas></div>
       </div>
     </div>
     <div class="features-grid">
@@ -527,10 +527,11 @@ async function renderHome() {
               }],
             },
             options: {
+              maintainAspectRatio: false,
               plugins: { legend: { display: false } },
               scales: {
-                y: { beginAtZero: true, grid: { color: "#f1f5f9" } },
-                x: { grid: { display: false } },
+                y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
               },
             },
           })
@@ -554,10 +555,11 @@ async function renderHome() {
               }],
             },
             options: {
+              maintainAspectRatio: false,
               plugins: { legend: { display: false } },
               scales: {
-                y: { beginAtZero: true, grid: { color: "#f1f5f9" } },
-                x: { grid: { display: false } },
+                y: { beginAtZero: true, grid: { color: "#f1f5f9" }, ticks: { font: { size: 10 } } },
+                x: { grid: { display: false }, ticks: { font: { size: 10 } } },
               },
             },
           })
