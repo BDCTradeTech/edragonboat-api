@@ -331,27 +331,160 @@ function highlightNav() {
   });
 }
 
-function renderHome() {
+function daysUntilBirthday(birthDateStr) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const bd = new Date(birthDateStr);
+  let next = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
+  if (next < today) next.setFullYear(today.getFullYear() + 1);
+  return Math.round((next - today) / 86400000);
+}
+
+async function renderHome() {
   layout(`
-    <div class="card home-hero">
-      <h2 class="card-title">${escapeHtml(t("home.title"))}</h2>
-      <p class="home-lead">
-        ${t("home.lead")}
-      </p>
-      <ul class="home-features">
-        <li>${t("home.featTraining")}</li>
-        <li>${t("home.featMaps")}</li>
-        <li>${t("home.featTeam")}</li>
-        <li>${t("home.featAccount")}</li>
-        <li>${t("home.featCompetitions")}</li>
-      </ul>
-      <div class="home-actions">
-        <a class="btn-inline primary" href="#/sessions">${escapeHtml(t("home.btnSessions"))}</a>
-        <a class="btn-inline" href="#/teams">${escapeHtml(t("home.btnTeam"))}</a>
-        <a class="btn-inline" href="#/cuenta">${escapeHtml(t("home.btnAccount"))}</a>
+    <div style="background:linear-gradient(135deg,#1a1f3a 0%,#185fa5 100%);border-radius:14px;padding:28px 32px;margin-bottom:24px;color:#fff">
+      <span class="hero-tag">E-DragonBoat Platform</span>
+      <h1 class="hero-title">Tu equipo en el agua, tus datos en la pantalla.</h1>
+      <p class="hero-sub">Registrá entrenamientos desde la app móvil y analizalos acá con gráficos, mapas GPS y estadísticas en tiempo real.</p>
+      <div class="hero-actions">
+        <button class="btn btn-hero-primary" onclick="location.hash='#/sessions'">Ver entrenamientos</button>
+        <button class="btn btn-hero-outline" onclick="location.hash='#/competencias'">Ver competencias</button>
       </div>
     </div>
+    <div class="stats-grid" id="home-stats-grid">
+      <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Sesiones</div><span class="stat-number" id="home-stat-sessions">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">entrenamientos</div><div class="stat-bar" style="background:#185fa5"></div></div>
+      <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Miembros</div><span class="stat-number" id="home-stat-members">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">en el plantel</div><div class="stat-bar" style="background:#16a34a"></div></div>
+      <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Competencias</div><span class="stat-number" id="home-stat-comps">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">carreras</div><div class="stat-bar" style="background:#7c3aed"></div></div>
+      <div class="stat-card"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Equipos</div><span class="stat-number" id="home-stat-teams">—</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">registrados</div><div class="stat-bar" style="background:#d97706"></div></div>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#185fa5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <h3 class="feature-title">Entrenamientos</h3>
+        <p class="feature-desc">Revisá velocidad, SPM, DPS y paladas con gráficos y mapa GPS.</p>
+        <a class="feature-link" href="#/sessions">Ver más →</a>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#185fa5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg></div>
+        <h3 class="feature-title">Competencias</h3>
+        <p class="feature-desc">Carreras registradas al pulsar Completado. Análisis completo y ranking.</p>
+        <a class="feature-link" href="#/competencias">Ver más →</a>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#185fa5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <h3 class="feature-title">Equipo</h3>
+        <p class="feature-desc">Gestioná roles, invitá por email y editá los datos del club.</p>
+        <a class="feature-link" href="#/teams">Ver más →</a>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#185fa5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <h3 class="feature-title">Mapas y exportación</h3>
+        <p class="feature-desc">Descargá el recorrido como JPG con resumen de la sesión.</p>
+        <a class="feature-link" href="#/sessions">Ver más →</a>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:1rem">
+      <h2 class="section-title">Cumpleaños del equipo</h2>
+      <div id="home-birthdays"><p class="muted" style="font-size:13px">Cargando...</p></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h2 class="section-title" style="margin:0">Últimas sesiones</h2>
+        <a class="feature-link" href="#/sessions">Ver todas →</a>
+      </div>
+      <div id="home-recent-sessions"><p class="muted" style="font-size:13px">Cargando...</p></div>
+    </div>
   `);
+
+  // Cargar datos asincrónicamente
+  (async () => {
+    try {
+      const teams = await api.apiMyTeams();
+      const teamId = teams.length ? teams[0].team.id : null;
+
+      // Stat: equipos
+      const statTeams = document.getElementById("home-stat-teams");
+      if (statTeams) statTeams.textContent = String(teams.length);
+
+      const [sessions, comps, members] = await Promise.all([
+        teamId ? api.apiListSessions(teamId) : Promise.resolve([]),
+        api.apiListCompetenciaSessions().catch(() => []),
+        teamId ? api.apiListMembers(teamId) : Promise.resolve([]),
+      ]);
+
+      // Stats
+      const statSessions = document.getElementById("home-stat-sessions");
+      if (statSessions) statSessions.textContent = String(sessions.length);
+
+      const statMembers = document.getElementById("home-stat-members");
+      if (statMembers) statMembers.textContent = String(members.length);
+
+      const statComps = document.getElementById("home-stat-comps");
+      if (statComps) statComps.textContent = String(comps.length);
+
+      // Cumpleaños
+      const bdEl = document.getElementById("home-birthdays");
+      if (bdEl) {
+        const withBd = members.filter((m) => m.birth_date);
+        if (!withBd.length) {
+          bdEl.innerHTML = `<p class="muted" style="font-size:13px">Sin fechas de nacimiento registradas.</p>`;
+        } else {
+          const sorted = withBd
+            .map((m) => ({ m, days: daysUntilBirthday(m.birth_date) }))
+            .sort((a, b) => a.days - b.days)
+            .slice(0, 5);
+          const monthNames = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+          const rows = sorted.map(({ m, days }) => {
+            const bd = new Date(m.birth_date);
+            const dd = String(bd.getDate()).padStart(2, "0");
+            const mon = monthNames[bd.getMonth()];
+            const initial = (m.full_name || m.email || "?")[0].toUpperCase();
+            const name = escapeHtml(m.full_name || m.email || "—");
+            const badge = days === 0
+              ? `<span class="birthday-badge today">Hoy 🎂</span>`
+              : `<span class="birthday-badge">${days} días</span>`;
+            return `<div class="birthday-row">
+              <span class="team-avatar">${escapeHtml(initial)}</span>
+              <span class="birthday-name">${name}</span>
+              <span class="birthday-date">${dd} ${mon}</span>
+              ${badge}
+            </div>`;
+          }).join("");
+          bdEl.innerHTML = rows;
+        }
+      }
+
+      // Últimas sesiones
+      const rsEl = document.getElementById("home-recent-sessions");
+      if (rsEl) {
+        if (!sessions.length) {
+          rsEl.innerHTML = `<p class="muted" style="font-size:13px">Sin sesiones registradas.</p>`;
+        } else {
+          const last3 = [...sessions]
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 3);
+          const rows = last3.map((r) => {
+            const fecha = fmtDate(r.created_at);
+            const dist = r.distance_meters != null ? `${Math.round(r.distance_meters)} m` : "—";
+            const badge = r.is_competition
+              ? `<span class="badge badge-premier" style="font-size:10px">Competencia</span>`
+              : `<span class="badge badge-senior-a" style="font-size:10px">Entrenamiento</span>`;
+            return `<div class="recent-session-row">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500;color:#1e293b">${escapeHtml(r.team_name || "Sesión #" + r.id)}</div>
+                <div style="font-size:12px;color:#94a3b8">${escapeHtml(fecha)}</div>
+              </div>
+              <div style="font-size:13px;color:#334155;white-space:nowrap">${escapeHtml(dist)}</div>
+              ${badge}
+            </div>`;
+          }).join("");
+          rsEl.innerHTML = rows;
+        }
+      }
+    } catch (ex) {
+      console.error("renderHome async error", ex);
+    }
+  })();
 }
 
 function humanizeApiError(text) {
@@ -615,18 +748,17 @@ async function renderSessionsList() {
     const currentTeamName =
       teams.find((x) => String(x.team.id) === teamFilter)?.team?.name || "";
 
+    const teamSelectOptions = teams
+      .map((x) => `<option value="${x.team.id}" ${String(x.team.id) === teamFilter ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`)
+      .join("");
+
     const filterBlock =
       teams.length >= 1
         ? `<div class="session-team-filter">
             <p class="muted small" style="margin-bottom:0.4rem">${escapeHtml(t("sessions.filterLabel"))}</p>
-            <div class="chip-group" id="chip-group-session-team">
-              ${teams
-                .map(
-                  (x) =>
-                    `<span class="chip${String(x.team.id) === teamFilter ? " active" : ""}" data-value="${x.team.id}">${escapeHtml(x.team.name)}</span>`
-                )
-                .join("")}
-            </div>
+            <select id="sel-session-team">
+              ${teamSelectOptions}
+            </select>
             <p class="muted small">${t("sessions.filterHint")}</p>
           </div>`
         : `<p class="muted">${t("sessions.noTeamHintHtml")}</p>`;
@@ -646,11 +778,12 @@ async function renderSessionsList() {
           </p>
         </div>
       `);
-      document.getElementById("chip-group-session-team")?.addEventListener("click", (e) => {
-        const chip = e.target.closest(".chip[data-value]");
-        if (!chip) return;
-        sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, chip.dataset.value);
-        route();
+      document.getElementById("sel-session-team")?.addEventListener("change", (e) => {
+        const sel = e.target;
+        if (sel && sel.value) {
+          sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, sel.value);
+          route();
+        }
       });
       return;
     }
@@ -747,11 +880,12 @@ async function renderSessionsList() {
       }
       renderSessionsTableBody();
     });
-    document.getElementById("chip-group-session-team")?.addEventListener("click", (e) => {
-      const chip = e.target.closest(".chip[data-value]");
-      if (!chip) return;
-      sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, chip.dataset.value);
-      route();
+    document.getElementById("sel-session-team")?.addEventListener("change", (e) => {
+      const sel = e.target;
+      if (sel && sel.value) {
+        sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, sel.value);
+        route();
+      }
     });
 
     document.getElementById("btn-session-day-map")?.addEventListener("click", async () => {
@@ -2584,18 +2718,6 @@ async function renderCompetencias() {
         })
         .join("");
 
-    // Estado reactivo de filtros — se actualiza desde chips
-    const compFilters = {
-      pais: "todos",
-      boat: "todos",
-      paddlers: "todos",
-      drummer: "todos",
-      age: "todos",
-      teamcat: "todos",
-      dist: "todas",
-      virada: "todas",
-    };
-
     // País: select clásico (opciones dinámicas — puede haber muchos países)
     const paisSelectHtml = `
       <div>
@@ -2609,66 +2731,66 @@ async function renderCompetencias() {
       <div class="competencia-filters" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-start;margin-bottom:0.75rem">
         ${paisSelectHtml}
         <div>
-          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterBoat"))}</p>
-          <div class="chip-group" id="chip-group-boat">
-            <span class="chip active" data-value="todos">${oAllM}</span>
-            <span class="chip" data-value="grande">${escapeHtml(t("competitions.boatGrande"))}</span>
-            <span class="chip" data-value="chico">${escapeHtml(t("competitions.boatChico"))}</span>
-          </div>
+          <label for="comp-filter-boat" class="muted small" style="display:block">${escapeHtml(t("competitions.filterBoat"))}</label>
+          <select id="comp-filter-boat">
+            <option value="todos">${oAllM}</option>
+            <option value="grande">${escapeHtml(t("competitions.boatGrande"))}</option>
+            <option value="chico">${escapeHtml(t("competitions.boatChico"))}</option>
+          </select>
         </div>
         <div>
-          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterPaddlers"))}</p>
-          <div class="chip-group" id="chip-group-paddlers">
-            <span class="chip active" data-value="todos">${oAllM}</span>
-            <span class="chip" data-value="10">${escapeHtml(t("competitions.p10"))}</span>
-            <span class="chip" data-value="20">${escapeHtml(t("competitions.p20"))}</span>
-          </div>
+          <label for="comp-filter-paddlers" class="muted small" style="display:block">${escapeHtml(t("competitions.filterPaddlers"))}</label>
+          <select id="comp-filter-paddlers">
+            <option value="todos">${oAllM}</option>
+            <option value="10">${escapeHtml(t("competitions.p10"))}</option>
+            <option value="20">${escapeHtml(t("competitions.p20"))}</option>
+          </select>
         </div>
         <div>
-          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterDrummer"))}</p>
-          <div class="chip-group" id="chip-group-drummer">
-            <span class="chip active" data-value="todos">${oAllM}</span>
-            <span class="chip" data-value="si">${oYes}</span>
-            <span class="chip" data-value="no">${oNo}</span>
-          </div>
+          <label for="comp-filter-drummer" class="muted small" style="display:block">${escapeHtml(t("competitions.filterDrummer"))}</label>
+          <select id="comp-filter-drummer">
+            <option value="todos">${oAllM}</option>
+            <option value="si">${oYes}</option>
+            <option value="no">${oNo}</option>
+          </select>
         </div>
         <div>
-          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterAge"))}</p>
-          <div class="chip-group" id="chip-group-age">
-            <span class="chip active" data-value="todos">${oAllM}</span>
-            <span class="chip" data-value="premier">${escapeHtml(t("competitions.agePremier"))}</span>
-            <span class="chip" data-value="senior_a">${escapeHtml(t("competitions.ageSeniorA"))}</span>
-            <span class="chip" data-value="senior_b">${escapeHtml(t("competitions.ageSeniorB"))}</span>
-            <span class="chip" data-value="senior_c">${escapeHtml(t("competitions.ageSeniorC"))}</span>
-          </div>
+          <label for="comp-filter-age" class="muted small" style="display:block">${escapeHtml(t("competitions.filterAge"))}</label>
+          <select id="comp-filter-age">
+            <option value="todos">${oAllM}</option>
+            <option value="premier">${escapeHtml(t("competitions.agePremier"))}</option>
+            <option value="senior_a">${escapeHtml(t("competitions.ageSeniorA"))}</option>
+            <option value="senior_b">${escapeHtml(t("competitions.ageSeniorB"))}</option>
+            <option value="senior_c">${escapeHtml(t("competitions.ageSeniorC"))}</option>
+          </select>
         </div>
         <div>
-          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterTeam"))}</p>
-          <div class="chip-group" id="chip-group-teamcat">
-            <span class="chip active" data-value="todos">${oAllM}</span>
-            <span class="chip" data-value="open">${escapeHtml(t("competitions.catOpen"))}</span>
-            <span class="chip" data-value="mixto">${escapeHtml(t("competitions.catMixto"))}</span>
-            <span class="chip" data-value="damas">${escapeHtml(t("competitions.catDamas"))}</span>
-            <span class="chip" data-value="acs">${escapeHtml(t("competitions.catAcs"))}</span>
-          </div>
+          <label for="comp-filter-teamcat" class="muted small" style="display:block">${escapeHtml(t("competitions.filterTeam"))}</label>
+          <select id="comp-filter-teamcat">
+            <option value="todos">${oAllM}</option>
+            <option value="open">${escapeHtml(t("competitions.catOpen"))}</option>
+            <option value="mixto">${escapeHtml(t("competitions.catMixto"))}</option>
+            <option value="damas">${escapeHtml(t("competitions.catDamas"))}</option>
+            <option value="acs">${escapeHtml(t("competitions.catAcs"))}</option>
+          </select>
         </div>
         <div>
-          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterDistance"))}</p>
-          <div class="chip-group" id="chip-group-dist">
-            <span class="chip active" data-value="todas">${oAllDist}</span>
-            <span class="chip" data-value="200">${escapeHtml(t("competitions.dist200"))}</span>
-            <span class="chip" data-value="500">${escapeHtml(t("competitions.dist500"))}</span>
-            <span class="chip" data-value="1000">${escapeHtml(t("competitions.dist1000"))}</span>
-            <span class="chip" data-value="2000">${escapeHtml(t("competitions.dist2000"))}</span>
-          </div>
+          <label for="comp-filter-dist" class="muted small" style="display:block">${escapeHtml(t("competitions.filterDistance"))}</label>
+          <select id="comp-filter-dist">
+            <option value="todas">${oAllDist}</option>
+            <option value="200">${escapeHtml(t("competitions.dist200"))}</option>
+            <option value="500">${escapeHtml(t("competitions.dist500"))}</option>
+            <option value="1000">${escapeHtml(t("competitions.dist1000"))}</option>
+            <option value="2000">${escapeHtml(t("competitions.dist2000"))}</option>
+          </select>
         </div>
         <div>
-          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterTurn"))}</p>
-          <div class="chip-group" id="chip-group-virada">
-            <span class="chip active" data-value="todas">${oAllTurn}</span>
-            <span class="chip" data-value="si">${oYes}</span>
-            <span class="chip" data-value="no">${oNo}</span>
-          </div>
+          <label for="comp-filter-virada" class="muted small" style="display:block">${escapeHtml(t("competitions.filterTurn"))}</label>
+          <select id="comp-filter-virada">
+            <option value="todas">${oAllTurn}</option>
+            <option value="si">${oYes}</option>
+            <option value="no">${oNo}</option>
+          </select>
         </div>
       </div>`;
 
@@ -2718,24 +2840,31 @@ async function renderCompetencias() {
         const tc = (r.team_country || "").trim();
         if (tc !== pais) return false;
       }
-      if (compFilters.boat !== "todos") {
+      const boat = document.getElementById("comp-filter-boat")?.value ?? "todos";
+      if (boat !== "todos") {
         const b = (r.boat_type || "").toString().toLowerCase();
-        if (b !== compFilters.boat) return false;
+        if (b !== boat) return false;
       }
-      if (compFilters.paddlers !== "todos") {
-        const n = Number(compFilters.paddlers);
+      const paddlers = document.getElementById("comp-filter-paddlers")?.value ?? "todos";
+      if (paddlers !== "todos") {
+        const n = Number(paddlers);
         if (r.paddlers_count !== n) return false;
       }
-      if (compFilters.drummer === "si" && r.drummer !== true) return false;
-      if (compFilters.drummer === "no" && r.drummer !== false) return false;
-      if (compFilters.age !== "todos" && (r.age_category || "") !== compFilters.age) return false;
-      if (compFilters.teamcat !== "todos" && (r.team_category || "") !== compFilters.teamcat) return false;
-      if (compFilters.dist !== "todas") {
-        const d = Number(compFilters.dist);
+      const drummer = document.getElementById("comp-filter-drummer")?.value ?? "todos";
+      if (drummer === "si" && r.drummer !== true) return false;
+      if (drummer === "no" && r.drummer !== false) return false;
+      const age = document.getElementById("comp-filter-age")?.value ?? "todos";
+      if (age !== "todos" && (r.age_category || "") !== age) return false;
+      const teamcat = document.getElementById("comp-filter-teamcat")?.value ?? "todos";
+      if (teamcat !== "todos" && (r.team_category || "") !== teamcat) return false;
+      const dist = document.getElementById("comp-filter-dist")?.value ?? "todas";
+      if (dist !== "todas") {
+        const d = Number(dist);
         if (r.target_distance_meters !== d) return false;
       }
-      if (compFilters.virada === "si" && r.virada !== true) return false;
-      if (compFilters.virada === "no" && r.virada !== false) return false;
+      const virada = document.getElementById("comp-filter-virada")?.value ?? "todas";
+      if (virada === "si" && r.virada !== true) return false;
+      if (virada === "no" && r.virada !== false) return false;
       return true;
     }
 
@@ -2778,29 +2907,19 @@ async function renderCompetencias() {
         `<tr><td colspan="12" class="muted">${escapeHtml(t("competitions.noRows"))}</td></tr>`;
     }
 
-    // País: select clásico
-    document.getElementById("comp-filter-pais")?.addEventListener("change", renderCompetenciaBody);
-
-    // Chips: event delegation por grupo
-    const chipGroupMap = {
-      "chip-group-boat": "boat",
-      "chip-group-paddlers": "paddlers",
-      "chip-group-drummer": "drummer",
-      "chip-group-age": "age",
-      "chip-group-teamcat": "teamcat",
-      "chip-group-dist": "dist",
-      "chip-group-virada": "virada",
-    };
-    Object.entries(chipGroupMap).forEach(([groupId, filterKey]) => {
-      document.getElementById(groupId)?.addEventListener("click", (e) => {
-        const chip = e.target.closest(".chip[data-value]");
-        if (!chip) return;
-        const group = document.getElementById(groupId);
-        group.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
-        chip.classList.add("active");
-        compFilters[filterKey] = chip.dataset.value;
-        renderCompetenciaBody();
-      });
+    // Selects: cambio de filtros
+    const filterSelectIds = [
+      "comp-filter-pais",
+      "comp-filter-boat",
+      "comp-filter-paddlers",
+      "comp-filter-drummer",
+      "comp-filter-age",
+      "comp-filter-teamcat",
+      "comp-filter-dist",
+      "comp-filter-virada",
+    ];
+    filterSelectIds.forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", renderCompetenciaBody);
     });
 
     document.getElementById("comp-thead").addEventListener("click", (e) => {
