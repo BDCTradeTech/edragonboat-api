@@ -76,6 +76,18 @@ function labelCompAge(k) {
   return key ? t(key) : escapeHtml(String(k));
 }
 
+function labelCompAgeBadge(k) {
+  if (k == null || k === "") return escapeHtml(t("account.emptyDash"));
+  const badgeClass = {
+    premier: "badge-premier",
+    senior_a: "badge-senior-a",
+    senior_b: "badge-senior-b",
+    senior_c: "badge-senior-c",
+  }[k];
+  const label = labelCompAge(k);
+  return badgeClass ? `<span class="badge ${badgeClass}">${escapeHtml(label)}</span>` : escapeHtml(label);
+}
+
 function labelCompTeamCat(k) {
   if (k == null || k === "") return t("account.emptyDash");
   const m = {
@@ -86,6 +98,18 @@ function labelCompTeamCat(k) {
   };
   const key = m[k];
   return key ? t(key) : escapeHtml(String(k));
+}
+
+function labelCompTeamCatBadge(k) {
+  if (k == null || k === "") return escapeHtml(t("account.emptyDash"));
+  const badgeClass = {
+    open: "badge-open",
+    mixto: "badge-mixto",
+    damas: "badge-damas",
+    acs: "badge-acs",
+  }[k];
+  const label = labelCompTeamCat(k);
+  return badgeClass ? `<span class="badge ${badgeClass}">${escapeHtml(label)}</span>` : escapeHtml(label);
 }
 
 function yn(v) {
@@ -205,6 +229,22 @@ function buildSessionMapJpegFileName(s, sessionId, fallbackIso) {
   return `${team}_${stamp}.jpg`;
 }
 
+/** Devuelve el título de la página activa para el topbar. */
+function _activePageTitle() {
+  const hash = (location.hash.replace(/^#\/?/, "") || "/").split("/").filter(Boolean);
+  const key = hash[0] || "home";
+  if (!key || key === "home") return escapeHtml(t("nav.home"));
+  if (key === "sessions" || key === "session") return escapeHtml(t("nav.sessions"));
+  if (key === "teams" || key === "team") return escapeHtml(t("nav.teams"));
+  if (key === "rutinas") return escapeHtml(t("nav.routines"));
+  if (key === "competencias" || key === "regatas") return escapeHtml(t("nav.competitions"));
+  if (key === "comunidad") return escapeHtml(t("nav.community"));
+  if (key === "cuenta") return escapeHtml(t("nav.account"));
+  if (key === "login") return "Login";
+  if (key === "register") return "Register";
+  return "";
+}
+
 /** Shell con menú lateral (solo autenticado). */
 function layout(content, { showNav = true, wide = false } = {}) {
   const email = api.getEmail();
@@ -213,15 +253,17 @@ function layout(content, { showNav = true, wide = false } = {}) {
   const nav = showNav
     ? `
     <aside class="nav-rail" aria-label="${escapeHtml(t("nav.ariaMain"))}">
-      <div class="nav-brand">E-DragonBoat</div>
+      <div class="nav-brand">
+        E-DragonBoat
+      </div>
       <nav class="nav-links">
-        <a class="nav-item" href="#/" data-match="home">${escapeHtml(t("nav.home"))}</a>
-        <a class="nav-item" href="#/teams" data-match="teams">${escapeHtml(t("nav.teams"))}</a>
-        <a class="nav-item" href="#/rutinas" data-match="rutinas">${escapeHtml(t("nav.routines"))}</a>
-        <a class="nav-item" href="#/sessions" data-match="sessions">${escapeHtml(t("nav.sessions"))}</a>
-        <a class="nav-item" href="#/competencias" data-match="competencias">${escapeHtml(t("nav.competitions"))}</a>
-        <a class="nav-item" href="#/comunidad" data-match="comunidad">${escapeHtml(t("nav.community"))}</a>
-        <a class="nav-item" href="#/cuenta" data-match="cuenta">${escapeHtml(t("nav.account"))}</a>
+        <a class="nav-item" href="#/" data-match="home"><i data-lucide="home"></i>${escapeHtml(t("nav.home"))}</a>
+        <a class="nav-item" href="#/teams" data-match="teams"><i data-lucide="users"></i>${escapeHtml(t("nav.teams"))}</a>
+        <a class="nav-item" href="#/rutinas" data-match="rutinas"><i data-lucide="clipboard-list"></i>${escapeHtml(t("nav.routines"))}</a>
+        <a class="nav-item" href="#/sessions" data-match="sessions"><i data-lucide="activity"></i>${escapeHtml(t("nav.sessions"))}</a>
+        <a class="nav-item" href="#/competencias" data-match="competencias"><i data-lucide="trophy"></i>${escapeHtml(t("nav.competitions"))}</a>
+        <a class="nav-item" href="#/comunidad" data-match="comunidad"><i data-lucide="message-circle"></i>${escapeHtml(t("nav.community"))}</a>
+        <a class="nav-item" href="#/cuenta" data-match="cuenta"><i data-lucide="settings"></i>${escapeHtml(t("nav.account"))}</a>
       </nav>
       <div class="nav-footer">
         <span class="nav-version">${escapeHtml(t("shell.panelVersion", { version: String(panelPkg.version) }))}</span>
@@ -234,7 +276,7 @@ function layout(content, { showNav = true, wide = false } = {}) {
       ${nav}
       <div class="main-area">
         <header class="top-bar">
-          <div class="top-title"></div>
+          <div class="top-title">${_activePageTitle()}</div>
           <div class="top-actions">
             ${
               authed
@@ -267,6 +309,11 @@ function layout(content, { showNav = true, wide = false } = {}) {
   }
 
   highlightNav();
+
+  // Inicializar íconos Lucide (cargado via CDN en index.html)
+  if (typeof lucide !== "undefined") {
+    lucide.createIcons();
+  }
 }
 
 function highlightNav() {
@@ -571,15 +618,15 @@ async function renderSessionsList() {
     const filterBlock =
       teams.length >= 1
         ? `<div class="session-team-filter">
-            <label for="sel-session-team">${escapeHtml(t("sessions.filterLabel"))}</label>
-            <select id="sel-session-team">
+            <p class="muted small" style="margin-bottom:0.4rem">${escapeHtml(t("sessions.filterLabel"))}</p>
+            <div class="chip-group" id="chip-group-session-team">
               ${teams
                 .map(
                   (x) =>
-                    `<option value="${x.team.id}" ${String(x.team.id) === teamFilter ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`
+                    `<span class="chip${String(x.team.id) === teamFilter ? " active" : ""}" data-value="${x.team.id}">${escapeHtml(x.team.name)}</span>`
                 )
                 .join("")}
-            </select>
+            </div>
             <p class="muted small">${t("sessions.filterHint")}</p>
           </div>`
         : `<p class="muted">${t("sessions.noTeamHintHtml")}</p>`;
@@ -599,8 +646,10 @@ async function renderSessionsList() {
           </p>
         </div>
       `);
-      document.getElementById("sel-session-team")?.addEventListener("change", (e) => {
-        sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value);
+      document.getElementById("chip-group-session-team")?.addEventListener("click", (e) => {
+        const chip = e.target.closest(".chip[data-value]");
+        if (!chip) return;
+        sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, chip.dataset.value);
         route();
       });
       return;
@@ -628,7 +677,7 @@ async function renderSessionsList() {
       <tr>
         <td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>
         <td>${fmtDate(r.created_at)}</td>
-        <td>${escapeHtml(r.team_name) || em}</td>
+        <td>${r.team_name ? `<span class="team-avatar">${escapeHtml(r.team_name[0].toUpperCase())}</span>${escapeHtml(r.team_name)}` : em}</td>
         <td>${r.total_seconds != null ? r.total_seconds + " s" : em}</td>
         <td>${r.distance_meters != null ? r.distance_meters.toFixed(0) + " m" : em}</td>
         <td>${r.paladas != null ? r.paladas : em}</td>
@@ -698,8 +747,10 @@ async function renderSessionsList() {
       }
       renderSessionsTableBody();
     });
-    document.getElementById("sel-session-team")?.addEventListener("change", (e) => {
-      sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value);
+    document.getElementById("chip-group-session-team")?.addEventListener("click", (e) => {
+      const chip = e.target.closest(".chip[data-value]");
+      if (!chip) return;
+      sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, chip.dataset.value);
       route();
     });
 
@@ -2533,75 +2584,91 @@ async function renderCompetencias() {
         })
         .join("");
 
+    // Estado reactivo de filtros — se actualiza desde chips
+    const compFilters = {
+      pais: "todos",
+      boat: "todos",
+      paddlers: "todos",
+      drummer: "todos",
+      age: "todos",
+      teamcat: "todos",
+      dist: "todas",
+      virada: "todas",
+    };
+
+    // País: select clásico (opciones dinámicas — puede haber muchos países)
+    const paisSelectHtml = `
+      <div>
+        <label for="comp-filter-pais" class="muted small" style="display:block">${escapeHtml(t("competitions.filterCountry"))}</label>
+        <select id="comp-filter-pais">
+          ${countryFilterOptions}
+        </select>
+      </div>`;
+
     const filterBar = `
-      <div class="competencia-filters" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-bottom:0.75rem">
+      <div class="competencia-filters" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-start;margin-bottom:0.75rem">
+        ${paisSelectHtml}
         <div>
-          <label for="comp-filter-pais" class="muted small" style="display:block">${escapeHtml(t("competitions.filterCountry"))}</label>
-          <select id="comp-filter-pais">
-            ${countryFilterOptions}
-          </select>
+          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterBoat"))}</p>
+          <div class="chip-group" id="chip-group-boat">
+            <span class="chip active" data-value="todos">${oAllM}</span>
+            <span class="chip" data-value="grande">${escapeHtml(t("competitions.boatGrande"))}</span>
+            <span class="chip" data-value="chico">${escapeHtml(t("competitions.boatChico"))}</span>
+          </div>
         </div>
         <div>
-          <label for="comp-filter-boat" class="muted small" style="display:block">${escapeHtml(t("competitions.filterBoat"))}</label>
-          <select id="comp-filter-boat">
-            <option value="todos" selected>${oAllM}</option>
-            <option value="grande">${escapeHtml(t("competitions.boatGrande"))}</option>
-            <option value="chico">${escapeHtml(t("competitions.boatChico"))}</option>
-          </select>
+          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterPaddlers"))}</p>
+          <div class="chip-group" id="chip-group-paddlers">
+            <span class="chip active" data-value="todos">${oAllM}</span>
+            <span class="chip" data-value="10">${escapeHtml(t("competitions.p10"))}</span>
+            <span class="chip" data-value="20">${escapeHtml(t("competitions.p20"))}</span>
+          </div>
         </div>
         <div>
-          <label for="comp-filter-paddlers" class="muted small" style="display:block">${escapeHtml(t("competitions.filterPaddlers"))}</label>
-          <select id="comp-filter-paddlers">
-            <option value="todos" selected>${oAllM}</option>
-            <option value="10">${escapeHtml(t("competitions.p10"))}</option>
-            <option value="20">${escapeHtml(t("competitions.p20"))}</option>
-          </select>
+          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterDrummer"))}</p>
+          <div class="chip-group" id="chip-group-drummer">
+            <span class="chip active" data-value="todos">${oAllM}</span>
+            <span class="chip" data-value="si">${oYes}</span>
+            <span class="chip" data-value="no">${oNo}</span>
+          </div>
         </div>
         <div>
-          <label for="comp-filter-drummer" class="muted small" style="display:block">${escapeHtml(t("competitions.filterDrummer"))}</label>
-          <select id="comp-filter-drummer">
-            <option value="todos" selected>${oAllM}</option>
-            <option value="si">${oYes}</option>
-            <option value="no">${oNo}</option>
-          </select>
+          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterAge"))}</p>
+          <div class="chip-group" id="chip-group-age">
+            <span class="chip active" data-value="todos">${oAllM}</span>
+            <span class="chip" data-value="premier">${escapeHtml(t("competitions.agePremier"))}</span>
+            <span class="chip" data-value="senior_a">${escapeHtml(t("competitions.ageSeniorA"))}</span>
+            <span class="chip" data-value="senior_b">${escapeHtml(t("competitions.ageSeniorB"))}</span>
+            <span class="chip" data-value="senior_c">${escapeHtml(t("competitions.ageSeniorC"))}</span>
+          </div>
         </div>
         <div>
-          <label for="comp-filter-age" class="muted small" style="display:block">${escapeHtml(t("competitions.filterAge"))}</label>
-          <select id="comp-filter-age">
-            <option value="todos" selected>${oAllM}</option>
-            <option value="premier">${escapeHtml(t("competitions.agePremier"))}</option>
-            <option value="senior_a">${escapeHtml(t("competitions.ageSeniorA"))}</option>
-            <option value="senior_b">${escapeHtml(t("competitions.ageSeniorB"))}</option>
-            <option value="senior_c">${escapeHtml(t("competitions.ageSeniorC"))}</option>
-          </select>
+          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterTeam"))}</p>
+          <div class="chip-group" id="chip-group-teamcat">
+            <span class="chip active" data-value="todos">${oAllM}</span>
+            <span class="chip" data-value="open">${escapeHtml(t("competitions.catOpen"))}</span>
+            <span class="chip" data-value="mixto">${escapeHtml(t("competitions.catMixto"))}</span>
+            <span class="chip" data-value="damas">${escapeHtml(t("competitions.catDamas"))}</span>
+            <span class="chip" data-value="acs">${escapeHtml(t("competitions.catAcs"))}</span>
+          </div>
         </div>
         <div>
-          <label for="comp-filter-teamcat" class="muted small" style="display:block">${escapeHtml(t("competitions.filterTeam"))}</label>
-          <select id="comp-filter-teamcat">
-            <option value="todos" selected>${oAllM}</option>
-            <option value="open">${escapeHtml(t("competitions.catOpen"))}</option>
-            <option value="mixto">${escapeHtml(t("competitions.catMixto"))}</option>
-            <option value="damas">${escapeHtml(t("competitions.catDamas"))}</option>
-            <option value="acs">${escapeHtml(t("competitions.catAcs"))}</option>
-          </select>
+          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterDistance"))}</p>
+          <div class="chip-group" id="chip-group-dist">
+            <span class="chip active" data-value="todas">${oAllDist}</span>
+            <span class="chip" data-value="200">${escapeHtml(t("competitions.dist200"))}</span>
+            <span class="chip" data-value="500">${escapeHtml(t("competitions.dist500"))}</span>
+            <span class="chip" data-value="1000">${escapeHtml(t("competitions.dist1000"))}</span>
+            <span class="chip" data-value="2000">${escapeHtml(t("competitions.dist2000"))}</span>
+          </div>
         </div>
         <div>
-          <label for="comp-filter-dist" class="muted small" style="display:block">${escapeHtml(t("competitions.filterDistance"))}</label>
-          <select id="comp-filter-dist">
-            <option value="todas" selected>${oAllDist}</option>
-            <option value="200">${escapeHtml(t("competitions.dist200"))}</option>
-            <option value="500">${escapeHtml(t("competitions.dist500"))}</option>
-            <option value="1000">${escapeHtml(t("competitions.dist1000"))}</option>
-            <option value="2000">${escapeHtml(t("competitions.dist2000"))}</option>
-          </select>
-        </div>
-        <div>
-          <label for="comp-filter-virada" class="muted small" style="display:block">${escapeHtml(t("competitions.filterTurn"))}</label>
-          <select id="comp-filter-virada">
-            <option value="todas" selected>${oAllTurn}</option>
-            <option value="si">${oYes}</option>
-            <option value="no">${oNo}</option>
-          </select>
+          <p class="muted small" style="margin:0 0 0.35rem">${escapeHtml(t("competitions.filterTurn"))}</p>
+          <div class="chip-group" id="chip-group-virada">
+            <span class="chip active" data-value="todas">${oAllTurn}</span>
+            <span class="chip" data-value="si">${oYes}</span>
+            <span class="chip" data-value="no">${oNo}</span>
+          </div>
         </div>
       </div>`;
 
@@ -2646,36 +2713,29 @@ async function renderCompetencias() {
     };
 
     function rowMatchesFilters(r) {
-      const pais = document.getElementById("comp-filter-pais").value;
+      const pais = document.getElementById("comp-filter-pais")?.value ?? "todos";
       if (pais !== "todos") {
         const tc = (r.team_country || "").trim();
         if (tc !== pais) return false;
       }
-      const boat = document.getElementById("comp-filter-boat").value;
-      if (boat !== "todos") {
+      if (compFilters.boat !== "todos") {
         const b = (r.boat_type || "").toString().toLowerCase();
-        if (b !== boat) return false;
+        if (b !== compFilters.boat) return false;
       }
-      const paddlers = document.getElementById("comp-filter-paddlers").value;
-      if (paddlers !== "todos") {
-        const n = Number(paddlers);
+      if (compFilters.paddlers !== "todos") {
+        const n = Number(compFilters.paddlers);
         if (r.paddlers_count !== n) return false;
       }
-      const drummer = document.getElementById("comp-filter-drummer").value;
-      if (drummer === "si" && r.drummer !== true) return false;
-      if (drummer === "no" && r.drummer !== false) return false;
-      const age = document.getElementById("comp-filter-age").value;
-      if (age !== "todos" && (r.age_category || "") !== age) return false;
-      const teamcat = document.getElementById("comp-filter-teamcat").value;
-      if (teamcat !== "todos" && (r.team_category || "") !== teamcat) return false;
-      const dist = document.getElementById("comp-filter-dist").value;
-      if (dist !== "todas") {
-        const d = Number(dist);
+      if (compFilters.drummer === "si" && r.drummer !== true) return false;
+      if (compFilters.drummer === "no" && r.drummer !== false) return false;
+      if (compFilters.age !== "todos" && (r.age_category || "") !== compFilters.age) return false;
+      if (compFilters.teamcat !== "todos" && (r.team_category || "") !== compFilters.teamcat) return false;
+      if (compFilters.dist !== "todas") {
+        const d = Number(compFilters.dist);
         if (r.target_distance_meters !== d) return false;
       }
-      const vir = document.getElementById("comp-filter-virada").value;
-      if (vir === "si" && r.virada !== true) return false;
-      if (vir === "no" && r.virada !== false) return false;
+      if (compFilters.virada === "si" && r.virada !== true) return false;
+      if (compFilters.virada === "no" && r.virada !== false) return false;
       return true;
     }
 
@@ -2697,14 +2757,14 @@ async function renderCompetencias() {
         <td>${r.target_distance_meters != null ? r.target_distance_meters + " m" : escapeHtml(em)}</td>
         <td>${labelCompBoat(r.boat_type)}</td>
         <td>${r.paddlers_count != null ? r.paddlers_count : escapeHtml(em)}</td>
-        <td>${labelCompAge(r.age_category)}</td>
-        <td>${labelCompTeamCat(r.team_category)}</td>
+        <td>${labelCompAgeBadge(r.age_category)}</td>
+        <td>${labelCompTeamCatBadge(r.team_category)}</td>
         <td>${yn(r.drummer)}</td>
         <td>${yn(r.virada)}</td>
         <td class="competencia-team-cell">${
           r.team_logo_url
             ? `<img class="competencia-team-logo" src="${api.API}${r.team_logo_url}" width="18" height="18" alt="" crossorigin="anonymous" loading="lazy" decoding="async" /> `
-            : ""
+            : `<span class="team-avatar">${escapeHtml((r.team_name || em)[0].toUpperCase())}</span>`
         }${escapeHtml(r.team_name || em)}</td>
         <td>${countryCellHtml(r.team_country)}</td>
         <td>${r.total_seconds != null ? r.total_seconds + " s" : escapeHtml(em)}</td>
@@ -2718,17 +2778,29 @@ async function renderCompetencias() {
         `<tr><td colspan="12" class="muted">${escapeHtml(t("competitions.noRows"))}</td></tr>`;
     }
 
-    [
-      "comp-filter-pais",
-      "comp-filter-boat",
-      "comp-filter-paddlers",
-      "comp-filter-drummer",
-      "comp-filter-age",
-      "comp-filter-teamcat",
-      "comp-filter-dist",
-      "comp-filter-virada",
-    ].forEach((id) => {
-      document.getElementById(id).addEventListener("change", renderCompetenciaBody);
+    // País: select clásico
+    document.getElementById("comp-filter-pais")?.addEventListener("change", renderCompetenciaBody);
+
+    // Chips: event delegation por grupo
+    const chipGroupMap = {
+      "chip-group-boat": "boat",
+      "chip-group-paddlers": "paddlers",
+      "chip-group-drummer": "drummer",
+      "chip-group-age": "age",
+      "chip-group-teamcat": "teamcat",
+      "chip-group-dist": "dist",
+      "chip-group-virada": "virada",
+    };
+    Object.entries(chipGroupMap).forEach(([groupId, filterKey]) => {
+      document.getElementById(groupId)?.addEventListener("click", (e) => {
+        const chip = e.target.closest(".chip[data-value]");
+        if (!chip) return;
+        const group = document.getElementById(groupId);
+        group.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+        chip.classList.add("active");
+        compFilters[filterKey] = chip.dataset.value;
+        renderCompetenciaBody();
+      });
     });
 
     document.getElementById("comp-thead").addEventListener("click", (e) => {
