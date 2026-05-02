@@ -6,6 +6,7 @@ import { Chart, registerables } from "chart.js";
 import { toJpeg } from "html-to-image";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "./style.css";
 import * as api from "./api.js";
 import { countrySelectOptionsHtml, countryCellHtml, getCountryNameForUi } from "./countries.js";
 import {
