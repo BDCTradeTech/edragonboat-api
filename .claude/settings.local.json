@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git -C \"$\\(pwd\\)/../\" log --oneline -3)",
+      "Bash(grep -E \"claude|CLAUDE\" \"$\\(git rev-parse --show-toplevel\\)/.gitignore\")",
+      "Bash(ssh *)",
+      "Bash(sshpass -p '8117' ssh -o StrictHostKeyChecking=accept-new -o PasswordAuthentication=yes -o PubkeyAuthentication=no root@142.93.203.126 'cd /srv/edragonboat-api && git pull && cd web && npm ci && npm run build && rsync -av --delete dist/ /var/www/edragonboat-web/ && systemctl reload caddy && echo \"=== DEPLOY OK ===\"')",
+      "Bash(apt-get install *)",
+      "Bash(sshpass -p '8117' ssh -o StrictHostKeyChecking=accept-new -o PasswordAuthentication=yes -o PubkeyAuthentication=no root@142.93.203.126 'echo ok')",
+      "Bash(python3 *)",
+      "Bash(scp -r -v dist/. root@142.93.203.126:/var/www/edragonboat-web/)"
+    ]
+  }
+}

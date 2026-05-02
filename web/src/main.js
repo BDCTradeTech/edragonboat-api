@@ -1173,7 +1173,7 @@ async function renderSessionsList() {
       return allOpt + values.map((v) => `<option value="${escapeHtml(String(v))}">${escapeHtml(labelFn(v))}</option>`).join("");
     }
 
-    const selectStyle = "padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;background:#fff;cursor:pointer";
+    const selectStyle = "padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;background:#fff;cursor:pointer;width:auto";
 
     // Años únicos ordenados desc
     const allYears = [...new Set(rows.map((r) => new Date(r.created_at).getFullYear()))].sort((a, b) => b - a);
@@ -2195,12 +2195,20 @@ async function renderSessionDetail(id) {
     const last =
       s.dataPoints && s.dataPoints.length ? s.dataPoints[s.dataPoints.length - 1] : null;
     const em = escapeHtml(t("account.emptyDash"));
-    const stats = `
-      <div class="stats">
-        <div class="stat">${escapeHtml(t("sessionDetail.statDate"))}<strong>${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</strong></div>
-        <div class="stat">${escapeHtml(t("sessionDetail.statTotalTime"))}<strong>${s.totalSeconds != null ? `${Math.floor(s.totalSeconds / 60)}:${String(s.totalSeconds % 60).padStart(2, "0")}` : em}</strong></div>
-        <div class="stat">${escapeHtml(t("sessionDetail.statFinalDistance"))}<strong>${last ? last.distanceMeters.toFixed(0) + " m" : em}</strong></div>
-        <div class="stat">${escapeHtml(t("sessionDetail.statStrokes"))}<strong>${last ? last.paladas : em}</strong></div>
+
+    const cardStyle = "background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:14px 16px";
+    const labelStyle = "font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px";
+    const valueStyle = "font-size:20px;font-weight:700;color:#185fa5";
+
+    const statCards = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+        <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statDate"))}</div><div style="${valueStyle};font-size:15px;font-weight:600">${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</div></div>
+        <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statTotalTime"))}</div><div style="${valueStyle}">${s.totalSeconds != null ? `${Math.floor(s.totalSeconds / 60)}:${String(s.totalSeconds % 60).padStart(2, "0")}` : em}</div></div>
+        <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statFinalDistance"))}</div><div style="${valueStyle}">${last ? last.distanceMeters.toFixed(0) + " m" : em}</div></div>
+        <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statStrokes"))}</div><div style="${valueStyle}">${last ? last.paladas : em}</div></div>
+        ${s.teamName ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.teamInSession"))}</div><div style="${valueStyle};font-size:14px;font-weight:600">${escapeHtml(s.teamName)}</div></div>` : ""}
+        ${s.boatType ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.boat"))}</div><div style="${valueStyle};font-size:14px;font-weight:600">${escapeHtml(s.boatType)}</div></div>` : ""}
+        ${s.paddlersCount != null ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.paddlersCount"))}</div><div style="${valueStyle}">${escapeHtml(String(s.paddlersCount))}</div></div>` : ""}
       </div>
     `;
 
@@ -2264,12 +2272,6 @@ async function renderSessionDetail(id) {
       ? `<button type="button" class="btn-danger btn-sm" id="btn-delete-session">${escapeHtml(t("sessionDetail.delete"))}</button>`
       : "";
 
-    const infoItems = [
-      s.teamName ? `<div style="padding:8px 0;border-bottom:0.5px solid #f1f5f9"><span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">${escapeHtml(t("sessionDetail.teamInSession"))}</span><div style="font-weight:500;color:#1e293b;margin-top:2px">${escapeHtml(s.teamName)}</div></div>` : "",
-      s.boatType ? `<div style="padding:8px 0;border-bottom:0.5px solid #f1f5f9"><span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">${escapeHtml(t("sessionDetail.boat"))}</span><div style="font-weight:500;color:#1e293b;margin-top:2px">${escapeHtml(s.boatType)}</div></div>` : "",
-      s.paddlersCount != null ? `<div style="padding:8px 0"><span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8">${escapeHtml(t("sessionDetail.paddlersCount"))}</span><div style="font-weight:500;color:#1e293b;margin-top:2px">${escapeHtml(String(s.paddlersCount))}</div></div>` : "",
-    ].filter(Boolean).join("");
-
     layout(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div style="display:flex;align-items:center;gap:8px">
@@ -2289,8 +2291,7 @@ async function renderSessionDetail(id) {
             ${tabButtons}
           </div>
           <div id="panel-resumen" class="tab-panel active" role="tabpanel">
-            ${stats}
-            ${infoItems ? `<div style="background:#f8fafc;border-radius:10px;border:0.5px solid #e2e8f0;padding:4px 16px;margin-top:12px">${infoItems}</div>` : ""}
+            ${statCards}
           </div>
           ${tablaGraficosPanels}
           ${mapasPanel}
