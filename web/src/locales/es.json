@@ -55,7 +55,16 @@
     "featCompetitions": "<strong>Competencias:</strong> carreras subidas desde la app al pulsar <em>Completado</em>; mismo detalle que entrenamientos (gráficos, mapa).",
     "btnSessions": "Ir a entrenamientos",
     "btnTeam": "Ir a equipo",
-    "btnAccount": "Ir a cuenta"
+    "btnAccount": "Ir a cuenta",
+    "heroTitle": "Bienvenido al Panel",
+    "heroSub": "Gestión integral de tu equipo de Dragon Boat",
+    "sessions": "Sesiones",
+    "members": "Miembros",
+    "competitions": "Competencias",
+    "km": "km totales",
+    "upcomingBirthdays": "Próximos cumpleaños",
+    "latestSessions": "Últimas sesiones",
+    "viewAll": "Ver todas"
   },
   "login": {
     "title": "Iniciar sesión",
@@ -190,7 +199,17 @@
     "mapSummaryTeam": "Equipo",
     "mapSummaryDate": "Fecha",
     "mapSummaryTotalDistance": "Distancia total",
-    "mapSummarySessions": "Sesiones"
+    "mapSummarySessions": "Sesiones",
+    "year": "Año",
+    "month": "Mes",
+    "day": "Día",
+    "allYears": "Todos los años",
+    "allMonths": "Todos los meses",
+    "allDays": "Todos los días",
+    "viewDay": "Ver día",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "showing": "Mostrando"
   },
   "errors": {
     "notFoundDeploy": "No se encontró el recurso (404). Subí el archivo app/main.py actualizado (rutas /api/v1/profile y DELETE /api/v1/equipo/{id}) o todo el proyecto, y reiniciá: sudo systemctl restart edragonboat-api.",
@@ -407,5 +426,33 @@
     "metricTime": "Tiempo (seg)",
     "metricDistance": "Distancia (m)",
     "metricStrokes": "Paladas"
+  },
+  "forum": {
+    "title": "Foro de la comunidad",
+    "newPost": "Nueva publicación",
+    "categories": "Categorías",
+    "all": "Todos",
+    "announcements": "Anuncios",
+    "training": "Entrenamiento",
+    "competitions": "Competencias",
+    "general": "General",
+    "pinned": "Fijado",
+    "comments": "comentarios",
+    "views": "vistas",
+    "new": "NUEVO",
+    "noPost": "No hay publicaciones",
+    "writeComment": "Escribí tu comentario…",
+    "comment": "Comentar",
+    "back": "← Volver al foro",
+    "sortRecent": "Más recientes",
+    "sortComments": "Más comentados",
+    "sortPinned": "Fijados primero",
+    "postTitle": "Título de la publicación",
+    "postContent": "¿Qué querés compartir?",
+    "publish": "Publicar",
+    "cancel": "Cancelar",
+    "stats": "Estadísticas",
+    "totalPosts": "Posts totales",
+    "weekPosts": "Posts esta semana"
   }
 }

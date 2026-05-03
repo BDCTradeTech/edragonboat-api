@@ -75,4 +75,59 @@ for (const f of files) {
 }
 
 if (err) fail(`[i18n] ${err} problema(s) de claves. Actualizá los JSON o sincronizá con ${REF}.`);
+
+// PASO 2: Verificar valores idénticos a en.json (warning, no falla el build)
+const enPath = resolve(localesDir, "en.json");
+let enData = null;
+if (existsSync(enPath)) {
+  try { enData = JSON.parse(readFileSync(enPath, "utf-8")); } catch { /* ignorar */ }
+}
+
+/**
+ * @param {unknown} obj
+ * @param {string} [prefix]
+ * @returns {Map<string, string>}
+ */
+function flatLeaves(obj, prefix = "") {
+  const map = new Map();
+  if (obj == null || typeof obj !== "object" || Array.isArray(obj)) return map;
+  for (const k of Object.keys(obj)) {
+    const p = prefix ? `${prefix}.${k}` : k;
+    const v = obj[k];
+    if (v != null && typeof v === "object" && !Array.isArray(v)) {
+      for (const [kk, vv] of flatLeaves(v, p)) map.set(kk, vv);
+    } else {
+      map.set(p, String(v));
+    }
+  }
+  return map;
+}
+
+if (enData) {
+  const enLeaves = flatLeaves(enData);
+  // Claves que en en.json tienen valores considerados técnicos/neutros (números, siglas, símbolos)
+  // Las excluimos del check de valores idénticos porque es esperable que coincidan.
+  const neutralPattern = /^(\d[\d\s.]*m?|[A-Z]{2,5}|[Rr]\d|cm|kg|m\/s²|—|-|←|↪|↑|↓|[<>{}[\]@#]|Senior [ABC]|Premier|ACS|Open|Id|SPM|DPS|JPG|JSON|SMTP|v\{version\}|12345678)$/;
+
+  const SKIP_LOCALES = new Set(["es.json", "en.json"]);
+  for (const f of files) {
+    if (SKIP_LOCALES.has(f)) continue;
+    const p = resolve(localesDir, f);
+    let j;
+    try { j = JSON.parse(readFileSync(p, "utf-8")); } catch { continue; }
+    const leaves = flatLeaves(j);
+    let warnCount = 0;
+    for (const [key, val] of leaves) {
+      const enVal = enLeaves.get(key);
+      if (enVal === undefined) continue;
+      if (val === enVal && !neutralPattern.test(val.trim())) {
+        warnCount++;
+      }
+    }
+    if (warnCount > 0) {
+      console.warn(`[i18n] WARNING — ${f}: ${warnCount} clave(s) con valor igual a en.json`);
+    }
+  }
+}
+
 console.log(`[i18n] OK — ${refSet.size} claves, ${files.length} archivos, referencia ${REF}`);

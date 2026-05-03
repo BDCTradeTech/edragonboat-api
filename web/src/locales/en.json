@@ -55,7 +55,16 @@
     "featCompetitions": "<strong>Races:</strong> runs uploaded from the app when you tap <em>Done</em>; same detail as training (charts, map).",
     "btnSessions": "Go to training",
     "btnTeam": "Go to team",
-    "btnAccount": "Go to account"
+    "btnAccount": "Go to account",
+    "heroTitle": "Welcome to the Panel",
+    "heroSub": "Complete management of your Dragon Boat team",
+    "sessions": "Sessions",
+    "members": "Members",
+    "competitions": "Competitions",
+    "km": "total km",
+    "upcomingBirthdays": "Upcoming birthdays",
+    "latestSessions": "Latest sessions",
+    "viewAll": "View all"
   },
   "login": {
     "title": "Log in",
@@ -190,7 +199,17 @@
     "mapSummaryTeam": "Team",
     "mapSummaryDate": "Date",
     "mapSummaryTotalDistance": "Total distance",
-    "mapSummarySessions": "Sessions"
+    "mapSummarySessions": "Sessions",
+    "year": "Year",
+    "month": "Month",
+    "day": "Day",
+    "allYears": "All years",
+    "allMonths": "All months",
+    "allDays": "All days",
+    "viewDay": "View day",
+    "previous": "Previous",
+    "next": "Next",
+    "showing": "Showing"
   },
   "errors": {
     "notFoundDeploy": "Resource not found (404). Upload the updated app/main.py (routes /api/v1/profile and DELETE /api/v1/equipo/{id}) or the full project, then restart: sudo systemctl restart edragonboat-api.",
@@ -407,5 +426,33 @@
     "metricTime": "Time (s)",
     "metricDistance": "Distance (m)",
     "metricStrokes": "Strokes"
+  },
+  "forum": {
+    "title": "Community forum",
+    "newPost": "New post",
+    "categories": "Categories",
+    "all": "All",
+    "announcements": "Announcements",
+    "training": "Training",
+    "competitions": "Competitions",
+    "general": "General",
+    "pinned": "Pinned",
+    "comments": "comments",
+    "views": "views",
+    "new": "NEW",
+    "noPost": "No posts",
+    "writeComment": "Write your comment…",
+    "comment": "Comment",
+    "back": "← Back to forum",
+    "sortRecent": "Most recent",
+    "sortComments": "Most commented",
+    "sortPinned": "Pinned first",
+    "postTitle": "Post title",
+    "postContent": "What do you want to share?",
+    "publish": "Publish",
+    "cancel": "Cancel",
+    "stats": "Statistics",
+    "totalPosts": "Total posts",
+    "weekPosts": "Posts this week"
   }
 }

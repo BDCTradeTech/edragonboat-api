@@ -16,18 +16,18 @@ const SESSION_USER_ID_KEY = "edb_session_user_id";
 /** Código BCP47 corto alineado con UI_LANGUAGES; usado como fallback de i18n. */
 export const UI_LANG_DEFAULT = "en";
 
-/** Orden alfabético por nombre en inglés. */
+/** Orden de visualización fijo (no se ordena dinámicamente). */
 export const UI_LANGUAGES = [
-  { code: "zh", label: "Chinese" },
-  { code: "en", label: "English" },
-  { code: "fil", label: "Filipino" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "ja", label: "Japanese" },
-  { code: "ms", label: "Malay" },
-  { code: "pt", label: "Portuguese" },
-  { code: "es", label: "Spanish" },
-].sort((a, b) => a.label.localeCompare(b.label, "en"));
+  { code: "es", label: "🇪🇸 Español" },
+  { code: "en", label: "🇬🇧 English" },
+  { code: "pt", label: "🇧🇷 Português" },
+  { code: "zh", label: "🇨🇳 中文" },
+  { code: "fil", label: "🇵🇭 Filipino" },
+  { code: "fr", label: "🇫🇷 Français" },
+  { code: "de", label: "🇩🇪 Deutsch" },
+  { code: "ja", label: "🇯🇵 日本語" },
+  { code: "ms", label: "🇲🇾 Bahasa Melayu" },
+];
 
 const BCP47 = {
   zh: "zh-CN",
