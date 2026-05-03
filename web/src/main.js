@@ -3970,31 +3970,25 @@ function buildCommunityThreadHtml(list, getPeerLabel) {
 }
 
 async function renderComunidad() {
-  layout(`<p class="loading-line">${escapeHtml(t("common.loading"))}</p>`);
-  let me;
-  let myTeams;
-  let dirRaw;
+  layout(`<p class="loading-line">${escapeHtml(t("common.loading"))}</p>`, { wide: true });
+  let me, myTeams, dirRaw;
   try {
     [me, myTeams, dirRaw] = await Promise.all([api.apiMe(), api.apiMyTeams(), api.apiCommunityTeams()]);
   } catch (ex) {
     const detail = humanizeApiError(ex.message);
     const is404 = /not found|404/i.test(detail) || /not found|404/i.test(String(ex.message));
-    layout(
-      `<div class="card"><h2 class="card-title">${escapeHtml(t("community.title"))}</h2>
-        <p class="msg-error">${escapeHtml(t("community.loadFailed"))}</p>
-        <p class="muted small">${escapeHtml(detail)}</p>
-        ${is404 ? `<p class="muted small">${escapeHtml(t("community.unavailable"))}</p>` : ""}</div>`
-    );
+    layout(`<div class="card"><h2 class="card-title">${escapeHtml(t("community.title"))}</h2>
+      <p class="msg-error">${escapeHtml(t("community.loadFailed"))}</p>
+      <p class="muted small">${escapeHtml(detail)}</p>
+      ${is404 ? `<p class="muted small">${escapeHtml(t("community.unavailable"))}</p>` : ""}</div>`);
     return;
   }
 
   const isAdmin = me.is_platform_admin === true;
   if (myTeams.length === 0 && !isAdmin) {
-    layout(
-      `<div class="card"><h2 class="card-title">${escapeHtml(t("community.title"))}</h2>
-        <p class="muted">${escapeHtml(t("community.noMyTeam"))}</p>
-        <p class="small"><a class="link" href="#/teams/new">${escapeHtml(t("nav.teams"))}</a></p></div>`
-    );
+    layout(`<div class="card"><h2 class="card-title">${escapeHtml(t("community.title"))}</h2>
+      <p class="muted">${escapeHtml(t("community.noMyTeam"))}</p>
+      <p class="small"><a class="link" href="#/teams/new">${escapeHtml(t("nav.teams"))}</a></p></div>`);
     return;
   }
 
@@ -4005,270 +3999,352 @@ async function renderComunidad() {
       const id = communityDirTeamId(r);
       const display = communityDirTeamLabel(r) || (id != null ? `#${id}` : "");
       const forThread = communityDirTeamLabelBase(r) || (id != null ? `#${id}` : display);
-      return { id, label: display, threadLabel: forThread };
+      return { id, label: display, threadLabel: forThread, raw: r };
     })
     .filter((o) => o.id != null && !myTeamIds.has(o.id));
+
   const peerLabelById = new Map(others.map((o) => [o.id, o.threadLabel]));
   function getPeerLabel(peerId) {
     if (peerId == null) return "";
     const n = Number(peerId);
     if (!Number.isFinite(n)) return "";
-    if (peerLabelById.has(n)) return String(peerLabelById.get(n) || "");
-    return `#${n}`;
+    return peerLabelById.has(n) ? String(peerLabelById.get(n) || "") : `#${n}`;
   }
 
-  let selected = sessionStorage.getItem(COMMUNITY_FILTER_KEY) || CONV_ALL;
-  if (selected !== CONV_ALL && !others.some((o) => String(o.id) === selected)) {
-    selected = CONV_ALL;
+  // Colores de avatar por contacto
+  const AVATAR_COLORS = ["#185fa5","#7c3aed","#d97706","#16a34a","#dc2626","#0891b2","#be185d","#65a30d"];
+  function avatarColor(idx) { return AVATAR_COLORS[idx % AVATAR_COLORS.length]; }
+  function avatarInitial(label) { return (label || "?")[0].toUpperCase(); }
+
+  // Estado
+  let selectedId = null;
+  const stored = sessionStorage.getItem(COMMUNITY_FILTER_KEY);
+  if (stored && stored !== CONV_ALL) {
+    const n = Number(stored);
+    if (Number.isFinite(n) && others.some((o) => o.id === n)) selectedId = n;
   }
+  if (selectedId == null && others.length > 0) selectedId = others[0].id;
 
-  const selectOpts =
-    others.length === 0
-      ? `<option value="">${escapeHtml(t("community.selectTeam"))}</option>`
-      : `<option value="${CONV_ALL}"${selected === CONV_ALL ? " selected" : ""}>${escapeHtml(
-          t("community.filterAll")
-        )}</option>${others
-          .map(
-            (o) =>
-              `<option value="${o.id}"${String(o.id) === selected ? " selected" : ""}>${escapeHtml(
-                o.label || `#${o.id}`
-              )}</option>`
-          )
-          .join("")}`;
-
-  const hasNoOthers = others.length === 0;
-  const composerLocked = hasNoOthers || selected === CONV_ALL;
-  const threadPlaceholder = hasNoOthers
-    ? `<p class="muted">${escapeHtml(t("community.noTeamsInDirectory"))}</p>`
-    : `<p class="muted">${escapeHtml(t("common.loading"))}</p>`;
-
+  let lastNormalized = [];
   let replyToId = null;
   let replyToSnippet = "";
-  let lastNormalized = [];
+  let searchQuery = "";
 
+  // HTML del layout principal
   layout(`
-    <div class="card">
-      <h2 class="card-title">${escapeHtml(t("community.title"))}</h2>
-      <p class="muted">${escapeHtml(t("community.subtitle"))}</p>
-      <div class="community-toolbar">
-        <div class="community-select-wrap">
-          <label for="com-sel-convo">${escapeHtml(t("community.conversationFilter"))}</label>
-          <select id="com-sel-convo" ${others.length ? "" : "disabled"}>
-            ${selectOpts}
-          </select>
+    <div id="chat-root" style="display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 100px);overflow:hidden;border-radius:12px;border:0.5px solid #e2e8f0;background:#f0f4f8;">
+
+      <!-- PANEL IZQUIERDO -->
+      <div style="display:flex;flex-direction:column;background:#fff;border-right:0.5px solid #e2e8f0;overflow:hidden;">
+        <!-- Header izquierdo -->
+        <div style="padding:16px;border-bottom:0.5px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+          <span style="font-size:15px;font-weight:700;color:#1e293b">Mensajes</span>
+          <button id="chat-new-btn" title="Nueva conversación" style="width:28px;height:28px;border-radius:50%;border:none;background:#185fa5;color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
         </div>
-        <button type="button" class="secondary" id="com-refresh" ${hasNoOthers ? "disabled" : ""}>${escapeHtml(
-          t("community.refresh")
-        )}</button>
+        <!-- Buscador -->
+        <div style="padding:10px 12px;border-bottom:0.5px solid #f1f5f9;flex-shrink:0">
+          <div style="position:relative">
+            <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#94a3b8" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="chat-search" type="text" placeholder="Buscar contacto…" style="width:100%;padding:6px 8px 6px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;background:#f8fafc;box-sizing:border-box;width:auto;min-width:0;width:100%">
+          </div>
+        </div>
+        <!-- Lista de conversaciones -->
+        <div id="chat-conv-list" style="flex:1;overflow-y:auto;"></div>
       </div>
-      <p id="com-err" class="msg-error" style="display:none" role="alert"></p>
-      <p id="com-write-hint" class="muted small" style="display:none">${escapeHtml(
-        t("community.writeRequiresContact")
-      )}</p>
-      <div id="com-reply-bar" class="community-reply-bar" style="display:none"></div>
-      <div id="com-thread" class="community-thread">${threadPlaceholder}</div>
-      <form id="com-form" class="community-composer">
-        <label for="com-body">${escapeHtml(t("community.messagePlaceholder"))}</label>
-        <textarea id="com-body" rows="4" class="com-text community-textarea-w" placeholder="${escapeHtml(
-          t("community.messagePlaceholder")
-        )}" ${composerLocked ? "disabled" : ""}></textarea>
-        <button type="submit" class="primary" id="com-submit" ${composerLocked ? "disabled" : ""}>${escapeHtml(
-          t("community.send")
-        )}</button>
-      </form>
+
+      <!-- PANEL DERECHO -->
+      <div style="display:flex;flex-direction:column;overflow:hidden;background:#f0f4f8;">
+        <!-- Header derecho -->
+        <div id="chat-header" style="padding:14px 20px;border-bottom:0.5px solid #e2e8f0;background:#fff;display:flex;align-items:center;gap:12px;flex-shrink:0">
+          <div style="color:#94a3b8;font-size:14px">Seleccioná una conversación</div>
+        </div>
+        <!-- Área de mensajes -->
+        <div id="chat-messages" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">Seleccioná una conversación</div>
+        </div>
+        <!-- Reply bar -->
+        <div id="chat-reply-bar" style="display:none;padding:8px 16px;background:#f8fafc;border-top:0.5px solid #e2e8f0;font-size:12px;color:#64748b;align-items:center;gap:8px;">
+          <span id="chat-reply-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          <button id="chat-reply-clear" style="border:none;background:none;cursor:pointer;color:#94a3b8;font-size:16px;line-height:1">×</button>
+        </div>
+        <!-- Error -->
+        <div id="chat-err" style="display:none;padding:6px 16px;background:#fee2e2;color:#dc2626;font-size:12px;"></div>
+        <!-- Input area -->
+        <div style="padding:16px;border-top:0.5px solid #e2e8f0;background:#fff;flex-shrink:0">
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <textarea id="chat-input" rows="2" placeholder="Escribí un mensaje…" style="flex:1;resize:none;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:inherit;color:#334155;background:#f8fafc;width:auto;min-width:0" ${others.length === 0 ? "disabled" : ""}></textarea>
+            <button id="chat-send" style="padding:10px 20px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" ${others.length === 0 ? "disabled" : ""}>Enviar</button>
+          </div>
+        </div>
+      </div>
     </div>
-  `);
+  `, { wide: true });
 
-  const errEl = document.getElementById("com-err");
-  const threadEl = document.getElementById("com-thread");
-  const bodyEl = document.getElementById("com-body");
-  const form = document.getElementById("com-form");
-  const replyBar = document.getElementById("com-reply-bar");
-  const refreshBtn = document.getElementById("com-refresh");
-  const sel = document.getElementById("com-sel-convo");
-  const subBtn = document.getElementById("com-submit");
-  const writeHint = document.getElementById("com-write-hint");
+  // Referencias DOM
+  const convListEl = document.getElementById("chat-conv-list");
+  const messagesEl = document.getElementById("chat-messages");
+  const headerEl = document.getElementById("chat-header");
+  const inputEl = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("chat-send");
+  const errEl = document.getElementById("chat-err");
+  const replyBarEl = document.getElementById("chat-reply-bar");
+  const replyTextEl = document.getElementById("chat-reply-text");
+  const replyClearBtn = document.getElementById("chat-reply-clear");
+  const searchEl = document.getElementById("chat-search");
 
-  function setComposerState() {
-    const locked = hasNoOthers || selected === CONV_ALL;
-    if (bodyEl) bodyEl.disabled = locked;
-    if (subBtn) subBtn.disabled = locked;
-    if (writeHint) writeHint.style.display = selected === CONV_ALL && !hasNoOthers ? "block" : "none";
-  }
-
-  function setErr(text) {
+  function setErr(txt) {
     if (!errEl) return;
-    if (text) {
-      errEl.style.display = "block";
-      errEl.textContent = text;
-    } else {
-      errEl.style.display = "none";
-      errEl.textContent = "";
-    }
+    if (txt) { errEl.style.display = "block"; errEl.textContent = txt; }
+    else { errEl.style.display = "none"; errEl.textContent = ""; }
   }
 
   function updateReplyBar() {
-    if (!replyBar) return;
+    if (!replyBarEl) return;
     if (replyToId == null) {
-      replyBar.style.display = "none";
-      replyBar.innerHTML = "";
-      return;
+      replyBarEl.style.display = "none";
+    } else {
+      replyBarEl.style.display = "flex";
+      if (replyTextEl) replyTextEl.textContent = `↩ Respondiendo: "${replyToSnippet}"`;
     }
-    replyBar.style.display = "block";
-    replyBar.innerHTML = `
-      <div class="card-inset community-reply-bar-inner">
-        <span class="small">${escapeHtml(t("community.replyingTo", { snippet: replyToSnippet }))}</span>
-        <button type="button" class="secondary btn-sm" id="com-clear-reply">${escapeHtml(
-          t("community.clearReply")
-        )}</button>
-      </div>
-    `;
-    document.getElementById("com-clear-reply")?.addEventListener("click", () => {
-      replyToId = null;
-      replyToSnippet = "";
+  }
+
+  if (replyClearBtn) {
+    replyClearBtn.addEventListener("click", () => {
+      replyToId = null; replyToSnippet = "";
       updateReplyBar();
     });
   }
 
-  async function doRefresh() {
-    if (hasNoOthers) {
-      lastNormalized = [];
-      threadEl.innerHTML = `<p class="muted">${escapeHtml(t("community.noTeamsInDirectory"))}</p>`;
+  // Renderizar lista de conversaciones
+  function renderConvList() {
+    if (!convListEl) return;
+    if (others.length === 0) {
+      convListEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">${escapeHtml(t("community.noTeamsInDirectory"))}</div>`;
       return;
     }
-    try {
-      const raw =
-        selected === CONV_ALL
-          ? await api.apiCommunityFeed()
-          : await api.apiCommunityMessages(Number(selected));
-      const arr = unwrapCommunityMessages(raw)
-        .map((m) => normalizeCommunityMsg(m, myTeamIds))
-        .filter((m) => m.id != null);
-      lastNormalized = arr;
-      threadEl.innerHTML = buildCommunityThreadHtml(arr, getPeerLabel);
-      setErr("");
-    } catch (ex) {
-      const h = humanizeApiError(ex.message);
-      if (/not found|404/i.test(h) || /not found|404/i.test(String(ex.message))) {
-        setErr(t("community.unavailable"));
-      } else if (/403|forbidden/i.test(h) || /403/i.test(String(ex.message))) {
-        setErr(t("community.forbidden"));
-      } else {
-        setErr(h);
-      }
+    const q = searchQuery.toLowerCase();
+    const filtered = q ? others.filter((o) => (o.threadLabel || "").toLowerCase().includes(q)) : others;
+    if (filtered.length === 0) {
+      convListEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">Sin resultados</div>`;
+      return;
     }
-  }
+    convListEl.innerHTML = filtered.map((o, idx) => {
+      const isActive = o.id === selectedId;
+      const initial = avatarInitial(o.threadLabel);
+      const color = avatarColor(idx);
+      // Nombre del equipo y capitán por separado
+      const parts = (o.threadLabel || "").split(" · ");
+      const teamName = parts[0] || o.threadLabel || "";
+      const captain = parts[1] || "";
+      const bg = isActive ? "#f0f7ff" : "#fff";
+      const borderLeft = isActive ? "3px solid #185fa5" : "3px solid transparent";
+      return `<div class="chat-conv-item" data-id="${o.id}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;background:${bg};border-left:${borderLeft};transition:background 0.1s">
+        <div style="width:40px;height:40px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0">${escapeHtml(initial)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(teamName)}</div>
+          ${captain ? `<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(captain)}</div>` : ""}
+        </div>
+      </div>`;
+    }).join("");
 
-  if (sel) {
-    sel.addEventListener("change", (e) => {
-      selected = e.target.value;
-      if (selected) sessionStorage.setItem(COMMUNITY_FILTER_KEY, selected);
-      else sessionStorage.removeItem(COMMUNITY_FILTER_KEY);
-      replyToId = null;
-      replyToSnippet = "";
-      updateReplyBar();
-      setComposerState();
-      if (selected) {
-        doRefresh();
-      } else {
-        lastNormalized = [];
-        threadEl.innerHTML = `<p class="muted">${escapeHtml(t("community.noTeamsInDirectory"))}</p>`;
-      }
-    });
-  }
-  setComposerState();
-
-  if (refreshBtn) {
-    refreshBtn.addEventListener("click", () => {
-      doRefresh();
-    });
-  }
-
-  if (threadEl) {
-    threadEl.addEventListener("click", (ev) => {
-      const tEl = ev.target;
-      if (tEl.classList.contains("com-rep")) {
-        const mid = Number(tEl.getAttribute("data-mid"));
-        const m = lastNormalized.find((x) => x.id === mid);
-        if (m) {
-          replyToId = mid;
-          replyToSnippet = m.body.length > 90 ? `${m.body.slice(0, 90)}…` : m.body;
+    // Event listeners para items
+    convListEl.querySelectorAll(".chat-conv-item").forEach((el) => {
+      el.addEventListener("mouseenter", () => { if (Number(el.dataset.id) !== selectedId) el.style.background = "#f8fafc"; });
+      el.addEventListener("mouseleave", () => { if (Number(el.dataset.id) !== selectedId) el.style.background = "#fff"; });
+      el.addEventListener("click", () => {
+        const newId = Number(el.dataset.id);
+        if (newId !== selectedId) {
+          selectedId = newId;
+          sessionStorage.setItem(COMMUNITY_FILTER_KEY, String(newId));
+          replyToId = null; replyToSnippet = "";
           updateReplyBar();
-          bodyEl?.focus();
+          renderConvList();
+          loadConversation();
         }
+      });
+    });
+  }
+
+  // Renderizar header del panel derecho
+  function renderChatHeader() {
+    if (!headerEl || selectedId == null) return;
+    const idx = others.findIndex((o) => o.id === selectedId);
+    const peer = idx >= 0 ? others[idx] : null;
+    if (!peer) return;
+    const color = avatarColor(idx);
+    const initial = avatarInitial(peer.threadLabel);
+    const parts = (peer.threadLabel || "").split(" · ");
+    const teamName = parts[0] || peer.threadLabel || "";
+    const captain = parts[1] || "";
+    headerEl.innerHTML = `
+      <div style="width:36px;height:36px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">${escapeHtml(initial)}</div>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#1e293b">${escapeHtml(teamName)}</div>
+        ${captain ? `<div style="font-size:12px;color:#94a3b8">${escapeHtml(captain)}</div>` : ""}
+      </div>
+      <button id="chat-refresh-btn" style="margin-left:auto;padding:5px 12px;font-size:12px;border-radius:6px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">↻ Actualizar</button>
+    `;
+    document.getElementById("chat-refresh-btn")?.addEventListener("click", () => loadConversation());
+  }
+
+  // Renderizar mensajes
+  function renderMessages() {
+    if (!messagesEl) return;
+    if (!lastNormalized.length) {
+      messagesEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">${escapeHtml(t("community.noMessages"))}</div>`;
+      return;
+    }
+    const byId = new Map(lastNormalized.map((m) => [m.id, m]));
+    const sorted = [...lastNormalized].sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
+    const idx = others.findIndex((o) => o.id === selectedId);
+    const peerColor = idx >= 0 ? avatarColor(idx) : "#185fa5";
+    const peerInitial = idx >= 0 ? avatarInitial(others[idx].threadLabel) : "?";
+
+    messagesEl.innerHTML = sorted.map((m) => {
+      const isMine = m.isMine || m.fromMine;
+      const when = m.created ? new Date(m.created).toLocaleTimeString(getUiLocale(), { hour: "2-digit", minute: "2-digit" }) : "";
+
+      // Cita de reply
+      const replyHtml = m.inReplyTo != null && byId.has(m.inReplyTo)
+        ? `<div style="padding:6px 10px;border-left:3px solid rgba(255,255,255,0.4);background:rgba(0,0,0,0.08);border-radius:4px;margin-bottom:6px;font-size:11px;color:${isMine ? "rgba(255,255,255,0.8)" : "#64748b"};max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(String(byId.get(m.inReplyTo).body).slice(0, 80))}…</div>`
+        : "";
+
+      if (isMine) {
+        // Mensaje propio — derecha, azul
+        return `<div style="display:flex;justify-content:flex-end;align-items:flex-end;gap:8px">
+          <div style="max-width:65%">
+            <div style="background:#185fa5;color:#fff;padding:10px 14px;border-radius:12px 12px 4px 12px;font-size:14px;line-height:1.4;word-break:break-word">
+              ${replyHtml}
+              ${escapeHtml(m.body)}
+            </div>
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:4px">
+              <time style="font-size:11px;color:#94a3b8">${escapeHtml(when)}</time>
+              <button class="chat-rep-btn" data-mid="${m.id}" style="font-size:11px;color:#94a3b8;background:none;border:none;cursor:pointer;padding:0">↩</button>
+              <button class="chat-del-btn" data-mid="${m.id}" style="font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer;padding:0">✕</button>
+            </div>
+          </div>
+        </div>`;
+      } else {
+        // Mensaje recibido — izquierda, gris
+        const sender = escapeHtml(m.senderCaption || t("community.fromOther"));
+        return `<div style="display:flex;align-items:flex-end;gap:8px">
+          <div style="width:32px;height:32px;border-radius:50%;background:${peerColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${escapeHtml(peerInitial)}</div>
+          <div style="max-width:65%">
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:3px">${sender}</div>
+            <div style="background:#f1f5f9;color:#1e293b;padding:10px 14px;border-radius:12px 12px 12px 4px;font-size:14px;line-height:1.4;word-break:break-word">
+              ${replyHtml}
+              ${escapeHtml(m.body)}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+              <time style="font-size:11px;color:#94a3b8">${escapeHtml(when)}</time>
+              <button class="chat-rep-btn" data-mid="${m.id}" style="font-size:11px;color:#94a3b8;background:none;border:none;cursor:pointer;padding:0">↩ Responder</button>
+            </div>
+          </div>
+        </div>`;
       }
-      if (tEl.classList.contains("com-del")) {
-        const mid = Number(tEl.getAttribute("data-mid"));
+    }).join("");
+
+    // Scroll al final
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // Event listeners de reply y delete en mensajes
+    messagesEl.querySelectorAll(".chat-rep-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mid = Number(btn.dataset.mid);
+        const msg = lastNormalized.find((x) => x.id === mid);
+        if (msg) {
+          replyToId = mid;
+          replyToSnippet = msg.body.length > 80 ? `${msg.body.slice(0, 80)}…` : msg.body;
+          updateReplyBar();
+          inputEl?.focus();
+        }
+      });
+    });
+    messagesEl.querySelectorAll(".chat-del-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mid = Number(btn.dataset.mid);
         if (mid && globalThis.confirm(t("community.deleteConfirm"))) {
           (async () => {
             try {
               await api.apiDeleteCommunityMessage(mid);
               setErr("");
-              await doRefresh();
+              await loadConversation();
             } catch (ex) {
-              const h = humanizeApiError(ex.message);
-              if (/403|forbidden/i.test(h) || /403/i.test(String(ex.message))) {
-                setErr(t("community.forbidden"));
-              } else {
-                setErr(h);
-              }
+              setErr(humanizeApiError(ex.message));
             }
           })();
         }
-      }
+      });
     });
   }
 
-  if (form) {
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (hasNoOthers) return;
-      const text = (bodyEl.value || "").trim();
+  // Cargar conversación activa
+  async function loadConversation() {
+    if (selectedId == null) return;
+    if (!messagesEl) return;
+    messagesEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">${escapeHtml(t("common.loading"))}</div>`;
+    setErr("");
+    try {
+      const raw = await api.apiCommunityMessages(selectedId);
+      lastNormalized = unwrapCommunityMessages(raw)
+        .map((m) => normalizeCommunityMsg(m, myTeamIds))
+        .filter((m) => m.id != null);
+      renderMessages();
+    } catch (ex) {
+      const h = humanizeApiError(ex.message);
+      if (/not found|404/i.test(h)) setErr(t("community.unavailable"));
+      else if (/403|forbidden/i.test(h)) setErr(t("community.forbidden"));
+      else setErr(h);
+      messagesEl.innerHTML = "";
+    }
+  }
+
+  // Enviar mensaje
+  if (sendBtn && inputEl) {
+    sendBtn.addEventListener("click", async () => {
+      if (selectedId == null) return;
+      const text = (inputEl.value || "").trim();
       if (!text) return;
-      let targetTeam = null;
-      if (selected === CONV_ALL) {
-        if (replyToId != null) {
-          const ref = lastNormalized.find((x) => x.id === replyToId);
-          if (ref && ref.peerTeamId != null) {
-            targetTeam = ref.peerTeamId;
-          }
-        }
-        if (targetTeam == null) {
-          setErr(t("community.writeRequiresContact"));
-          return;
-        }
-      } else {
-        targetTeam = Number(selected);
-      }
-      if (!targetTeam || !Number.isFinite(targetTeam)) {
-        setErr(t("community.writeRequiresContact"));
-        return;
-      }
+      sendBtn.disabled = true;
       try {
-        await api.apiPostCommunityMessage({
-          otherTeamId: targetTeam,
-          body: text,
-          inReplyTo: replyToId,
-        });
-        bodyEl.value = "";
-        replyToId = null;
-        replyToSnippet = "";
+        await api.apiPostCommunityMessage({ otherTeamId: selectedId, body: text, inReplyTo: replyToId });
+        inputEl.value = "";
+        replyToId = null; replyToSnippet = "";
         updateReplyBar();
-        await doRefresh();
         setErr("");
+        await loadConversation();
       } catch (ex) {
-        const h = humanizeApiError(ex.message);
-        if (/403|forbidden/i.test(h) || /403/i.test(String(ex.message))) {
-          setErr(t("community.forbidden"));
-        } else {
-          setErr(h);
-        }
+        setErr(humanizeApiError(ex.message));
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+
+    // Ctrl+Enter para enviar
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        sendBtn.click();
       }
     });
   }
 
-  if (!hasNoOthers) {
-    await doRefresh();
+  // Buscador
+  if (searchEl) {
+    searchEl.addEventListener("input", (e) => {
+      searchQuery = e.target.value || "";
+      renderConvList();
+    });
+  }
+
+  // Botón nuevo mensaje — foco en el buscador
+  document.getElementById("chat-new-btn")?.addEventListener("click", () => searchEl?.focus());
+
+  // Inicializar
+  renderConvList();
+  renderChatHeader();
+  if (selectedId != null) {
+    await loadConversation();
   }
 }
 
