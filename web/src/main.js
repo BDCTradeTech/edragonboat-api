@@ -3203,24 +3203,6 @@ async function renderCompetencias() {
     ]);
     const teamCountries = Array.isArray(teamCountriesRaw) ? teamCountriesRaw : [];
 
-    const isPlatformAdmin = me.is_platform_admin === true;
-    const myUserId = me.id != null ? Number(me.id) : null;
-    const myTeamNameKeys = new Set(
-      (myTeams || [])
-        .map((x) => (x.team && x.team.name ? String(x.team.name).trim().toLowerCase() : ""))
-        .filter(Boolean)
-    );
-
-    /** Detalle de sesión: solo mismo equipo (nombre en JSON), quien subió, o administrador. */
-    function canOpenCompetenciaDetail(r) {
-      if (isPlatformAdmin) return true;
-      if (myUserId != null && r.uploaded_by_user_id != null && Number(r.uploaded_by_user_id) === myUserId) {
-        return true;
-      }
-      const n = (r.team_name || "").trim().toLowerCase();
-      return Boolean(n && myTeamNameKeys.has(n));
-    }
-
     const introBlock = `<p class="muted small">${t("competitions.introGlobalHtml")}</p>`;
 
     if (!allRows.length) {
@@ -3411,9 +3393,8 @@ async function renderCompetencias() {
       const html = filtered
         .map(
           (r) => {
-        const canOpen = canOpenCompetenciaDetail(r);
         const em = t("account.emptyDash");
-        const idCell = canOpen
+        const idCell = r.can_view_detail
           ? `<td><a class="link" href="#/session/${r.id}">#${r.id}</a></td>`
           : `<td><span class="muted" title="${escapeHtml(t("competitions.idLockedTitle"))}">#${r.id}</span></td>`;
         return `
