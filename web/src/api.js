@@ -78,27 +78,32 @@ export async function apiUpdateMe(partial) {
 }
 
 export async function apiMe() {
-  /** Preferir `/me` y `/auth/me` (UserRead completo); `/profile` como alias por compatibilidad con proxies viejos. */
+  /** Preferir `/me` y `/auth/me` (UserRead completo); `/profile` como alias por compatibilidad con proxies viejos.
+   * Usa Promise.any() para paralelizar las tres peticiones y retornar el primero con status 200.
+   */
   const paths = ["/api/v1/me", "/api/v1/auth/me", "/api/v1/profile"];
-  let lastText = "";
-  for (let i = 0; i < paths.length; i++) {
-    const p = paths[i];
-    const res = await fetch(`${API}${p}`, { headers: authHeaders() });
-    lastText = await res.text();
-    if (res.ok) {
-      try {
-        const me = JSON.parse(lastText);
-        const hasAdminFlag = me && typeof me.is_platform_admin === "boolean";
-        if (!hasAdminFlag && i < paths.length - 1) {
-          continue;
-        }
-        return me;
-      } catch {
-        throw new Error(lastText || `Error ${res.status}`);
-      }
-    }
+  try {
+    const result = await Promise.any(
+      paths.map(path =>
+        fetch(`${API}${path}`, { headers: authHeaders() })
+          .then(r => {
+            if (!r.ok) throw new Error(`Status ${r.status}`);
+            return r.json();
+          })
+          .then(me => {
+            // Validar que la respuesta tenga la bandera is_platform_admin
+            if (me && typeof me.is_platform_admin === "boolean") {
+              return me;
+            }
+            throw new Error("Missing is_platform_admin flag");
+          })
+      )
+    );
+    return result;
+  } catch (err) {
+    // Promise.any falla si todas las promesas rechazan
+    throw new Error("No se pudo cargar el perfil");
   }
-  throw new Error(lastText || "No se pudo cargar el perfil");
 }
 
 export async function apiListSessions(teamId) {
@@ -384,4 +389,26 @@ export async function apiDeleteCommunityMessage(messageId) {
     headers: authHeaders(),
   });
   if (!res.ok) throw new Error(await res.text());
+}
+
+/**
+ * Helper genérico para el foro y futuros módulos.
+ * @param {"GET"|"POST"|"PATCH"|"PUT"|"DELETE"} method
+ * @param {string} path  — relativo al base URL, ej. "/forum/posts"
+ * @param {object|null} body
+ */
+export async function apiRequest(method, path, body = null) {
+  const opts = {
+    method,
+    headers: { ...authHeaders() },
+  };
+  if (body != null) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(`${API}/api/v1${path}`, opts);
+  if (!res.ok) throw new Error(await res.text());
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) return res.json();
+  return res.text();
 }
