@@ -143,19 +143,18 @@ def _team_logo_url_for_name(
 
 
 def _can_view_competencia_session(db: Session, current: User, row: LibreSessionUpload) -> bool:
+    """Control de acceso robusto: compara team_id de membresías, no nombres de equipo.
+
+    Un usuario puede ver el detalle completo si:
+    - Es admin de plataforma, o
+    - Es quien subió la sesión, o
+    - Comparte al menos un equipo con quien la subió (por team_id, no por nombre).
+    """
     if current.is_platform_admin:
         return True
     if row.user_id == current.id:
         return True
-    key = _session_team_name_key(row.json_payload)
-    if key is None:
-        return False
-    memberships = db.scalars(select(TeamMembership).where(TeamMembership.user_id == current.id)).all()
-    for m in memberships:
-        team = db.get(Team, m.team_id)
-        if team is not None and team.name.strip().casefold() == key:
-            return True
-    return False
+    return _users_share_team(db, current.id, row.user_id)
 
 
 def _summarize_row(
@@ -305,7 +304,10 @@ def list_competencia_sessions(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
 ) -> list[LibreSessionListItem]:
-    """Listado global: todas las sesiones con sessionKind=competencia, de todos los usuarios (requiere login)."""
+    """Listado global: todas las sesiones con sessionKind=competencia, de todos los usuarios (requiere login).
+
+    Incluye `can_view_detail` calculado server-side por team_id (no por nombre de equipo).
+    """
     cap = min(8000, max(2000, (skip + limit) * 25))
     rows = db.scalars(
         select(LibreSessionUpload).order_by(LibreSessionUpload.created_at.desc()).limit(cap)
@@ -314,10 +316,27 @@ def list_competencia_sessions(
     page = matched[skip : skip + limit]
     country_lookup = _team_country_lookup_map(db)
     logo_lookup = _team_logo_url_lookup_map(db)
-    return [
-        _summarize_row(r, team_country_lookup=country_lookup, team_logo_lookup=logo_lookup)
-        for r in page
-    ]
+
+    # Precalculamos los team_ids del usuario actual para evitar N+1 queries.
+    current_team_ids: set[int] = set(
+        db.scalars(select(TeamMembership.team_id).where(TeamMembership.user_id == current.id)).all()
+    )
+
+    result: list[LibreSessionListItem] = []
+    for r in page:
+        item = _summarize_row(r, team_country_lookup=country_lookup, team_logo_lookup=logo_lookup)
+        # can_view_detail: True si admin, si es el uploader, o si comparte equipo por team_id.
+        if current.is_platform_admin or r.user_id == current.id:
+            item.can_view_detail = True
+        else:
+            uploader_team_ids: set[int] = set(
+                db.scalars(
+                    select(TeamMembership.team_id).where(TeamMembership.user_id == r.user_id)
+                ).all()
+            )
+            item.can_view_detail = bool(current_team_ids & uploader_team_ids)
+        result.append(item)
+    return result
 
 
 @router.get("/libre", response_model=list[LibreSessionListItem])
@@ -379,6 +398,64 @@ def list_libre_sessions(
         if item.team_name and item.team_name.strip().casefold() == target_name:
             matched.append(item)
     return matched[skip : skip + limit]
+
+
+@router.get("/competencia/{session_id}")
+def get_competencia_session(
+    session_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+) -> dict[str, Any]:
+    """Detalle de una sesión de competencia con control de acceso server-side.
+
+    - Admin o mismo equipo (por team_id): devuelve el JSON completo en `session`.
+    - Otros usuarios autenticados: devuelve metadatos públicos con `session=null`.
+    """
+    row = db.get(LibreSessionUpload, session_id)
+    if row is None or not _is_competencia_payload(row.json_payload):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
+
+    can_view_full = _can_view_competencia_session(db, current, row)
+
+    logo_lookup = _team_logo_url_lookup_map(db)
+    country_lookup = _team_country_lookup_map(db)
+    summary = _summarize_row(row, team_country_lookup=country_lookup, team_logo_lookup=logo_lookup)
+
+    base: dict[str, Any] = {
+        "id": row.id,
+        "created_at": row.created_at,
+        "uploaded_by_user_id": row.user_id,
+        "can_view_detail": can_view_full,
+        "team_name": summary.team_name,
+        "team_country": summary.team_country,
+        "team_logo_url": summary.team_logo_url,
+        "session_kind": summary.session_kind,
+        "target_distance_meters": summary.target_distance_meters,
+        "boat_type": summary.boat_type,
+        "paddlers_count": summary.paddlers_count,
+        "drummer": summary.drummer,
+        "age_category": summary.age_category,
+        "team_category": summary.team_category,
+        "virada": summary.virada,
+        "total_seconds": summary.total_seconds,
+        "distance_meters": summary.distance_meters,
+    }
+
+    if can_view_full:
+        try:
+            session_payload: dict[str, Any] = json.loads(row.json_payload)
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="JSON de sesión corrupto en el servidor",
+            )
+        base["session"] = session_payload
+        base["can_delete"] = _can_delete_libre_session(db, current, row)
+    else:
+        base["session"] = None
+        base["can_delete"] = False
+
+    return base
 
 
 @router.get("/libre/{session_id}")

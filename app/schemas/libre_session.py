@@ -60,6 +60,9 @@ class LibreSessionListItem(BaseModel):
     """País del equipo (código o nombre según la app / equipo en API)."""
     team_logo_url: str | None = None
     """URL relativa del logo si existe un equipo en la API con el mismo nombre que team_name y tiene logo."""
+    can_view_detail: bool = False
+    """True si el usuario autenticado puede ver el JSON completo de la sesión (mismo equipo o admin).
+    Calculado server-side; no reemplaza la validación en el endpoint de detalle."""
 
 
 class LibreSessionDetailResponse(BaseModel):
