@@ -363,19 +363,19 @@ async function renderHome() {
     <div class="charts-grid">
       <div class="chart-card">
         <div class="chart-card-title">Km recorridos</div>
-        <div style="position:relative;height:120px;"><canvas id="home-chart-km"></canvas></div>
+        <div style="position:relative;height:140px;"><canvas id="home-chart-km"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-card-title">Sesiones por mes</div>
-        <div style="position:relative;height:120px;"><canvas id="home-chart-sessions"></canvas></div>
+        <div style="position:relative;height:140px;"><canvas id="home-chart-sessions"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-card-title">SPM promedio</div>
-        <div style="position:relative;height:120px;"><canvas id="home-chart-spm"></canvas></div>
+        <div style="position:relative;height:140px;"><canvas id="home-chart-spm"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-card-title">Paladas totales</div>
-        <div style="position:relative;height:120px;"><canvas id="home-chart-strokes"></canvas></div>
+        <div style="position:relative;height:140px;"><canvas id="home-chart-strokes"></canvas></div>
       </div>
     </div>
     <div class="features-grid">
@@ -2177,17 +2177,16 @@ async function renderSessionDetail(id) {
 
     const cardStyle = "background:#fff;border:0.5px solid #e2e8f0;border-radius:10px;padding:10px 12px;min-height:64px;display:flex;flex-direction:column;justify-content:space-between";
     const labelStyle = "font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px";
-    const valueStyle = "font-size:20px;font-weight:700;color:#185fa5;line-height:1.1";
-    const valueSm = "font-size:14px;font-weight:700;color:#185fa5;line-height:1.2";
+    const valueStyle = "font-size:18px;font-weight:700;color:#185fa5;line-height:1.2";
 
     const statCards = `
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">
-        <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statDate"))}</div><div style="${valueSm}">${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</div></div>
+        <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statDate"))}</div><div style="${valueStyle}">${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</div></div>
         <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statTotalTime"))}</div><div style="${valueStyle}">${s.totalSeconds != null ? `${Math.floor(s.totalSeconds / 60)}:${String(s.totalSeconds % 60).padStart(2, "0")}` : em}</div></div>
         <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statFinalDistance"))}</div><div style="${valueStyle}">${last ? last.distanceMeters.toFixed(0) + " m" : em}</div></div>
         <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statStrokes"))}</div><div style="${valueStyle}">${last ? last.paladas : em}</div></div>
-        ${s.teamName ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.teamInSession"))}</div><div style="${valueSm}">${escapeHtml(s.teamName)}</div></div>` : `<div style="${cardStyle}"></div>`}
-        ${s.boatType ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.boat"))}</div><div style="${valueSm}">${escapeHtml(s.boatType)}</div></div>` : `<div style="${cardStyle}"></div>`}
+        ${s.teamName ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.teamInSession"))}</div><div style="${valueStyle}">${escapeHtml(s.teamName)}</div></div>` : `<div style="${cardStyle}"></div>`}
+        ${s.boatType ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.boat"))}</div><div style="${valueStyle}">${escapeHtml(s.boatType)}</div></div>` : `<div style="${cardStyle}"></div>`}
         ${s.paddlersCount != null ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.paddlersCount"))}</div><div style="${valueStyle}">${escapeHtml(String(s.paddlersCount))}</div></div>` : `<div style="${cardStyle}"></div>`}
       </div>
     `;
@@ -2202,12 +2201,12 @@ async function renderSessionDetail(id) {
     const allCardsGrid = `
       <div style="position:sticky;top:0;z-index:10;background:#f0f4f8;padding:10px 0;margin-bottom:12px">
         <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px">
-          <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statDate"))}</div><div style="${valueSm}">${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</div></div>
+          <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statDate"))}</div><div style="${valueStyle}">${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</div></div>
           <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statTotalTime"))}</div><div style="${valueStyle}">${s.totalSeconds != null ? `${Math.floor(s.totalSeconds / 60)}:${String(s.totalSeconds % 60).padStart(2, "0")}` : em}</div></div>
           <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statFinalDistance"))}</div><div style="${valueStyle}">${last ? last.distanceMeters.toFixed(0) + " m" : em}</div></div>
           <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statStrokes"))}</div><div style="${valueStyle}">${last ? last.paladas : em}</div></div>
-          ${s.teamName ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.teamInSession"))}</div><div style="${valueSm}">${escapeHtml(s.teamName)}</div></div>` : `<div style="${cardStyle}"></div>`}
-          ${s.boatType ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.boat"))}</div><div style="${valueSm}">${escapeHtml(s.boatType)}</div></div>` : `<div style="${cardStyle}"></div>`}
+          ${s.teamName ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.teamInSession"))}</div><div style="${valueStyle}">${escapeHtml(s.teamName)}</div></div>` : `<div style="${cardStyle}"></div>`}
+          ${s.boatType ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.boat"))}</div><div style="${valueStyle}">${escapeHtml(s.boatType.charAt(0).toUpperCase() + s.boatType.slice(1))}</div></div>` : `<div style="${cardStyle}"></div>`}
           ${s.paddlersCount != null ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.paddlersCount"))}</div><div style="${valueStyle}">${escapeHtml(String(s.paddlersCount))}</div></div>` : `<div style="${cardStyle}"></div>`}
           <div style="${cardStyle};border-color:#185fa5;background:#f0f7ff">
             <div style="${labelStyle}">ACCIONES</div>
@@ -2311,7 +2310,7 @@ async function renderSessionDetail(id) {
         const teamId = myTeams.length ? myTeams[0].team.id : null;
         if (!teamId) return;
         const allSessions = await api.apiListSessions(teamId);
-        const sorted = [...allSessions].sort((a, b) => b.id - a.id);
+        const sorted = [...allSessions].sort((a, b) => a.id - b.id);
         const idx = sorted.findIndex((s) => s.id === Number(id));
         const prevSession = idx > 0 ? sorted[idx - 1] : null;
         const nextSession = idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null;
