@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user
-from app.api.v1.routes import auth, community, health, regatas, routines, sessions, teams
+from app.api.v1.routes import auth, community, forum, health, regatas, routines, sessions, teams
 from app.models.user import User
 from app.schemas.user import UserRead
 
@@ -15,6 +15,7 @@ api_router.include_router(community.router, prefix="/community", tags=["communit
 api_router.include_router(routines.router, prefix="/routines", tags=["routines"])
 api_router.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
 api_router.include_router(regatas.router, prefix="/regatas", tags=["regatas"])
+api_router.include_router(forum.router, prefix="/forum", tags=["forum"])
 
 
 @api_router.get("/me", response_model=UserRead, tags=["auth"])

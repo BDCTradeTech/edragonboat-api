@@ -186,6 +186,7 @@ def _ensure_platform_inbox_team() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import app.models.community_message  # noqa: F401
+    import app.models.forum  # noqa: F401
     import app.models.libre_session_upload  # noqa: F401
     import app.models.membership  # noqa: F401
     import app.models.team  # noqa: F401
