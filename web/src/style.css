@@ -270,6 +270,8 @@ th.th-sortable:hover {
   max-height: 520px;
 }
 
+.table-scroll.free { max-height: none; overflow: visible; }
+
 table {
   width: 100%;
   border-collapse: collapse;
