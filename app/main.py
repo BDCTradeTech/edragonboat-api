@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -342,10 +343,10 @@ def deploy_check(current: Annotated[User, Depends(get_current_user)]) -> dict[st
     }
 
 
-@app.get("/api/v1/profile", response_model=UserRead, tags=["auth"])
-def panel_profile(current: Annotated[User, Depends(get_current_user)]) -> User:
-    """Perfil del usuario (alias para el panel si /me o /auth/me no responden)."""
-    return current
+@app.get("/api/v1/profile", tags=["auth"], include_in_schema=False)
+def panel_profile_redirect() -> RedirectResponse:
+    """Redirect permanente a /api/v1/auth/me (canónico)."""
+    return RedirectResponse(url="/api/v1/auth/me", status_code=301)
 
 
 @app.delete("/api/v1/equipo/{team_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["teams"])

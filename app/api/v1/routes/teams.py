@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.v1.deps_teams import _membership, _require_team_access
 from app.core.config import get_settings
 from app.core.mail import INVITE_DEFAULT_PASSWORD, send_team_invite_email
 from app.core.security import hash_password
@@ -138,28 +139,11 @@ def _invite_email_key(email: str) -> str:
     return str(email).strip().lower()
 
 
-def _membership(db: Session, user_id: int, team_id: int) -> TeamMembership | None:
-    return db.scalar(
-        select(TeamMembership).where(
-            TeamMembership.user_id == user_id,
-            TeamMembership.team_id == team_id,
-        )
-    )
-
-
 def _require_team_exists(db: Session, team_id: int) -> Team:
     team = db.get(Team, team_id)
     if team is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado")
     return team
-
-
-def _require_team_access(db: Session, current: User, team_id: int) -> None:
-    if current.is_platform_admin:
-        _require_team_exists(db, team_id)
-        return
-    if _membership(db, current.id, team_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Equipo no encontrado o sin acceso")
 
 
 def _require_access(db: Session, current: User, team_id: int) -> TeamMembership:

@@ -1,11 +1,7 @@
-from typing import Annotated
+from fastapi import APIRouter
+from fastapi.responses import RedirectResponse
 
-from fastapi import APIRouter, Depends
-
-from app.api.deps import get_current_user
 from app.api.v1.routes import auth, community, forum, health, regatas, routines, sessions, teams
-from app.models.user import User
-from app.schemas.user import UserRead
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
@@ -18,7 +14,7 @@ api_router.include_router(regatas.router, prefix="/regatas", tags=["regatas"])
 api_router.include_router(forum.router, prefix="/forum", tags=["forum"])
 
 
-@api_router.get("/me", response_model=UserRead, tags=["auth"])
-def read_me(current: Annotated[User, Depends(get_current_user)]) -> User:
-    """Perfil del usuario (panel web). Ruta corta por si /auth/me no está en caché o proxy."""
-    return current
+@api_router.get("/me", tags=["auth"], include_in_schema=False)
+def read_me_redirect() -> RedirectResponse:
+    """Redirect permanente a /api/v1/auth/me (canónico)."""
+    return RedirectResponse(url="/api/v1/auth/me", status_code=301)
