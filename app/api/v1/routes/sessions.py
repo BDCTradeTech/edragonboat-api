@@ -258,9 +258,15 @@ async def upload_libre_session(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"JSON de sesi?n inv?lido: {e}",
         ) from e
+    payload_str = raw_bytes.decode("utf-8")
+    try:
+        _kind = json.loads(payload_str).get("sessionKind") or "libre"
+    except Exception:
+        _kind = "libre"
     row = LibreSessionUpload(
         user_id=current.id,
-        json_payload=raw_bytes.decode("utf-8"),
+        json_payload=payload_str,
+        session_kind=_kind,
     )
     db.add(row)
     db.commit()
@@ -287,9 +293,15 @@ async def upload_competencia_session(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"JSON de sesi?n inv?lido: {e}",
         ) from e
+    payload_str = raw_bytes.decode("utf-8")
+    try:
+        _kind = json.loads(payload_str).get("sessionKind") or "competencia"
+    except Exception:
+        _kind = "competencia"
     row = LibreSessionUpload(
         user_id=current.id,
-        json_payload=raw_bytes.decode("utf-8"),
+        json_payload=payload_str,
+        session_kind=_kind,
     )
     db.add(row)
     db.commit()
@@ -308,12 +320,13 @@ def list_competencia_sessions(
 
     Incluye `can_view_detail` calculado server-side por team_id (no por nombre de equipo).
     """
-    cap = min(8000, max(2000, (skip + limit) * 25))
-    rows = db.scalars(
-        select(LibreSessionUpload).order_by(LibreSessionUpload.created_at.desc()).limit(cap)
+    page = db.scalars(
+        select(LibreSessionUpload)
+        .where(LibreSessionUpload.session_kind == "competencia")
+        .order_by(LibreSessionUpload.created_at.desc())
+        .offset(skip)
+        .limit(limit)
     ).all()
-    matched = [r for r in rows if _is_competencia_payload(r.json_payload)]
-    page = matched[skip : skip + limit]
     country_lookup = _team_country_lookup_map(db)
     logo_lookup = _team_logo_url_lookup_map(db)
 
@@ -350,16 +363,16 @@ def list_libre_sessions(
     """Sin team_id: solo sesiones que subi? el usuario. Con team_id: sesiones de cualquier miembro del equipo cuyo JSON teamName coincide con el nombre del equipo."""
     base = (
         select(LibreSessionUpload)
-        .where(LibreSessionUpload.user_id == current.id)
+        .where(
+            LibreSessionUpload.user_id == current.id,
+            LibreSessionUpload.session_kind != "competencia",
+        )
         .order_by(LibreSessionUpload.created_at.desc())
     )
     if team_id is None:
-        cap = min(2000, max(500, (skip + limit) * 10))
-        rows = db.scalars(base.limit(cap)).all()
-        libre_rows = [r for r in rows if not _is_competencia_payload(r.json_payload)]
-        page = libre_rows[skip : skip + limit]
+        rows = db.scalars(base.offset(skip).limit(limit)).all()
         logo_lookup = _team_logo_url_lookup_map(db)
-        return [_summarize_row(r, team_logo_lookup=logo_lookup) for r in page]
+        return [_summarize_row(r, team_logo_lookup=logo_lookup) for r in rows]
 
     if not current.is_platform_admin:
         m = db.scalar(
@@ -381,19 +394,20 @@ def list_libre_sessions(
     # Capit?n, entrenador y palistas: ven entrenamientos subidos por cualquier miembro del equipo
     # (mismo criterio: teamName en el JSON coincide con el nombre del equipo).
     member_ids = select(TeamMembership.user_id).where(TeamMembership.team_id == team_id)
-    base = (
-        select(LibreSessionUpload)
-        .where(LibreSessionUpload.user_id.in_(member_ids))
-        .order_by(LibreSessionUpload.created_at.desc())
-    )
-
+    # session_kind filtra en SQL; teamName sigue filtrando en Python (está dentro del JSON).
     cap = min(2000, max(500, (skip + limit) * 20))
-    rows = db.scalars(base.limit(cap)).all()
+    rows = db.scalars(
+        select(LibreSessionUpload)
+        .where(
+            LibreSessionUpload.user_id.in_(member_ids),
+            LibreSessionUpload.session_kind != "competencia",
+        )
+        .order_by(LibreSessionUpload.created_at.desc())
+        .limit(cap)
+    ).all()
     logo_lookup = _team_logo_url_lookup_map(db)
     matched: list[LibreSessionListItem] = []
     for r in rows:
-        if _is_competencia_payload(r.json_payload):
-            continue
         item = _summarize_row(r, team_logo_lookup=logo_lookup)
         if item.team_name and item.team_name.strip().casefold() == target_name:
             matched.append(item)

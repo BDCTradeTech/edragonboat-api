@@ -119,6 +119,90 @@ def _migrate_users_platform_admin() -> None:
             conn.execute(text("ALTER TABLE users ADD COLUMN is_platform_admin BOOLEAN NOT NULL DEFAULT false"))
 
 
+def _migrate_libre_session_kind() -> None:
+    """Agrega columna session_kind a libre_session_uploads si no existe y crea el índice."""
+    try:
+        cols = [c["name"] for c in inspect(engine).get_columns("libre_session_uploads")]
+    except Exception:
+        return
+    if "session_kind" not in cols:
+        dialect = engine.dialect.name
+        with engine.begin() as conn:
+            if dialect == "sqlite":
+                conn.execute(
+                    text("ALTER TABLE libre_session_uploads ADD COLUMN session_kind VARCHAR(50)")
+                )
+            else:
+                conn.execute(
+                    text(
+                        "ALTER TABLE libre_session_uploads"
+                        " ADD COLUMN IF NOT EXISTS session_kind VARCHAR(50)"
+                    )
+                )
+    # Crear índice si no existe (idempotente en ambos dialectos).
+    with engine.begin() as conn:
+        dialect = engine.dialect.name
+        if dialect == "sqlite":
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_libre_session_uploads_session_kind"
+                    " ON libre_session_uploads (session_kind)"
+                )
+            )
+        else:
+            # CONCURRENTLY no puede usarse dentro de una transacción explícita en PostgreSQL;
+            # usamos CREATE INDEX IF NOT EXISTS sin CONCURRENTLY para la migración de arranque.
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_libre_session_uploads_session_kind"
+                    " ON libre_session_uploads (session_kind)"
+                )
+            )
+
+
+def _backfill_libre_session_kind() -> None:
+    """Rellena session_kind leyendo sessionKind del JSON para registros que aún tienen NULL.
+
+    Se ejecuta en batches de 500 para no bloquear la tabla completa.
+    En bases chicas (< 500 filas) lo resuelve en un solo batch.
+    """
+    import json as _json
+
+    BATCH = 500
+    with engine.connect() as conn:
+        while True:
+            rows = conn.execute(
+                text(
+                    "SELECT id, json_payload FROM libre_session_uploads"
+                    " WHERE session_kind IS NULL LIMIT :lim"
+                ),
+                {"lim": BATCH},
+            ).fetchall()
+            if not rows:
+                break
+            for row in rows:
+                try:
+                    payload = (
+                        _json.loads(row.json_payload)
+                        if isinstance(row.json_payload, str)
+                        else row.json_payload
+                    )
+                    kind = (
+                        payload.get("sessionKind")
+                        or payload.get("session_kind")
+                        or "libre"
+                    )
+                except Exception:
+                    kind = "libre"
+                conn.execute(
+                    text(
+                        "UPDATE libre_session_uploads SET session_kind = :kind WHERE id = :id"
+                    ),
+                    {"kind": kind, "id": row.id},
+                )
+            conn.commit()
+
+
 def _bootstrap_platform_admin_emails() -> None:
     """Marca como admin de plataforma los usuarios listados en PLATFORM_ADMIN_EMAILS (solo promueve, no quita el flag)."""
     cfg = get_settings()
@@ -202,6 +286,8 @@ async def lifespan(app: FastAPI):
     _migrate_team_membership_roster()
     _migrate_users_ui_language()
     _migrate_users_platform_admin()
+    _migrate_libre_session_kind()
+    _backfill_libre_session_kind()
     _bootstrap_platform_admin_emails()
     _ensure_platform_inbox_team()
     data_dir = Path(get_settings().data_dir)
