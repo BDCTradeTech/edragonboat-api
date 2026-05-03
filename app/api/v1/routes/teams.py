@@ -244,21 +244,29 @@ def my_teams(
     current: Annotated[User, Depends(get_current_user)],
 ) -> list[MyTeamRead]:
     if current.is_platform_admin:
-        teams = db.scalars(select(Team).order_by(Team.name.asc())).all()
+        # Una sola query: todos los equipos con LEFT JOIN de la membresía del admin
+        rows = db.execute(
+            select(Team, TeamMembership)
+            .outerjoin(
+                TeamMembership,
+                (TeamMembership.team_id == Team.id)
+                & (TeamMembership.user_id == current.id),
+            )
+            .order_by(Team.name.asc())
+        ).all()
         out: list[MyTeamRead] = []
-        for team in teams:
-            m = _membership(db, current.id, team.id)
+        for team, m in rows:
             role = m.role if m is not None else TeamRole.paddler
             out.append(MyTeamRead(team=_team_read(team), role=role))
         return out
-    rows = db.scalars(
-        select(TeamMembership).where(TeamMembership.user_id == current.id)
+    # Una sola query: membresías del usuario con JOIN al equipo
+    rows = db.execute(
+        select(TeamMembership, Team)
+        .join(Team, Team.id == TeamMembership.team_id)
+        .where(TeamMembership.user_id == current.id)
     ).all()
     out = []
-    for m in rows:
-        team = db.get(Team, m.team_id)
-        if team is None:
-            continue
+    for m, team in rows:
         out.append(MyTeamRead(team=_team_read(team), role=m.role))
     return out
 
@@ -281,15 +289,13 @@ def list_team_members(
     current: Annotated[User, Depends(get_current_user)],
 ) -> list[TeamMemberRead]:
     _require_team_access(db, current, team_id)
-    rows = db.scalars(
-        select(TeamMembership).where(TeamMembership.team_id == team_id)
+    # Una sola query con JOIN: evita N queries db.get(User) en loop
+    rows = db.execute(
+        select(TeamMembership, User)
+        .join(User, User.id == TeamMembership.user_id)
+        .where(TeamMembership.team_id == team_id)
     ).all()
-    out: list[TeamMemberRead] = []
-    for m in rows:
-        u = db.get(User, m.user_id)
-        if u is None:
-            continue
-        out.append(_member_read(m, u))
+    out: list[TeamMemberRead] = [_member_read(m, u) for m, u in rows]
     return sorted(out, key=lambda x: (x.role != TeamRole.captain, x.email))
 
 

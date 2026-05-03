@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.api.deps import get_current_user
 from app.core.config import get_settings
@@ -237,49 +237,87 @@ def list_community_directory(
             detail="Solo los capitanes pueden ver el directorio de comunidad",
         )
 
-    team_ids = list(
-        db.scalars(
-            select(TeamMembership.team_id)
-            .where(TeamMembership.role == TeamRole.captain)
-            .group_by(TeamMembership.team_id)
-            .order_by(TeamMembership.team_id)
-        ).all()
-    )
-    if not team_ids:
-        return CommunityTeamsPage(teams=[])
-
     my_tids = _my_captain_team_id_set(db, current)
     contact_key = (get_settings().platform_contact_email or "").strip().casefold()
-    out: list[CommunityTeamItem] = []
-    for team_id in team_ids:
-        team = db.get(Team, team_id)
-        if team is None:
-            continue
-        row = db.execute(
-            select(TeamMembership, User)
-            .join(User, User.id == TeamMembership.user_id)
+
+    # Query 1: todos los equipos con capitán via JOIN — reemplaza O(2N) queries anteriores
+    cap_membership = aliased(TeamMembership)
+    cap_user = aliased(User)
+    team_rows = db.execute(
+        select(Team, cap_membership, cap_user)
+        .join(
+            cap_membership,
+            (cap_membership.team_id == Team.id) & (cap_membership.role == TeamRole.captain),
+        )
+        .join(cap_user, cap_user.id == cap_membership.user_id)
+        .order_by(cap_membership.id)  # igual que el .limit(1) original: primer capitán registrado
+    ).all()
+
+    if not team_rows:
+        return CommunityTeamsPage(teams=[])
+
+    # Deduplica equipos: si hay más de un capitán, tomar la primera fila por team_id
+    seen_team_ids: set[int] = set()
+    deduped: list[tuple[Team, TeamMembership, User]] = []
+    for team, cap_m, cap_u in team_rows:
+        if team.id not in seen_team_ids:
+            seen_team_ids.add(team.id)
+            deduped.append((team, cap_m, cap_u))
+
+    # Query 2: conteos de mensajes — reemplaza O(N) llamadas a _message_count_with_team
+    all_team_ids = [t.id for t, _, _ in deduped]
+    if my_tids:
+        # Trae todos los pares (from, to) que involucran alguno de mis equipos y
+        # alguno de los equipos del directorio; en Python determina el "otro" equipo.
+        msg_flat = db.execute(
+            select(CommunityMessage.from_team_id, CommunityMessage.to_team_id)
             .where(
-                TeamMembership.team_id == team_id,
-                TeamMembership.role == TeamRole.captain,
+                or_(
+                    and_(
+                        CommunityMessage.from_team_id.in_(my_tids),
+                        CommunityMessage.to_team_id.in_(all_team_ids),
+                    ),
+                    and_(
+                        CommunityMessage.to_team_id.in_(my_tids),
+                        CommunityMessage.from_team_id.in_(all_team_ids),
+                    ),
+                )
             )
-            .order_by(TeamMembership.id)
-            .limit(1)
-        ).first()
-        if not row:
-            continue
-        _m, cap_user = row
-        cname = (cap_user.full_name or "").strip() or None
-        is_inbox = bool(contact_key) and str(cap_user.email).strip().casefold() == contact_key
-        msg_count = _message_count_with_team(db, my_tids, team.id)
+        ).all()
+        msg_counts: dict[int, int] = {}
+        for from_tid, to_tid in msg_flat:
+            other = to_tid if from_tid in my_tids else from_tid
+            msg_counts[other] = msg_counts.get(other, 0) + 1
+    else:
+        # platform_admin sin equipos propios: contar todos los mensajes que involucran cada equipo
+        msg_flat = db.execute(
+            select(CommunityMessage.from_team_id, CommunityMessage.to_team_id)
+            .where(
+                or_(
+                    CommunityMessage.from_team_id.in_(all_team_ids),
+                    CommunityMessage.to_team_id.in_(all_team_ids),
+                )
+            )
+        ).all()
+        msg_counts = {}
+        for from_tid, to_tid in msg_flat:
+            for tid in (from_tid, to_tid):
+                if tid in seen_team_ids:
+                    msg_counts[tid] = msg_counts.get(tid, 0) + 1
+
+    out: list[CommunityTeamItem] = []
+    for team, _cap_m, cu in deduped:
+        cname = (cu.full_name or "").strip() or None
+        is_inbox = bool(contact_key) and str(cu.email).strip().casefold() == contact_key
         out.append(
             CommunityTeamItem(
                 team_id=team.id,
                 team_name=team.name,
                 country=team.country,
                 captain_name=cname,
-                captain_email=cap_user.email,
+                captain_email=cu.email,
                 is_platform_inbox=is_inbox,
-                message_count=msg_count,
+                message_count=msg_counts.get(team.id, 0),
             )
         )
     out.sort(key=lambda x: (0 if x.is_platform_inbox else 1, (x.team_name or "").casefold(), x.team_id))
