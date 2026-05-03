@@ -2219,13 +2219,9 @@ async function renderSessionDetail(id) {
     const sessionMapSummaryHtml = buildSessionMapSummaryHtml(s, last, data.team_logo_url);
 
     const tabButtons = isPaddler
-      ? `
-            <button type="button" class="tab-btn active" data-tab="resumen" role="tab">${escapeHtml(t("sessionDetail.tabSummary"))}</button>
-            <button type="button" class="tab-btn" data-tab="mapas" role="tab">${escapeHtml(t("sessionDetail.tabMaps"))}</button>`
-      : `
-            <button type="button" class="tab-btn active" data-tab="resumen" role="tab">${escapeHtml(t("sessionDetail.tabSummary"))}</button>
+      ? `<button type="button" class="tab-btn active" data-tab="mapas" role="tab">${escapeHtml(t("sessionDetail.tabMaps"))}</button>`
+      : `<button type="button" class="tab-btn active" data-tab="graficos" role="tab">${escapeHtml(t("sessionDetail.tabCharts"))}</button>
             <button type="button" class="tab-btn" data-tab="tabla" role="tab">${escapeHtml(t("sessionDetail.tabData"))}</button>
-            <button type="button" class="tab-btn" data-tab="graficos" role="tab">${escapeHtml(t("sessionDetail.tabCharts"))}</button>
             <button type="button" class="tab-btn" data-tab="mapas" role="tab">${escapeHtml(t("sessionDetail.tabMaps"))}</button>
             <button type="button" class="tab-btn" data-tab="json" role="tab">${escapeHtml(t("sessionDetail.tabJson"))}</button>`;
 
@@ -2241,7 +2237,7 @@ async function renderSessionDetail(id) {
             <h3 class="subheading">${escapeHtml(t("sessionDetail.headingSamples"))}</h3>
             <div class="table-scroll tall">${pointsTable}</div>
           </div>
-          <div id="panel-graficos" class="tab-panel" role="tabpanel">
+          <div id="panel-graficos" class="tab-panel active" role="tabpanel">
             <div class="chart-grid">
               <div class="chart-box"><h4>${escapeHtml(t("sessionDetail.chartSpeed"))}</h4><div class="chart-canvas-wrap"><canvas id="chart-speed"></canvas></div></div>
               <div class="chart-box"><h4>${escapeHtml(t("sessionDetail.chartSpm"))}</h4><div class="chart-canvas-wrap"><canvas id="chart-spm"></canvas></div></div>
@@ -2294,8 +2290,6 @@ async function renderSessionDetail(id) {
         <div class="tabs" id="session-tabs">
           <div class="tab-list" role="tablist">
             ${tabButtons}
-          </div>
-          <div id="panel-resumen" class="tab-panel active" role="tabpanel">
           </div>
           ${tablaGraficosPanels}
           ${mapasPanel}
@@ -2350,8 +2344,15 @@ async function renderSessionDetail(id) {
     });
 
     const tabRoot = document.getElementById("session-tabs");
-    const panels = isPaddler ? ["resumen", "mapas"] : ["resumen", "tabla", "graficos", "mapas", "json"];
+    const panels = isPaddler ? ["mapas"] : ["graficos", "tabla", "mapas", "json"];
     const sessionUiState = { chartsReady: false, mapReady: false };
+
+    // Inicializar gráficos al abrir (es la tab por defecto)
+    if (!isPaddler) {
+      initSessionCharts(s.dataPoints);
+      wireExploreChart(s.dataPoints);
+      sessionUiState.chartsReady = true;
+    }
 
     function activateSessionTab(name, { focusButton } = {}) {
       if (focusButton && name) {
