@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +10,18 @@ class Settings(BaseSettings):
     app_name: str = "EDragonboat API"
     debug: bool = False
     secret_key: str = "DEV_ONLY_CHANGE_ME_USE_LONG_RANDOM_STRING"
+
+    @field_validator("secret_key")
+    @classmethod
+    def secret_key_must_be_secure(cls, v: str) -> str:
+        if "DEV_ONLY" in v or len(v) < 32:
+            raise ValueError(
+                "SECRET_KEY insegura: debe tener al menos 32 caracteres y no puede "
+                "ser el valor por defecto. Generá una con: "
+                "python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        return v
+
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 días
     database_url: str = "sqlite:///./edragonboat.db"
     # Archivos subidos (logos de equipo, etc.)

@@ -6,12 +6,15 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, EmailStr, Field
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.core.limiter import limiter
 from app.core.mail import INVITE_DEFAULT_PASSWORD, send_team_invite_email
 from app.core.security import hash_password
 from app.db.base import Base
@@ -226,6 +229,9 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_allow_origins(),
@@ -238,8 +244,8 @@ app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/deploy-check")
-def deploy_check() -> dict[str, object]:
-    """Sin autenticación: usá esto para ver si el proceso usa este código (curl local o vía Caddy)."""
+def deploy_check(current: Annotated[User, Depends(get_current_user)]) -> dict[str, object]:
+    """Requiere autenticación: verificá que el proceso usa este código (curl con Bearer token o vía Caddy)."""
     return {
         "ok": True,
         "build": "community-messages-2026-04-05",
