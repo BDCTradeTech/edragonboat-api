@@ -19,7 +19,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal, engine
+from app.models.user import User
+from app.models.team import Team
+from app.models.membership import TeamMembership
+from app.models.routine import Routine
+from app.models.community_message import CommunityMessage
 from app.models.libre_session_upload import LibreSessionUpload
+from app.models.forum import ForumPost, ForumComment
 
 
 def _extract_metrics(json_payload: str) -> dict:
