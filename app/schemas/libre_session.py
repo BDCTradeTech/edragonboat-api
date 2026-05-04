@@ -64,6 +64,18 @@ class LibreSessionListItem(BaseModel):
     """True si el usuario autenticado puede ver el JSON completo de la sesión (mismo equipo o admin).
     Calculado server-side; no reemplaza la validación en el endpoint de detalle."""
 
+    # Columnas SQL de métricas — None para sesiones sin backfill.
+    stroke_count: int | None = None
+    """Total de paladas (columna SQL; None en sesiones sin backfill)."""
+    avg_spm: float | None = None
+    """SPM promedio calculado (columna SQL; None en sesiones sin backfill)."""
+    max_speed: float | None = None
+    """Velocidad máxima en km/h (columna SQL; None en sesiones sin backfill)."""
+    avg_speed: float | None = None
+    """Velocidad promedio en km/h excluyendo reposo (columna SQL; None en sesiones sin backfill)."""
+    has_gps: bool | None = None
+    """True si la sesión tiene datos GPS (columna SQL; None en sesiones sin backfill)."""
+
 
 class LibreSessionDetailResponse(BaseModel):
     id: int

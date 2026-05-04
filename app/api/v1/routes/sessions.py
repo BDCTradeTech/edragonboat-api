@@ -21,6 +21,97 @@ from app.schemas.libre_session import (
 router = APIRouter()
 
 
+# ---------------------------------------------------------------------------
+# Extracción de métricas desde json_payload
+# ---------------------------------------------------------------------------
+
+
+def _extract_metrics_from_raw(raw: dict[str, Any]) -> dict[str, Any]:
+    """Extrae las 8 métricas SQL a partir del dict ya parseado del JSON de sesión.
+
+    Todos los valores pueden ser None si no están presentes en el payload.
+    """
+    metrics: dict[str, Any] = {}
+
+    # duration_seconds
+    ts = raw.get("totalSeconds")
+    try:
+        metrics["duration_seconds"] = int(ts) if ts is not None else None
+    except (TypeError, ValueError):
+        metrics["duration_seconds"] = None
+
+    # paddlers_count
+    pc = raw.get("paddlersCount")
+    try:
+        metrics["paddlers_count"] = int(pc) if pc is not None else None
+    except (TypeError, ValueError):
+        metrics["paddlers_count"] = None
+
+    # Métricas derivadas de dataPoints
+    data_points: list[dict[str, Any]] = raw.get("dataPoints") or []
+
+    if not data_points:
+        metrics.update(
+            distance_meters=None,
+            stroke_count=None,
+            avg_spm=None,
+            max_speed=None,
+            avg_speed=None,
+            has_gps=None,
+        )
+        return metrics
+
+    last = data_points[-1]
+
+    # distance_meters: acumulado en el último dataPoint
+    dm = last.get("distanceMeters")
+    try:
+        metrics["distance_meters"] = float(dm) if dm is not None else None
+    except (TypeError, ValueError):
+        metrics["distance_meters"] = None
+
+    # stroke_count: paladas acumuladas en el último dataPoint
+    paladas = last.get("paladas")
+    try:
+        metrics["stroke_count"] = int(paladas) if paladas is not None else None
+    except (TypeError, ValueError):
+        metrics["stroke_count"] = None
+
+    # max_speed y avg_speed
+    speeds: list[float] = []
+    for dp in data_points:
+        spd = dp.get("speedKmh")
+        if spd is not None:
+            try:
+                speeds.append(float(spd))
+            except (TypeError, ValueError):
+                pass
+    metrics["max_speed"] = max(speeds) if speeds else None
+    nonzero_speeds = [s for s in speeds if s > 0]
+    metrics["avg_speed"] = (sum(nonzero_speeds) / len(nonzero_speeds)) if nonzero_speeds else None
+
+    # avg_spm: promedio de puntos con spm > 0
+    spms: list[float] = []
+    for dp in data_points:
+        spm = dp.get("spm")
+        if spm is not None:
+            try:
+                v = float(spm)
+                if v > 0:
+                    spms.append(v)
+            except (TypeError, ValueError):
+                pass
+    metrics["avg_spm"] = (sum(spms) / len(spms)) if spms else None
+
+    # has_gps
+    metrics["has_gps"] = any(
+        dp.get("latitude") is not None and dp.get("longitude") is not None
+        for dp in data_points
+    )
+
+    return metrics
+
+
 def _users_share_team(db: Session, uid_a: int, uid_b: int) -> bool:
     if uid_a == uid_b:
         return True
@@ -208,6 +299,12 @@ def _summarize_row(
             virada=extras.get("virada"),
             team_country=tc_row,
             team_logo_url=logo_row,
+            # Columnas SQL de métricas (None si la sesión no fue backfilleada)
+            stroke_count=row.stroke_count,
+            avg_spm=row.avg_spm,
+            max_speed=row.max_speed,
+            avg_speed=row.avg_speed,
+            has_gps=row.has_gps,
         )
     except Exception:
         extras_e = _competencia_extras_from_raw(raw) if sk == "competencia" else {}
@@ -236,6 +333,12 @@ def _summarize_row(
             virada=extras_e.get("virada"),
             team_country=tc_e,
             team_logo_url=logo_e,
+            # Columnas SQL de métricas (None si la sesión no fue backfilleada)
+            stroke_count=row.stroke_count,
+            avg_spm=row.avg_spm,
+            max_speed=row.max_speed,
+            avg_speed=row.avg_speed,
+            has_gps=row.has_gps,
         )
 
 
@@ -260,13 +363,17 @@ async def upload_libre_session(
         ) from e
     payload_str = raw_bytes.decode("utf-8")
     try:
-        _kind = json.loads(payload_str).get("sessionKind") or "libre"
+        _raw = json.loads(payload_str)
+        _kind = _raw.get("sessionKind") or "libre"
     except Exception:
+        _raw = {}
         _kind = "libre"
+    metrics = _extract_metrics_from_raw(_raw)
     row = LibreSessionUpload(
         user_id=current.id,
         json_payload=payload_str,
         session_kind=_kind,
+        **metrics,
     )
     db.add(row)
     db.commit()
@@ -295,13 +402,17 @@ async def upload_competencia_session(
         ) from e
     payload_str = raw_bytes.decode("utf-8")
     try:
-        _kind = json.loads(payload_str).get("sessionKind") or "competencia"
+        _raw = json.loads(payload_str)
+        _kind = _raw.get("sessionKind") or "competencia"
     except Exception:
+        _raw = {}
         _kind = "competencia"
+    metrics = _extract_metrics_from_raw(_raw)
     row = LibreSessionUpload(
         user_id=current.id,
         json_payload=payload_str,
         session_kind=_kind,
+        **metrics,
     )
     db.add(row)
     db.commit()
