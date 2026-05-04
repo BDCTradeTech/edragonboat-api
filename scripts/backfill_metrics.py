@@ -152,7 +152,8 @@ def backfill(batch_size: int = 100) -> None:
                 try:
                     metrics = _extract_metrics(row.json_payload)
                     for col, val in metrics.items():
-                        setattr(row, col, val)
+                        if getattr(row, col) is None:
+                            setattr(row, col, val)
                     processed += 1
                 except Exception as exc:
                     errors += 1
