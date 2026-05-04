@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\Diego\\\\AndroidStudioProjects\\\\edragonboat-api\")",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(rm /c/Users/Diego/AndroidStudioProjects/edragonboat-api/web/scripts/merge-i18n-phase2.mjs)",
+      "Bash(rm /c/Users/Diego/AndroidStudioProjects/edragonboat-api/web/scripts/phase2-add-en.json)",
+      "Bash(rm /c/Users/Diego/AndroidStudioProjects/edragonboat-api/web/scripts/phase2-add-es.json)",
+      "Bash(npm run *)"
+    ]
+  }
+}
