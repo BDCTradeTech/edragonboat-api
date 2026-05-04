@@ -34,6 +34,16 @@ class PanelInviteMemberBody(BaseModel):
     full_name: str | None = Field(None, max_length=200)
 
 
+# ---------------------------------------------------------------------------
+# Migraciones legacy (DDL en código)
+# Estas funciones son LEGACY: se mantienen para compatibilidad con instancias
+# que no pasaron por Alembic. Las nuevas columnas/tablas van en alembic/versions/.
+# NO agregar nuevas funciones _migrate_* aquí; usar:
+#   alembic revision --autogenerate -m "descripcion"
+#   alembic upgrade head
+# ---------------------------------------------------------------------------
+
+
 def _migrate_teams_logo_file() -> None:
     try:
         cols = [c["name"] for c in inspect(engine).get_columns("teams")]

@@ -160,9 +160,38 @@ WantedBy=multi-user.target
 
 Variable **`CORS_ORIGINS`**: lista separada por comas (ej. `https://app.edragonboat.com,http://localhost:5173`). La app Android usa el host `api` directamente, no depende de CORS del navegador.
 
+## Migraciones con Alembic
+
+El proyecto usa [Alembic](https://alembic.sqlalchemy.org/) para gestionar el esquema de la base de datos. La `DATABASE_URL` se toma automáticamente desde las settings de Pydantic (variable de entorno o `.env`).
+
+### Comandos
+
+```bash
+# Generar una nueva migración a partir de los cambios en los modelos SQLAlchemy
+alembic revision --autogenerate -m "descripcion_del_cambio"
+
+# Aplicar todas las migraciones pendientes
+alembic upgrade head
+
+# Ver el historial de migraciones
+alembic history
+
+# Revertir una migración
+alembic downgrade -1
+```
+
+### Primera vez en un servidor nuevo
+
+```bash
+# Aplica todas las migraciones desde cero (crea las tablas)
+alembic upgrade head
+```
+
+> **Nota:** Las funciones `_migrate_*` en `app/main.py` son legacy y se mantienen para compatibilidad
+> con instancias existentes que no pasaron por Alembic. Los cambios nuevos de esquema van en `alembic/versions/`.
+
 ## Siguientes pasos sugeridos
 
-- Alembic para migraciones cuando cambien los modelos.
 - PostgreSQL en el mismo droplet o DO Managed Database; cambiar `DATABASE_URL`.
 - Invitaciones por email (entrenador / palista) y endpoints protegidos por rol.
 - Rate limiting y HTTPS obligatorio en producción (Caddy ya da TLS).
