@@ -9,7 +9,7 @@ from pydantic import BaseModel, EmailStr, Field
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import func, inspect, select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -34,184 +34,6 @@ class PanelInviteMemberBody(BaseModel):
     full_name: str | None = Field(None, max_length=200)
 
 
-# ---------------------------------------------------------------------------
-# Migraciones legacy (DDL en código)
-# Estas funciones son LEGACY: se mantienen para compatibilidad con instancias
-# que no pasaron por Alembic. Las nuevas columnas/tablas van en alembic/versions/.
-# NO agregar nuevas funciones _migrate_* aquí; usar:
-#   alembic revision --autogenerate -m "descripcion"
-#   alembic upgrade head
-# ---------------------------------------------------------------------------
-
-
-def _migrate_teams_logo_file() -> None:
-    try:
-        cols = [c["name"] for c in inspect(engine).get_columns("teams")]
-    except Exception:
-        return
-    if "logo_file" in cols:
-        return
-    dialect = engine.dialect.name
-    with engine.begin() as conn:
-        if dialect == "sqlite":
-            conn.execute(text("ALTER TABLE teams ADD COLUMN logo_file VARCHAR(255)"))
-        else:
-            conn.execute(text("ALTER TABLE teams ADD COLUMN logo_file VARCHAR(255)"))
-
-
-def _migrate_sqlite_teams_country() -> None:
-    settings = get_settings()
-    url = settings.database_url
-    if not url.startswith("sqlite"):
-        return
-    with engine.begin() as conn:
-        r = conn.execute(text("PRAGMA table_info(teams)"))
-        cols = [row[1] for row in r.fetchall()]
-        if "country" not in cols:
-            conn.execute(text("ALTER TABLE teams ADD COLUMN country VARCHAR(100)"))
-
-
-def _migrate_team_membership_roster() -> None:
-    try:
-        cols = [c["name"] for c in inspect(engine).get_columns("team_memberships")]
-    except Exception:
-        return
-    dialect = engine.dialect.name
-    with engine.begin() as conn:
-        if "document_number" not in cols:
-            conn.execute(text("ALTER TABLE team_memberships ADD COLUMN document_number VARCHAR(80)"))
-        if "birth_date" not in cols:
-            conn.execute(text("ALTER TABLE team_memberships ADD COLUMN birth_date DATE"))
-        if "height_cm" not in cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE team_memberships ADD COLUMN height_cm "
-                    + ("REAL" if dialect == "sqlite" else "DOUBLE PRECISION")
-                )
-            )
-        if "weight_kg" not in cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE team_memberships ADD COLUMN weight_kg "
-                    + ("REAL" if dialect == "sqlite" else "DOUBLE PRECISION")
-                )
-            )
-        if "preferred_side" not in cols:
-            conn.execute(text("ALTER TABLE team_memberships ADD COLUMN preferred_side VARCHAR(20)"))
-        if "sex" not in cols:
-            conn.execute(text("ALTER TABLE team_memberships ADD COLUMN sex VARCHAR(20)"))
-            conn.execute(text("UPDATE team_memberships SET sex = 'female' WHERE sex IS NULL"))
-
-
-def _migrate_users_ui_language() -> None:
-    try:
-        cols = [c["name"] for c in inspect(engine).get_columns("users")]
-    except Exception:
-        return
-    if "ui_language" in cols:
-        return
-    dialect = engine.dialect.name
-    with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN ui_language VARCHAR(8)"))
-
-
-def _migrate_users_platform_admin() -> None:
-    try:
-        cols = [c["name"] for c in inspect(engine).get_columns("users")]
-    except Exception:
-        return
-    if "is_platform_admin" in cols:
-        return
-    dialect = engine.dialect.name
-    with engine.begin() as conn:
-        if dialect == "sqlite":
-            conn.execute(text("ALTER TABLE users ADD COLUMN is_platform_admin BOOLEAN NOT NULL DEFAULT 0"))
-        else:
-            conn.execute(text("ALTER TABLE users ADD COLUMN is_platform_admin BOOLEAN NOT NULL DEFAULT false"))
-
-
-def _migrate_libre_session_kind() -> None:
-    """Agrega columna session_kind a libre_session_uploads si no existe y crea el índice."""
-    try:
-        cols = [c["name"] for c in inspect(engine).get_columns("libre_session_uploads")]
-    except Exception:
-        return
-    if "session_kind" not in cols:
-        dialect = engine.dialect.name
-        with engine.begin() as conn:
-            if dialect == "sqlite":
-                conn.execute(
-                    text("ALTER TABLE libre_session_uploads ADD COLUMN session_kind VARCHAR(50)")
-                )
-            else:
-                conn.execute(
-                    text(
-                        "ALTER TABLE libre_session_uploads"
-                        " ADD COLUMN IF NOT EXISTS session_kind VARCHAR(50)"
-                    )
-                )
-    # Crear índice si no existe (idempotente en ambos dialectos).
-    with engine.begin() as conn:
-        dialect = engine.dialect.name
-        if dialect == "sqlite":
-            conn.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_libre_session_uploads_session_kind"
-                    " ON libre_session_uploads (session_kind)"
-                )
-            )
-        else:
-            # CONCURRENTLY no puede usarse dentro de una transacción explícita en PostgreSQL;
-            # usamos CREATE INDEX IF NOT EXISTS sin CONCURRENTLY para la migración de arranque.
-            conn.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS ix_libre_session_uploads_session_kind"
-                    " ON libre_session_uploads (session_kind)"
-                )
-            )
-
-
-def _backfill_libre_session_kind() -> None:
-    """Rellena session_kind leyendo sessionKind del JSON para registros que aún tienen NULL.
-
-    Se ejecuta en batches de 500 para no bloquear la tabla completa.
-    En bases chicas (< 500 filas) lo resuelve en un solo batch.
-    """
-    import json as _json
-
-    BATCH = 500
-    with engine.connect() as conn:
-        while True:
-            rows = conn.execute(
-                text(
-                    "SELECT id, json_payload FROM libre_session_uploads"
-                    " WHERE session_kind IS NULL LIMIT :lim"
-                ),
-                {"lim": BATCH},
-            ).fetchall()
-            if not rows:
-                break
-            for row in rows:
-                try:
-                    payload = (
-                        _json.loads(row.json_payload)
-                        if isinstance(row.json_payload, str)
-                        else row.json_payload
-                    )
-                    kind = (
-                        payload.get("sessionKind")
-                        or payload.get("session_kind")
-                        or "libre"
-                    )
-                except Exception:
-                    kind = "libre"
-                conn.execute(
-                    text(
-                        "UPDATE libre_session_uploads SET session_kind = :kind WHERE id = :id"
-                    ),
-                    {"kind": kind, "id": row.id},
-                )
-            conn.commit()
 
 
 def _bootstrap_platform_admin_emails() -> None:
@@ -292,13 +114,6 @@ async def lifespan(app: FastAPI):
     import app.models.user  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
-    _migrate_teams_logo_file()
-    _migrate_sqlite_teams_country()
-    _migrate_team_membership_roster()
-    _migrate_users_ui_language()
-    _migrate_users_platform_admin()
-    _migrate_libre_session_kind()
-    _backfill_libre_session_kind()
     _bootstrap_platform_admin_emails()
     _ensure_platform_inbox_team()
     data_dir = Path(get_settings().data_dir)

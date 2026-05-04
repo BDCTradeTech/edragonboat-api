@@ -15,6 +15,12 @@ class LibreSessionUpload(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     json_payload: Mapped[str] = mapped_column(Text, nullable=False)
+    """DEPRECATED: Kept for backwards compatibility and archival purposes only.
+
+    All session metrics are now stored in explicit SQL columns (distance_meters, duration_seconds,
+    stroke_count, avg_spm, max_speed, avg_speed, has_gps, paddlers_count). Do not parse this column
+    in new code; use the SQL columns instead. Backfill status: 121/121 sessions migrated as of 2026-05-04.
+    """
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     session_kind: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
 
