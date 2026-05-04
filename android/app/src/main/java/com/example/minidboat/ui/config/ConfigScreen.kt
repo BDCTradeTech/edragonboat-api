@@ -1,6 +1,5 @@
 package com.example.minidboat.ui.config
 
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,11 +29,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.minidboat.R
 import androidx.appcompat.app.AppCompatDelegate
 import com.example.minidboat.MiniDBoatApplication
@@ -59,9 +59,9 @@ import com.example.minidboat.ui.theme.OceanDeep
 import com.example.minidboat.ui.theme.SkyLight
 import com.example.minidboat.ui.theme.SkyPale
 import com.example.minidboat.ui.theme.WaveWhite
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.example.minidboat.viewmodel.ConfigUiState
+import com.example.minidboat.viewmodel.ConfigViewModel
+import com.example.minidboat.viewmodel.ConfigViewModelFactory
 import java.util.Locale
 
 @Composable
@@ -80,39 +80,69 @@ private fun uiLanguageLabel(code: String) = stringResource(
     }
 )
 
-private fun refreshPendingCompetenciasCount(context: Context): Int {
-    AppPreferences.backfillPendingCompetenciaFiles(context)
-    AppPreferences.claimNoSessionPendingFilesForLoggedInUser(context)
-    return AppPreferences.pendingCompetenciaCount(context)
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfigScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val app = context.applicationContext as MiniDBoatApplication
-    var pendingCompetencias by remember { mutableIntStateOf(refreshPendingCompetenciasCount(context)) }
+    val viewModel: ConfigViewModel = viewModel(
+        factory = ConfigViewModelFactory(app.cloudRepository)
+    )
+    val uiState by viewModel.uiState.collectAsState()
+    val pendingCompetencias by viewModel.pendingCompetencias.collectAsState()
+
     val sessionEmail = AppPreferences.getCloudEmail(context) ?: ""
     val guestMode = AppPreferences.isGuestMode(context)
+
     LaunchedEffect(Unit) {
-        pendingCompetencias = refreshPendingCompetenciasCount(context)
+        viewModel.refreshPendingCount(context)
     }
     LaunchedEffect(sessionEmail, guestMode) {
-        pendingCompetencias = refreshPendingCompetenciasCount(context)
+        viewModel.refreshPendingCount(context)
     }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val obs = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                pendingCompetencias = refreshPendingCompetenciasCount(context)
+                viewModel.refreshPendingCount(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(obs)
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
+
+    // Mostrar Toast según resultado del ViewModel y resetear estado
+    LaunchedEffect(uiState) {
+        when (val s = uiState) {
+            is ConfigUiState.Error -> {
+                if (s.message == "not_logged_in") {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.toast_login_upload),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+                viewModel.resetState()
+            }
+            is ConfigUiState.Success -> {
+                val msg = when {
+                    s.okCount > 0 && s.failCount == 0 ->
+                        context.getString(R.string.toast_sent_ok, s.okCount)
+                    s.okCount > 0 ->
+                        context.getString(R.string.toast_sent_mix, s.okCount, s.failCount)
+                    else ->
+                        context.getString(R.string.toast_sent_fail, s.failCount)
+                }
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                viewModel.resetState()
+            }
+            else -> Unit
+        }
+    }
+
     var boatType by remember { mutableStateOf(AppPreferences.getBoatType(context)) }
     var boatExpanded by remember { mutableStateOf(false) }
     var paddlersCount by remember { mutableIntStateOf(AppPreferences.getPaddlersCount(context)) }
@@ -215,27 +245,9 @@ fun ConfigScreen(
                         )
                         TextButton(
                             onClick = {
-                                if (!AppPreferences.isCloudLoggedIn(context)) {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.toast_login_upload),
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                                    return@TextButton
-                                }
-                                scope.launch {
-                                    val (ok, fail) = withContext(Dispatchers.IO) {
-                                        app.cloudRepository.retryPendingCompetenciaUploads()
-                                    }
-                                    pendingCompetencias = refreshPendingCompetenciasCount(context)
-                                    val msg = when {
-                                        ok > 0 && fail == 0 -> context.getString(R.string.toast_sent_ok, ok)
-                                        ok > 0 -> context.getString(R.string.toast_sent_mix, ok, fail)
-                                        else -> context.getString(R.string.toast_sent_fail, fail)
-                                    }
-                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                }
-                            }
+                                viewModel.retryPendingUploads(context)
+                            },
+                            enabled = uiState !is ConfigUiState.Loading,
                         ) { Text(stringResource(R.string.config_send), fontSize = 12.sp) }
                     }
                     Spacer(Modifier.height(3.dp))

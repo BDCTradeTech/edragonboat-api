@@ -1,6 +1,5 @@
 package com.example.minidboat.ui.auth
 
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -25,15 +24,17 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.minidboat.BuildConfig
 import com.example.minidboat.MiniDBoatApplication
 import com.example.minidboat.R
@@ -48,9 +50,9 @@ import com.example.minidboat.data.AppPreferences
 import com.example.minidboat.ui.theme.OceanDeep
 import com.example.minidboat.ui.theme.SkyPale
 import com.example.minidboat.ui.theme.WaveWhite
-import androidx.compose.ui.res.stringResource
-import kotlinx.coroutines.launch
-import retrofit2.HttpException
+import com.example.minidboat.viewmodel.AuthUiState
+import com.example.minidboat.viewmodel.AuthViewModel
+import com.example.minidboat.viewmodel.AuthViewModelFactory
 
 @Composable
 fun AuthScreen(
@@ -60,7 +62,10 @@ fun AuthScreen(
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as MiniDBoatApplication
-    val scope = rememberCoroutineScope()
+    val viewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(app.cloudRepository)
+    )
+    val uiState by viewModel.uiState.collectAsState()
 
     var email by remember {
         mutableStateOf(AppPreferences.getLoginDraftEmail(context))
@@ -68,8 +73,21 @@ fun AuthScreen(
     var password by remember {
         mutableStateOf(AppPreferences.getLoginDraftPassword(context))
     }
-    var hint by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+
+    // Reaccionar al éxito de login
+    LaunchedEffect(uiState) {
+        if (uiState is AuthUiState.Success) {
+            viewModel.resetState()
+            onLoginSuccess()
+        }
+    }
+
+    val hint = when (val s = uiState) {
+        is AuthUiState.Loading -> stringResource(R.string.auth_connecting)
+        is AuthUiState.Error -> s.message
+        else -> ""
+    }
 
     val gradient = Brush.verticalGradient(
         colors = listOf(WaveWhite, SkyPale.copy(alpha = 0.65f))
@@ -160,24 +178,9 @@ fun AuthScreen(
 
         Button(
             onClick = {
-                hint = context.getString(R.string.auth_connecting)
-                scope.launch {
-                    try {
-                        val em = email.trim()
-                        AppPreferences.setLoginDraftEmail(context, em)
-                        AppPreferences.setLoginDraftPassword(context, password)
-                        app.cloudRepository.login(em, password)
-                        hint = ""
-                        onLoginSuccess()
-                    } catch (e: HttpException) {
-                        hint = mapLoginHttpError(context, e)
-                    } catch (e: Exception) {
-                        hint = e.message?.takeIf { it.isNotBlank() }
-                            ?: context.getString(R.string.auth_login_fail_generic)
-                    }
-                }
+                viewModel.login(context, email, password)
             },
-            enabled = email.isNotBlank() && password.length >= 8,
+            enabled = email.isNotBlank() && password.length >= 8 && uiState !is AuthUiState.Loading,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = WaveWhite,
@@ -191,7 +194,7 @@ fun AuthScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
         TextButton(onClick = {
-            hint = ""
+            viewModel.resetState()
             AppPreferences.clearCloudSession(context)
             AppPreferences.setGuestMode(context, true)
             AppPreferences.setLoginDraftEmail(context, email.trim())
@@ -227,26 +230,5 @@ fun AuthScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-private fun mapLoginHttpError(context: Context, e: HttpException): String {
-    val code = e.code()
-    val body = e.response()?.errorBody()?.string().orEmpty()
-    val b = body.lowercase()
-    val notRegistered =
-        "not registered" in b || "no registr" in b || "no existe" in b ||
-            "unknown user" in b || "user not found" in b || "no user" in b ||
-            "usuario no" in b || "sin cuenta" in b
-    val gen = context.getString(R.string.auth_login_fail_generic)
-    return when (code) {
-        401, 403, 404 -> {
-            if (notRegistered) {
-                context.getString(R.string.auth_error_not_registered)
-            } else {
-                context.getString(R.string.auth_error_wrong_or_unknown)
-            }
-        }
-        else -> body.trim().ifBlank { e.message() ?: gen }
     }
 }
