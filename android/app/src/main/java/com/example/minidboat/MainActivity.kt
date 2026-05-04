@@ -43,7 +43,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -56,21 +55,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.rememberNavController
 import com.example.minidboat.data.AppPreferences
-import com.example.minidboat.data.Routine
-import com.example.minidboat.navigation.AppScreen
-import com.example.minidboat.ui.auth.AuthScreen
-import com.example.minidboat.ui.competencias.CompetenciasScreen
-import com.example.minidboat.ui.config.ConfigScreen
-import com.example.minidboat.ui.graficos.GraficosScreen
-import com.example.minidboat.ui.ejercicios.EjercicioRutinaScreen
-import com.example.minidboat.ui.ejercicios.EjerciciosScreen
-import com.example.minidboat.ui.libre.LibreScreen
-import com.example.minidboat.ui.libre.TrainingScreenMode
+import com.example.minidboat.navigation.AppNavHost
 import com.example.minidboat.ui.theme.MiniDBoatTheme
 import com.example.minidboat.ui.theme.OceanDeep
-import com.example.minidboat.ui.theme.OceanLight
 import com.example.minidboat.ui.theme.SkyBlue
 import com.example.minidboat.ui.theme.SkyLight
 import com.example.minidboat.ui.theme.SkyPale
@@ -80,34 +69,6 @@ import com.example.minidboat.ui.components.GpsStatusDot
 import com.example.minidboat.viewmodel.RoutinesViewModel
 import androidx.compose.ui.res.stringResource
 
-private const val NAV_MAIN = "main"
-private const val NAV_EJERCICIOS = "ejercicios"
-private const val NAV_CONFIG = "config"
-private const val NAV_LIBRE = "libre"
-private const val NAV_GRAFICOS = "graficos"
-private const val NAV_COMPETENCIAS = "competencias"
-private const val NAV_COMPETENCIA_RUN = "competencia_run"
-private const val NAV_EJERCICIO_RUTINA = "ejercicio_rutina"
-
-/** Restaura [AppScreen] desde estado guardable (cambio de idioma, rotación, etc.). */
-private fun appScreenFromNav(
-    route: String,
-    routineId: String?,
-    routines: List<Routine>,
-): AppScreen = when (route) {
-    NAV_MAIN -> AppScreen.Main
-    NAV_EJERCICIOS -> AppScreen.Ejercicios
-    NAV_CONFIG -> AppScreen.Config
-    NAV_LIBRE -> AppScreen.Libre
-    NAV_GRAFICOS -> AppScreen.Graficos
-    NAV_COMPETENCIAS -> AppScreen.Competencias
-    NAV_COMPETENCIA_RUN -> AppScreen.CompetenciaRun
-    NAV_EJERCICIO_RUTINA -> {
-        val r = routineId?.let { id -> routines.find { it.id == id } }
-        if (r != null) AppScreen.EjercicioRutina(r) else AppScreen.Ejercicios
-    }
-    else -> AppScreen.Main
-}
 
 class MainActivity : AppCompatActivity() {
     private val routinesViewModel: RoutinesViewModel by lazy {
@@ -126,18 +87,12 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         hideSystemBars()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        val activity = this
         setContent {
             MiniDBoatTheme {
                 val context = LocalContext.current
-                var authCompleted by rememberSaveable { mutableStateOf(false) }
-                val routines by routinesViewModel.routines.collectAsState()
-                val importBusy by routinesViewModel.importBusy.collectAsState()
                 val importToast by routinesViewModel.importToast.collectAsState()
-                var navRoute by rememberSaveable { mutableStateOf(NAV_MAIN) }
-                var navRoutineId by rememberSaveable { mutableStateOf<String?>(null) }
-                val currentScreen = remember(navRoute, navRoutineId, routines) {
-                    appScreenFromNav(navRoute, navRoutineId, routines)
-                }
+                val navController = rememberNavController()
 
                 LaunchedEffect(importToast) {
                     val msg = importToast ?: return@LaunchedEffect
@@ -145,110 +100,11 @@ class MainActivity : AppCompatActivity() {
                     routinesViewModel.consumeImportToast()
                 }
 
-                if (!authCompleted) {
-                    AuthScreen(
-                        onLoginSuccess = { authCompleted = true },
-                        onGuest = { authCompleted = true },
-                        onExit = { finish() },
-                    )
-                } else when (val screen = currentScreen) {
-                    is AppScreen.Main -> MainScreen(
-                        onEjerciciosClick = {
-                            navRoute = NAV_EJERCICIOS
-                            navRoutineId = null
-                        },
-                        onLibreClick = {
-                            navRoute = NAV_LIBRE
-                            navRoutineId = null
-                        },
-                        onGraficosClick = {
-                            navRoute = NAV_GRAFICOS
-                            navRoutineId = null
-                        },
-                        onCompetenciasClick = {
-                            navRoute = NAV_COMPETENCIAS
-                            navRoutineId = null
-                        },
-                        onConfigClick = {
-                            navRoute = NAV_CONFIG
-                            navRoutineId = null
-                        },
-                        onSalirClick = { finish() },
-                        onChangeAccount = {
-                            if (AppPreferences.isCloudLoggedIn(context)) {
-                                (context.applicationContext as MiniDBoatApplication).cloudRepository.logout()
-                            } else {
-                                AppPreferences.setGuestMode(context, false)
-                            }
-                            authCompleted = false
-                            navRoute = NAV_MAIN
-                            navRoutineId = null
-                        },
-                    )
-                    is AppScreen.Ejercicios -> EjerciciosScreen(
-                        routines = routines,
-                        importBusy = importBusy,
-                        canImportFromCloud = AppPreferences.isCloudLoggedIn(context) &&
-                            !AppPreferences.isGuestMode(context),
-                        onImportFromCloud = { routinesViewModel.importRoutinesFromCloud(context) },
-                        onBack = {
-                            navRoute = NAV_MAIN
-                            navRoutineId = null
-                        },
-                        onRoutineSelected = { routine ->
-                            navRoute = NAV_EJERCICIO_RUTINA
-                            navRoutineId = routine.id
-                        }
-                    )
-                    is AppScreen.EjercicioRutina -> EjercicioRutinaScreen(
-                        routine = screen.routine,
-                        onBack = {
-                            navRoute = NAV_EJERCICIOS
-                            navRoutineId = null
-                        }
-                    )
-                    is AppScreen.Libre -> LibreScreen(
-                        onBack = {
-                            navRoute = NAV_MAIN
-                            navRoutineId = null
-                        },
-                        mode = TrainingScreenMode.Libre,
-                    )
-                    is AppScreen.CompetenciaRun -> LibreScreen(
-                        onBack = {
-                            navRoute = NAV_COMPETENCIAS
-                            navRoutineId = null
-                        },
-                        mode = TrainingScreenMode.Competencia(
-                            onSubmittedNavigateHome = {
-                                navRoute = NAV_MAIN
-                                navRoutineId = null
-                            },
-                        ),
-                    )
-                    is AppScreen.Graficos -> GraficosScreen(
-                        onBack = {
-                            navRoute = NAV_MAIN
-                            navRoutineId = null
-                        }
-                    )
-                    is AppScreen.Competencias -> CompetenciasScreen(
-                        onBack = {
-                            navRoute = NAV_MAIN
-                            navRoutineId = null
-                        },
-                        onCompetir = {
-                            navRoute = NAV_COMPETENCIA_RUN
-                            navRoutineId = null
-                        },
-                    )
-                    is AppScreen.Config -> ConfigScreen(
-                        onBack = {
-                            navRoute = NAV_MAIN
-                            navRoutineId = null
-                        },
-                    )
-                }
+                AppNavHost(
+                    navController = navController,
+                    routinesViewModel = routinesViewModel,
+                    onFinish = { activity.finish() },
+                )
             }
         }
     }

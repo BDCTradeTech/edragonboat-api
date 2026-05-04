@@ -62,6 +62,7 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.play.services.location)
     implementation(libs.security.crypto)
+    implementation(libs.androidx.navigation.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
