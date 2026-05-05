@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# Extracción de métricas desde json_payload
+# Extracción de métricas desde session_json
 # ---------------------------------------------------------------------------
 
 
@@ -112,6 +112,46 @@ def _extract_metrics_from_raw(raw: dict[str, Any]) -> dict[str, Any]:
     return metrics
 
 
+def _extract_metadata_from_raw(raw: dict[str, Any]) -> dict[str, Any]:
+    """Extrae los 9 campos de metadatos SQL a partir del dict ya parseado del JSON de sesión.
+
+    Todos los valores pueden ser None si no están presentes o no aplican al tipo de sesión.
+    """
+    meta: dict[str, Any] = {}
+
+    tn = raw.get("teamName")
+    meta["team_name"] = str(tn).strip() or None if tn is not None else None
+
+    bt = raw.get("boatType")
+    meta["boat_type"] = str(bt).strip() or None if bt is not None else None
+
+    sst = raw.get("sessionStartTime")
+    meta["session_start_time"] = str(sst).strip() or None if sst is not None else None
+
+    td = raw.get("targetDistanceMeters")
+    try:
+        meta["target_distance_meters"] = int(td) if td is not None else None
+    except (TypeError, ValueError):
+        meta["target_distance_meters"] = None
+
+    drummer_raw = raw.get("drummer")
+    meta["drummer"] = bool(drummer_raw) if drummer_raw is not None else None
+
+    ac = raw.get("ageCategory")
+    meta["age_category"] = str(ac).strip() or None if ac is not None else None
+
+    tcat = raw.get("teamCategory")
+    meta["team_category"] = str(tcat).strip() or None if tcat is not None else None
+
+    virada_raw = raw.get("virada")
+    meta["virada"] = bool(virada_raw) if virada_raw is not None else None
+
+    tc = raw.get("teamCountry")
+    meta["team_country"] = str(tc).strip() or None if tc is not None and str(tc).strip() else None
+
+    return meta
+
+
 def _users_share_team(db: Session, uid_a: int, uid_b: int) -> bool:
     if uid_a == uid_b:
         return True
@@ -136,9 +176,11 @@ def _can_delete_libre_session(db: Session, current: User, row: LibreSessionUploa
         return True
     if row.user_id == current.id:
         return True
-    key = _session_team_name_key(row.json_payload)
-    if key is None:
+    # Usar columna SQL team_name (backfilleada); fallback al JSON solo si es None.
+    team_name_raw = row.team_name if row.team_name is not None else _session_team_name_key(row.session_json)
+    if not team_name_raw or not str(team_name_raw).strip():
         return False
+    key = str(team_name_raw).strip().casefold()
     memberships = db.scalars(select(TeamMembership).where(TeamMembership.user_id == current.id)).all()
     for m in memberships:
         if m.role not in (TeamRole.captain, TeamRole.coach):
@@ -254,92 +296,47 @@ def _summarize_row(
     team_country_lookup: dict[str, str | None] | None = None,
     team_logo_lookup: dict[str, str] | None = None,
 ) -> LibreSessionListItem:
-    sk, tgt = _raw_session_kind_and_target(row.json_payload)
-    try:
-        raw = json.loads(row.json_payload)
-    except Exception:
-        raw = {}
-    try:
-        parsed = LibreSessionCreate.model_validate_json(row.json_payload)
-        last = parsed.dataPoints[-1] if parsed.dataPoints else None
-        if sk == "competencia":
-            extras = _competencia_extras_from_raw(raw)
-            if extras.get("boat_type") is None and parsed.boatType is not None:
-                extras["boat_type"] = parsed.boatType
-            if extras.get("paddlers_count") is None and parsed.paddlersCount is not None:
-                extras["paddlers_count"] = parsed.paddlersCount
-        else:
-            extras = {}
-            if parsed.boatType is not None:
-                extras["boat_type"] = parsed.boatType
-            if parsed.paddlersCount is not None:
-                extras["paddlers_count"] = parsed.paddlersCount
-        tc_row: str | None = extras.get("team_country")
-        if sk == "competencia" and team_country_lookup is not None and not tc_row:
-            tn = parsed.teamName if parsed else None
-            if tn and str(tn).strip():
-                tc_row = team_country_lookup.get(str(tn).strip().casefold())
-        logo_row = _team_logo_url_for_name(team_logo_lookup, parsed.teamName)
-        return LibreSessionListItem(
-            id=row.id,
-            created_at=row.created_at,
-            uploaded_by_user_id=row.user_id,
-            session_start_time=parsed.sessionStartTime,
-            total_seconds=parsed.totalSeconds,
-            distance_meters=last.distanceMeters if last else None,
-            paladas=last.paladas if last else None,
-            team_name=parsed.teamName,
-            session_kind=sk,
-            target_distance_meters=tgt,
-            boat_type=extras.get("boat_type"),
-            paddlers_count=extras.get("paddlers_count"),
-            drummer=extras.get("drummer"),
-            age_category=extras.get("age_category"),
-            team_category=extras.get("team_category"),
-            virada=extras.get("virada"),
-            team_country=tc_row,
-            team_logo_url=logo_row,
-            # Columnas SQL de métricas (None si la sesión no fue backfilleada)
-            stroke_count=row.stroke_count,
-            avg_spm=row.avg_spm,
-            max_speed=row.max_speed,
-            avg_speed=row.avg_speed,
-            has_gps=row.has_gps,
-        )
-    except Exception:
-        extras_e = _competencia_extras_from_raw(raw) if sk == "competencia" else {}
-        tc_e: str | None = extras_e.get("team_country")
-        if sk == "competencia" and team_country_lookup is not None and not tc_e:
-            tn = raw.get("teamName")
-            if tn and str(tn).strip():
-                tc_e = team_country_lookup.get(str(tn).strip().casefold())
-        logo_e = _team_logo_url_for_name(team_logo_lookup, raw.get("teamName"))
-        return LibreSessionListItem(
-            id=row.id,
-            created_at=row.created_at,
-            uploaded_by_user_id=row.user_id,
-            session_start_time=None,
-            total_seconds=None,
-            distance_meters=None,
-            paladas=None,
-            team_name=None,
-            session_kind=sk,
-            target_distance_meters=tgt,
-            boat_type=extras_e.get("boat_type"),
-            paddlers_count=extras_e.get("paddlers_count"),
-            drummer=extras_e.get("drummer"),
-            age_category=extras_e.get("age_category"),
-            team_category=extras_e.get("team_category"),
-            virada=extras_e.get("virada"),
-            team_country=tc_e,
-            team_logo_url=logo_e,
-            # Columnas SQL de métricas (None si la sesión no fue backfilleada)
-            stroke_count=row.stroke_count,
-            avg_spm=row.avg_spm,
-            max_speed=row.max_speed,
-            avg_speed=row.avg_speed,
-            has_gps=row.has_gps,
-        )
+    """Construye LibreSessionListItem usando columnas SQL directas.
+
+    Ya no parsea el JSON de sesión: todos los metadatos y métricas
+    están en columnas SQL tras el backfill (migración a1b2c3d4e5f6).
+    El JSON completo (session_json) solo se lee en los endpoints de detalle.
+    """
+    sk = row.session_kind
+    team_name = row.team_name
+
+    # team_country: columna SQL tiene precedencia; fallback a lookup por nombre.
+    tc_row: str | None = row.team_country
+    if not tc_row and sk == "competencia" and team_country_lookup is not None and team_name:
+        tc_row = team_country_lookup.get(str(team_name).strip().casefold())
+
+    logo_row = _team_logo_url_for_name(team_logo_lookup, team_name)
+
+    return LibreSessionListItem(
+        id=row.id,
+        created_at=row.created_at,
+        uploaded_by_user_id=row.user_id,
+        session_start_time=row.session_start_time,
+        total_seconds=row.duration_seconds,
+        distance_meters=row.distance_meters,
+        paladas=row.stroke_count,
+        team_name=team_name,
+        session_kind=sk,
+        target_distance_meters=row.target_distance_meters,
+        boat_type=row.boat_type,
+        paddlers_count=row.paddlers_count,
+        drummer=row.drummer,
+        age_category=row.age_category,
+        team_category=row.team_category,
+        virada=row.virada,
+        team_country=tc_row,
+        team_logo_url=logo_row,
+        stroke_count=row.stroke_count,
+        avg_spm=row.avg_spm,
+        max_speed=row.max_speed,
+        avg_speed=row.avg_speed,
+        has_gps=row.has_gps,
+    )
 
 
 @router.post(
@@ -369,11 +366,13 @@ async def upload_libre_session(
         _raw = {}
         _kind = "libre"
     metrics = _extract_metrics_from_raw(_raw)
+    metadata = _extract_metadata_from_raw(_raw)
     row = LibreSessionUpload(
         user_id=current.id,
-        json_payload=payload_str,
+        session_json=payload_str,
         session_kind=_kind,
         **metrics,
+        **metadata,
     )
     db.add(row)
     db.commit()
@@ -408,11 +407,13 @@ async def upload_competencia_session(
         _raw = {}
         _kind = "competencia"
     metrics = _extract_metrics_from_raw(_raw)
+    metadata = _extract_metadata_from_raw(_raw)
     row = LibreSessionUpload(
         user_id=current.id,
-        json_payload=payload_str,
+        session_json=payload_str,
         session_kind=_kind,
         **metrics,
+        **metadata,
     )
     db.add(row)
     db.commit()
@@ -537,7 +538,7 @@ def get_competencia_session(
     - Otros usuarios autenticados: devuelve metadatos públicos con `session=null`.
     """
     row = db.get(LibreSessionUpload, session_id)
-    if row is None or not _is_competencia_payload(row.json_payload):
+    if row is None or row.session_kind != "competencia":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
 
     can_view_full = _can_view_competencia_session(db, current, row)
@@ -568,7 +569,7 @@ def get_competencia_session(
 
     if can_view_full:
         try:
-            session_payload: dict[str, Any] = json.loads(row.json_payload)
+            session_payload: dict[str, Any] = json.loads(row.session_json)
         except json.JSONDecodeError:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -593,13 +594,13 @@ def get_libre_session(
     row = db.get(LibreSessionUpload, session_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesi?n no encontrada")
-    if _is_competencia_payload(row.json_payload):
+    if row.session_kind == "competencia":
         if not _can_view_competencia_session(db, current, row):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesi?n no encontrada")
     elif not _can_view_libre_session(db, current, row.user_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesi?n no encontrada")
     try:
-        session_payload: dict[str, Any] = json.loads(row.json_payload)
+        session_payload: dict[str, Any] = json.loads(row.session_json)
         LibreSessionCreate.model_validate(session_payload)
     except json.JSONDecodeError:
         raise HTTPException(

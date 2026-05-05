@@ -96,7 +96,7 @@ def test_listar_sesiones_libres(client, auth_headers, db, test_user):
 
     row = LibreSessionUpload(
         user_id=test_user.id,
-        json_payload=json.dumps(_MINIMAL_SESSION),
+        session_json=json.dumps(_MINIMAL_SESSION),
         session_kind="libre",
     )
     db.add(row)
@@ -125,7 +125,7 @@ def test_detalle_sesion_libre_propia(client, auth_headers, db, test_user):
 
     row = LibreSessionUpload(
         user_id=test_user.id,
-        json_payload=json.dumps(_MINIMAL_SESSION),
+        session_json=json.dumps(_MINIMAL_SESSION),
         session_kind="libre",
     )
     db.add(row)
@@ -149,7 +149,7 @@ def test_detalle_sesion_libre_ajena(client, other_auth_headers, db, test_user):
 
     row = LibreSessionUpload(
         user_id=test_user.id,
-        json_payload=json.dumps(_MINIMAL_SESSION),
+        session_json=json.dumps(_MINIMAL_SESSION),
         session_kind="libre",
     )
     db.add(row)
@@ -190,7 +190,7 @@ def test_competencia_detail_usuario_propio(client, auth_headers, db, test_user):
 
     row = LibreSessionUpload(
         user_id=test_user.id,
-        json_payload=json.dumps(_COMPETENCIA_SESSION),
+        session_json=json.dumps(_COMPETENCIA_SESSION),
         session_kind="competencia",
     )
     db.add(row)
@@ -233,7 +233,7 @@ def test_competencia_detail_equipo_compartido(client, db, test_user, test_team):
 
     row = LibreSessionUpload(
         user_id=test_user.id,
-        json_payload=json.dumps(_COMPETENCIA_SESSION),
+        session_json=json.dumps(_COMPETENCIA_SESSION),
         session_kind="competencia",
     )
     db.add(row)
@@ -267,7 +267,7 @@ def test_competencia_detail_equipo_ajeno(client, db, test_user, test_team, other
 
     row = LibreSessionUpload(
         user_id=test_user.id,
-        json_payload=json.dumps(_COMPETENCIA_SESSION),
+        session_json=json.dumps(_COMPETENCIA_SESSION),
         session_kind="competencia",
     )
     db.add(row)
@@ -300,7 +300,7 @@ def test_eliminar_sesion_propia(client, auth_headers, db, test_user):
 
     row = LibreSessionUpload(
         user_id=test_user.id,
-        json_payload=json.dumps(_MINIMAL_SESSION),
+        session_json=json.dumps(_MINIMAL_SESSION),
         session_kind="libre",
     )
     db.add(row)
@@ -316,7 +316,7 @@ def test_eliminar_sesion_ajena(client, other_auth_headers, db, test_user):
 
     row = LibreSessionUpload(
         user_id=test_user.id,
-        json_payload=json.dumps(_MINIMAL_SESSION),
+        session_json=json.dumps(_MINIMAL_SESSION),
         session_kind="libre",
     )
     db.add(row)

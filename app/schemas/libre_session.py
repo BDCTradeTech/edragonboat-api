@@ -40,6 +40,8 @@ class LibreSessionListItem(BaseModel):
     created_at: datetime
     """Usuario que subió la sesión (para permisos en panel web)."""
     uploaded_by_user_id: int | None = None
+
+    # Metadatos extraídos de columnas SQL (migración a1b2c3d4e5f6).
     session_start_time: str | None = None
     total_seconds: int | None = None
     distance_meters: float | None = None
