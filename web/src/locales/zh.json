@@ -40,14 +40,14 @@
     "replyBadge": "↪ 回复编号 {id}",
     "unavailable": "服务器上尚未提供社区消息。部署后将自动使用此页面。",
     "forbidden": "无权限执行此操作。",
-    "messages": "Mensajes",
-    "newConversation": "Nueva conversación",
-    "searchPlaceholder": "Buscar contacto…",
-    "selectConversation": "Seleccioná una conversación",
-    "typeMessage": "Escribí un mensaje…",
-    "noResults": "Sin resultados",
-    "replyingLabel": "↩ Respondiendo:",
-    "replyButton": "↩ Responder"
+    "messages": "消息",
+    "newConversation": "新对话",
+    "searchPlaceholder": "搜索联系人…",
+    "selectConversation": "选择对话",
+    "typeMessage": "编写消息…",
+    "noResults": "无结果",
+    "replyingLabel": "↩ 回复:",
+    "replyButton": "↩ 回复"
   },
   "shell": {
     "logout": "退出登录",

@@ -40,14 +40,14 @@
     "replyBadge": "↪ sagot #{id}",
     "unavailable": "Hindi pa available sa server. Kapag handa, gagana ang screen na ito.",
     "forbidden": "Walang pahintulot.",
-    "messages": "Mensajes",
-    "newConversation": "Nueva conversación",
-    "searchPlaceholder": "Buscar contacto…",
-    "selectConversation": "Seleccioná una conversación",
-    "typeMessage": "Escribí un mensaje…",
-    "noResults": "Sin resultados",
-    "replyingLabel": "↩ Respondiendo:",
-    "replyButton": "↩ Responder"
+    "messages": "Mga mensahe",
+    "newConversation": "Bagong usapan",
+    "searchPlaceholder": "Maghanap ng kontaklara…",
+    "selectConversation": "Pumili ng usapan",
+    "typeMessage": "Magsulat ng mensahe…",
+    "noResults": "Walang resulta",
+    "replyingLabel": "↩ Sumasagot:",
+    "replyButton": "↩ Sumagot"
   },
   "shell": {
     "logout": "Mag-log out",

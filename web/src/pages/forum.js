@@ -3,6 +3,7 @@
  */
 
 import * as api from "../api.js";
+import { t } from "../i18n.js";
 import { escapeHtml, humanizeApiError, forumRelativeTime, forumAvatarColor } from "../utils/format.js";
 
 // Constantes de categoría del foro
@@ -49,7 +50,7 @@ function renderForumPostsList(posts, category, sortBy) {
   }
 
   if (!filtered.length) {
-    listEl.innerHTML = `<div class="card" style="text-align:center;padding:32px;color:var(--text-muted)">No hay publicaciones en esta categoría.</div>`;
+    listEl.innerHTML = `<div class="card" style="text-align:center;padding:32px;color:var(--text-muted)">${escapeHtml(t("forum.noPosts"))}</div>`;
     return;
   }
 
@@ -61,10 +62,10 @@ function renderForumPostsList(posts, category, sortBy) {
     const cat = post.category || "general";
     const isNew = (now - new Date(post.created_at)) < 86400000;
     const pinnedBadge = post.is_pinned
-      ? `<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600">Fijado</span>`
+      ? `<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600">${escapeHtml(t("forum.pinned2"))}</span>`
       : "";
     const newBadge = isNew
-      ? `<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600">NUEVO</span>`
+      ? `<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600">${escapeHtml(t("forum.new2"))}</span>`
       : "";
     const borderLeft = post.is_pinned ? "border-left:3px solid #3b82f6;" : "";
 
@@ -86,8 +87,8 @@ function renderForumPostsList(posts, category, sortBy) {
             ${escapeHtml(post.content || "")}
           </p>
           <div style="display:flex;gap:16px;font-size:0.8em;color:var(--text-muted)">
-            <span>💬 ${post.comment_count || 0} comentarios</span>
-            <span>👁 ${post.view_count || 0} vistas</span>
+            <span>💬 ${post.comment_count || 0} ${escapeHtml(t("forum.comments"))}</span>
+            <span>👁 ${post.view_count || 0} ${escapeHtml(t("forum.views"))}</span>
             <span>${forumRelativeTime(post.created_at)}</span>
           </div>
         </div>
@@ -107,7 +108,7 @@ function renderForumPostsList(posts, category, sortBy) {
 
 /** @param {Function} layout */
 export async function renderForum(layout) {
-  layout(`<p class="loading-line">Cargando foro...</p>`, { wide: true });
+  layout(`<p class="loading-line">${escapeHtml(t("forum.loading"))}</p>`, { wide: true });
 
   let posts = [];
   try {
@@ -115,9 +116,8 @@ export async function renderForum(layout) {
     if (!Array.isArray(posts)) posts = posts.posts || posts.items || [];
   } catch (ex) {
     const detail = humanizeApiError(ex.message);
-    layout(`<div class="card"><h2 class="card-title">Foro de la comunidad</h2>
-      <p class="msg-error">${escapeHtml(detail)}</p>
-      <p class="muted small">El módulo de foro requiere que el endpoint <code>/forum/posts</code> esté disponible en la API.</p></div>`);
+    layout(`<div class="card"><h2 class="card-title">${escapeHtml(t("forum.title"))}</h2>
+      <p class="msg-error">${escapeHtml(detail)}</p></div>`);
     return;
   }
 
@@ -148,20 +148,20 @@ export async function renderForum(layout) {
       <!-- Panel izquierdo 240px -->
       <div style="width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:12px">
         <button id="btn-nuevo-post" style="width:100%;padding:10px 16px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.95em;display:flex;align-items:center;justify-content:center;gap:6px">
-          + Nueva publicación
+          ${escapeHtml(t("forum.newPostBtn"))}
         </button>
         <div class="card" style="padding:12px" id="card-categorias">
-          <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:8px;padding:0 4px">Categorías</div>
+          <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:8px;padding:0 4px">${escapeHtml(t("forum.categoryLabel"))}</div>
           ${categoriesHtml}
         </div>
         <div class="card" style="padding:16px" id="card-stats">
-          <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:12px">Estadísticas</div>
+          <div style="font-size:0.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:12px">${escapeHtml(t("forum.statsLabel"))}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <span style="font-size:0.85em;color:var(--text-muted)">Posts totales</span>
+            <span style="font-size:0.85em;color:var(--text-muted)">${escapeHtml(t("forum.totalPostsLabel"))}</span>
             <span style="font-weight:700;color:#1e293b">${posts.length}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:0.85em;color:var(--text-muted)">Esta semana</span>
+            <span style="font-size:0.85em;color:var(--text-muted)">${escapeHtml(t("forum.thisWeekLabel"))}</span>
             <span style="font-weight:700;color:#3b82f6">${postsThisWeek}</span>
           </div>
         </div>
@@ -170,16 +170,16 @@ export async function renderForum(layout) {
       <div style="flex:1;min-width:0">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div>
-            <h2 style="margin:0 0 4px;font-size:1.25em;font-weight:700">Foro de la comunidad</h2>
-            <p style="margin:0;color:var(--text-muted);font-size:0.9em">Conectate con tu equipo</p>
+            <h2 style="margin:0 0 4px;font-size:1.25em;font-weight:700">${escapeHtml(t("forum.communityTitle"))}</h2>
+            <p style="margin:0;color:var(--text-muted);font-size:0.9em">${escapeHtml(t("forum.communitySubtitle"))}</p>
           </div>
           <select id="foro-sort" style="padding:6px 12px;border:1px solid var(--border-color,#e2e8f0);border-radius:8px;font-size:0.9em;background:#fff;cursor:pointer">
-            <option value="recent">Más recientes</option>
-            <option value="comments">Más comentados</option>
-            <option value="pinned">Fijados primero</option>
+            <option value="recent">${escapeHtml(t("forum.optSortRecent"))}</option>
+            <option value="comments">${escapeHtml(t("forum.optSortComments"))}</option>
+            <option value="pinned">${escapeHtml(t("forum.optSortPinned"))}</option>
           </select>
         </div>
-        <div id="foro-posts-list">Cargando...</div>
+        <div id="foro-posts-list">${escapeHtml(t("forum.loading"))}</div>
       </div>
     </div>
   `;
@@ -230,7 +230,7 @@ export async function renderForumPost(postId, layout) {
   } catch (ex) {
     const detail = humanizeApiError(ex.message);
     layout(`<div class="card" style="max-width:800px;margin:0 auto">
-      <button onclick="location.hash='#/foro'" style="background:none;border:none;color:#3b82f6;cursor:pointer;font-size:0.9em;padding:0;margin-bottom:16px">← Volver al foro</button>
+      <button onclick="location.hash='#/foro'" style="background:none;border:none;color:#3b82f6;cursor:pointer;font-size:0.9em;padding:0;margin-bottom:16px">${escapeHtml(t("forum.backToForum"))}</button>
       <p class="msg-error">${escapeHtml(detail)}</p></div>`);
     return;
   }
@@ -241,7 +241,7 @@ export async function renderForumPost(postId, layout) {
   const cat = post.category || "general";
 
   const commentsHtml = comments.length === 0
-    ? `<p style="color:var(--text-muted);font-size:0.9em">Sin comentarios aún. ¡Sé el primero!</p>`
+    ? `<p style="color:var(--text-muted);font-size:0.9em">${escapeHtml(t("forum.noCommentsYet"))}</p>`
     : comments.map((c) => {
         const cAuthor = c.author_name || c.author_email || "Usuario";
         const cInitial = cAuthor[0].toUpperCase();
@@ -259,7 +259,7 @@ export async function renderForumPost(postId, layout) {
 
   const postDetailHtml = `
     <div style="padding:24px;max-width:800px;margin:0 auto">
-      <button id="btn-volver-foro" style="background:none;border:none;color:#3b82f6;cursor:pointer;font-size:0.9em;padding:0;margin-bottom:16px;display:flex;align-items:center;gap:4px">← Volver al foro</button>
+      <button id="btn-volver-foro" style="background:none;border:none;color:#3b82f6;cursor:pointer;font-size:0.9em;padding:0;margin-bottom:16px;display:flex;align-items:center;gap:4px">${escapeHtml(t("forum.backToForum"))}</button>
       <div class="card" style="margin-bottom:16px">
         <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px">
           <div style="width:44px;height:44px;border-radius:50%;background:${authorColor};display:flex;align-items:center;justify-content:center;color:white;font-weight:700;flex-shrink:0;font-size:1.1em">
@@ -279,13 +279,13 @@ export async function renderForumPost(postId, layout) {
         <p style="white-space:pre-wrap;line-height:1.7;color:#334155;font-size:0.95em;margin:0">${escapeHtml(post.content)}</p>
       </div>
       <div id="foro-comments-section" style="margin-bottom:16px">
-        <h3 style="margin:0 0 16px;font-size:1em;font-weight:700">${comments.length} comentario${comments.length !== 1 ? "s" : ""}</h3>
+        <h3 style="margin:0 0 16px;font-size:1em;font-weight:700">${comments.length} ${comments.length !== 1 ? escapeHtml(t("forum.comments")) : t("forum.comments").replace("s", "")}</h3>
         ${commentsHtml}
       </div>
       <div class="card" style="margin-top:16px">
-        <h4 style="margin:0 0 10px;font-size:0.95em;font-weight:600">Agregar comentario</h4>
-        <textarea id="nuevo-comentario" placeholder="Escribí tu comentario..." style="width:100%;min-height:80px;padding:8px 10px;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;font-family:inherit;resize:vertical;box-sizing:border-box;font-size:0.9em"></textarea>
-        <button id="btn-comentar" style="margin-top:8px;padding:8px 20px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.9em">Comentar</button>
+        <h4 style="margin:0 0 10px;font-size:0.95em;font-weight:600">${escapeHtml(t("forum.addComment"))}</h4>
+        <textarea id="nuevo-comentario" placeholder="${escapeHtml(t("forum.commentPlaceholder"))}" style="width:100%;min-height:80px;padding:8px 10px;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;font-family:inherit;resize:vertical;box-sizing:border-box;font-size:0.9em"></textarea>
+        <button id="btn-comentar" style="margin-top:8px;padding:8px 20px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.9em">${escapeHtml(t("forum.btnComment"))}</button>
         <span id="foro-comment-err" style="margin-left:12px;font-size:0.85em;color:#dc2626"></span>
       </div>
     </div>
@@ -300,7 +300,7 @@ export async function renderForumPost(postId, layout) {
   document.getElementById("btn-comentar").addEventListener("click", async () => {
     const content = (document.getElementById("nuevo-comentario").value || "").trim();
     const errEl = document.getElementById("foro-comment-err");
-    if (!content) { if (errEl) errEl.textContent = "Escribí un comentario antes de enviar."; return; }
+    if (!content) { if (errEl) errEl.textContent = t("forum.errorComment"); return; }
     if (errEl) errEl.textContent = "";
     const btn = document.getElementById("btn-comentar");
     if (btn) btn.disabled = true;
@@ -324,28 +324,28 @@ function openNewPostModal(layout) {
   overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;";
   overlay.innerHTML = `
     <div style="background:var(--card-bg,#fff);border-radius:12px;padding:24px;width:500px;max-width:90vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
-      <h3 style="margin:0 0 16px;font-size:1.1em;font-weight:700">Nueva publicación</h3>
+      <h3 style="margin:0 0 16px;font-size:1.1em;font-weight:700">${escapeHtml(t("forum.newPostTitle"))}</h3>
       <div style="margin-bottom:12px">
-        <label style="display:block;font-weight:500;margin-bottom:4px;font-size:0.9em">Título</label>
-        <input id="nuevo-post-titulo" type="text" placeholder="Título de la publicación" style="width:100%;padding:8px 10px;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;font-family:inherit;box-sizing:border-box;font-size:0.9em">
+        <label style="display:block;font-weight:500;margin-bottom:4px;font-size:0.9em">${escapeHtml(t("forum.labelTitle"))}</label>
+        <input id="nuevo-post-titulo" type="text" placeholder="${escapeHtml(t("forum.postTitle"))}" style="width:100%;padding:8px 10px;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;font-family:inherit;box-sizing:border-box;font-size:0.9em">
       </div>
       <div style="margin-bottom:12px">
-        <label style="display:block;font-weight:500;margin-bottom:4px;font-size:0.9em">Categoría</label>
+        <label style="display:block;font-weight:500;margin-bottom:4px;font-size:0.9em">${escapeHtml(t("forum.labelCategory"))}</label>
         <select id="nuevo-post-categoria" style="width:100%;padding:8px 10px;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;font-family:inherit;font-size:0.9em">
-          <option value="general">General</option>
-          <option value="anuncios">Anuncios</option>
-          <option value="entrenamiento">Entrenamiento</option>
-          <option value="competencias">Competencias</option>
+          <option value="general">${escapeHtml(t("forum.optGeneral"))}</option>
+          <option value="anuncios">${escapeHtml(t("forum.optAnnouncements"))}</option>
+          <option value="entrenamiento">${escapeHtml(t("forum.optTraining"))}</option>
+          <option value="competencias">${escapeHtml(t("forum.optCompetitions"))}</option>
         </select>
       </div>
       <div style="margin-bottom:16px">
-        <label style="display:block;font-weight:500;margin-bottom:4px;font-size:0.9em">Contenido</label>
-        <textarea id="nuevo-post-contenido" placeholder="¿Qué querés compartir?" style="width:100%;min-height:120px;padding:8px 10px;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;font-family:inherit;resize:vertical;box-sizing:border-box;font-size:0.9em"></textarea>
+        <label style="display:block;font-weight:500;margin-bottom:4px;font-size:0.9em">${escapeHtml(t("forum.labelContent"))}</label>
+        <textarea id="nuevo-post-contenido" placeholder="${escapeHtml(t("forum.contentPlaceholder"))}" style="width:100%;min-height:120px;padding:8px 10px;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;font-family:inherit;resize:vertical;box-sizing:border-box;font-size:0.9em"></textarea>
       </div>
       <p id="nuevo-post-err" style="color:#dc2626;font-size:0.85em;margin:0 0 10px;min-height:1em"></p>
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="btn-cancelar-post" style="padding:8px 16px;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;background:transparent;cursor:pointer;font-size:0.9em">Cancelar</button>
-        <button id="btn-publicar-post" style="padding:8px 20px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.9em">Publicar</button>
+        <button id="btn-cancelar-post" style="padding:8px 16px;border:1px solid var(--border-color,#e2e8f0);border-radius:6px;background:transparent;cursor:pointer;font-size:0.9em">${escapeHtml(t("forum.btnCancelPost"))}</button>
+        <button id="btn-publicar-post" style="padding:8px 20px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.9em">${escapeHtml(t("forum.btnPublishPost"))}</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -359,7 +359,7 @@ function openNewPostModal(layout) {
     const content = (document.getElementById("nuevo-post-contenido").value || "").trim();
     const errEl = document.getElementById("nuevo-post-err");
     if (!title || !content) {
-      if (errEl) errEl.textContent = "Completá título y contenido antes de publicar.";
+      if (errEl) errEl.textContent = t("forum.errorComment");
       return;
     }
     if (errEl) errEl.textContent = "";

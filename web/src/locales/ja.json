@@ -40,14 +40,14 @@
     "replyBadge": "↪ 返信 #{id}",
     "unavailable": "サーバーにまだ未実装。利用可能になればここで使えます。",
     "forbidden": "権限がありません。",
-    "messages": "Mensajes",
-    "newConversation": "Nueva conversación",
-    "searchPlaceholder": "Buscar contacto…",
-    "selectConversation": "Seleccioná una conversación",
-    "typeMessage": "Escribí un mensaje…",
-    "noResults": "Sin resultados",
-    "replyingLabel": "↩ Respondiendo:",
-    "replyButton": "↩ Responder"
+    "messages": "メッセージ",
+    "newConversation": "新規メッセージ",
+    "searchPlaceholder": "連絡先を検索…",
+    "selectConversation": "メッセージを選択",
+    "typeMessage": "メッセージを入力…",
+    "noResults": "結果なし",
+    "replyingLabel": "↩ 返信:",
+    "replyButton": "↩ 返信"
   },
   "shell": {
     "logout": "ログアウト",

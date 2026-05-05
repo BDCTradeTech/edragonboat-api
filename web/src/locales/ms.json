@@ -40,14 +40,14 @@
     "replyBadge": "↪ balas {id}",
     "unavailable": "Belum tersedia di pelayan. Akan jalan automatik apabila diaktifkan.",
     "forbidden": "Tiada kebenaran.",
-    "messages": "Mensajes",
-    "newConversation": "Nueva conversación",
-    "searchPlaceholder": "Buscar contacto…",
-    "selectConversation": "Seleccioná una conversación",
-    "typeMessage": "Escribí un mensaje…",
-    "noResults": "Sin resultados",
-    "replyingLabel": "↩ Respondiendo:",
-    "replyButton": "↩ Responder"
+    "messages": "Mesej",
+    "newConversation": "Perbualan baru",
+    "searchPlaceholder": "Cari kontak…",
+    "selectConversation": "Pilih perbualan",
+    "typeMessage": "Tulis mesej…",
+    "noResults": "Tiada hasil",
+    "replyingLabel": "↩ Membalas:",
+    "replyButton": "↩ Balas"
   },
   "shell": {
     "logout": "Log keluar",

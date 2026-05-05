@@ -208,7 +208,7 @@ export async function openDayModal(clickedSession, allSessions) {
   const avgPaddlers = daySessions.length
     ? Math.round(daySessions.reduce((sum, s) => sum + (s.paddlers_count != null ? s.paddlers_count : 0), 0) / daySessions.length)
     : 0;
-  const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const MONTH_NAMES = t("sessions.monthNames").split(",");
   const dayDate = new Date(clickedSession.created_at);
   const dayLabel = `${dayDate.getDate()} de ${MONTH_NAMES[dayDate.getMonth()]} ${dayDate.getFullYear()}`;
   const teamLabel = escapeHtml(clickedSession.team_name || "");
@@ -220,29 +220,29 @@ export async function openDayModal(clickedSession, allSessions) {
     <div id="day-modal" style="background:#fff;border-radius:16px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column">
       <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between">
         <div>
-          <div style="font-size:17px;font-weight:700;color:#1e293b">Resumen del día</div>
+          <div style="font-size:17px;font-weight:700;color:#1e293b">${escapeHtml(t("sessions.dayModalTitle"))}</div>
           <div style="font-size:13px;color:#94a3b8;margin-top:2px">${escapeHtml(dayLabel)}${teamLabel ? " · " + teamLabel : ""}</div>
         </div>
         <button id="modal-close-btn" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1;padding:0 4px">×</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 24px 0">
-        <div style="${statCardStyle}"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Sesiones</div><div style="font-size:22px;font-weight:700;color:#185fa5">${daySessions.length}</div></div>
-        <div style="${statCardStyle}"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Distancia total</div><div style="font-size:22px;font-weight:700;color:#185fa5">${totalDistKm.toFixed(2)} km</div></div>
-        <div style="${statCardStyle}"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">Palistas prom.</div><div style="font-size:22px;font-weight:700;color:#185fa5">${avgPaddlers || "—"}</div></div>
+        <div style="${statCardStyle}"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">${escapeHtml(t("sessions.dayStatSessions"))}</div><div style="font-size:22px;font-weight:700;color:#185fa5">${daySessions.length}</div></div>
+        <div style="${statCardStyle}"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">${escapeHtml(t("sessions.dayStatDistance"))}</div><div style="font-size:22px;font-weight:700;color:#185fa5">${totalDistKm.toFixed(2)} km</div></div>
+        <div style="${statCardStyle}"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:6px">${escapeHtml(t("sessions.dayStatAvgPaddlers"))}</div><div style="font-size:22px;font-weight:700;color:#185fa5">${avgPaddlers || "—"}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 24px">
         <div>
-          <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">Recorridos</div>
+          <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">${escapeHtml(t("sessions.dayMapTitle"))}</div>
           <div id="modal-map" style="height:220px;border-radius:10px;overflow:hidden;border:0.5px solid #e2e8f0"></div>
         </div>
         <div>
-          <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">Sesiones del día</div>
+          <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">${escapeHtml(t("sessions.daySessionsTitle"))}</div>
           <div id="modal-sessions-list" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto"></div>
         </div>
       </div>
       <div style="padding:12px 24px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:0.5px solid #e2e8f0;margin-top:4px">
-        <button id="modal-download-btn" style="padding:7px 16px;font-size:13px;border-radius:8px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">Descargar JPG</button>
-        <button id="modal-close-btn2" style="padding:7px 16px;font-size:13px;border-radius:8px;border:none;background:#185fa5;color:#fff;cursor:pointer">Cerrar</button>
+        <button id="modal-download-btn" style="padding:7px 16px;font-size:13px;border-radius:8px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">${escapeHtml(t("sessions.btnDownloadJpg"))}</button>
+        <button id="modal-close-btn2" style="padding:7px 16px;font-size:13px;border-radius:8px;border:none;background:#185fa5;color:#fff;cursor:pointer">${escapeHtml(t("sessions.btnClose"))}</button>
       </div>
     </div>
   `;
@@ -331,8 +331,9 @@ export async function renderSessionsList(layout) {
     const currentTeamName = teams.find((x) => String(x.team.id) === teamFilter)?.team?.name || "";
     const teamSelectOptions = teams.map((x) => `<option value="${x.team.id}" ${String(x.team.id) === teamFilter ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`).join("");
 
-    const MONTH_NAMES_FILTER = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-    function buildSelectOpts(values, labelFn, allLabel) {
+    const MONTH_NAMES_FILTER = t("sessions.monthNames").split(",");
+    function buildSelectOpts(values, labelFn, allLabelKey) {
+      const allLabel = typeof allLabelKey === "string" && allLabelKey.startsWith("sessions.") ? t(allLabelKey) : allLabelKey;
       const allOpt = `<option value="">${escapeHtml(allLabel)}</option>`;
       return allOpt + values.map((v) => `<option value="${escapeHtml(String(v))}">${escapeHtml(labelFn(v))}</option>`).join("");
     }
@@ -340,9 +341,9 @@ export async function renderSessionsList(layout) {
     const allYears = [...new Set(rows.map((r) => new Date(r.created_at).getFullYear()))].sort((a, b) => b - a);
     const filterRowHtml = `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
       ${teams.length >= 1 ? `<select id="sel-session-team" style="${selectStyle};min-width:130px">${teamSelectOptions}</select><div style="width:1px;height:24px;background:#e2e8f0;align-self:center"></div>` : ""}
-      <select id="filter-year" style="${selectStyle};min-width:130px">${buildSelectOpts(allYears, (y) => String(y), "Todos los años")}</select>
-      <select id="filter-month" style="${selectStyle};min-width:130px"><option value="">Todos los meses</option></select>
-      <select id="filter-day" style="${selectStyle};min-width:130px"><option value="">Todos los días</option></select>
+      <select id="filter-year" style="${selectStyle};min-width:130px">${buildSelectOpts(allYears, (y) => String(y), "sessions.allYears")}</select>
+      <select id="filter-month" style="${selectStyle};min-width:130px"><option value="">${escapeHtml(t("sessions.allMonths"))}</option></select>
+      <select id="filter-day" style="${selectStyle};min-width:130px"><option value="">${escapeHtml(t("sessions.allDays"))}</option></select>
     </div>`;
 
     if (!rows.length) {
@@ -404,7 +405,7 @@ export async function renderSessionsList(layout) {
         return true;
       });
       const days = [...new Set(filtered.map((r) => new Date(r.created_at).getDate()))].sort((a, b) => a - b);
-      dySel.innerHTML = buildSelectOpts(days, (d) => String(d), "Todos los días");
+      dySel.innerHTML = buildSelectOpts(days, (d) => String(d), "sessions.allDays");
       dySel.value = "";
     }
     function updateSummary(filtered) {
@@ -417,8 +418,8 @@ export async function renderSessionsList(layout) {
       if (yr && mo !== "" && dy) periodo = `${dy} de ${MONTH_NAMES_FILTER[Number(mo)]} ${yr}`;
       else if (yr && mo !== "") periodo = `${MONTH_NAMES_FILTER[Number(mo)]} ${yr}`;
       else if (yr) periodo = yr;
-      else periodo = "todos los períodos";
-      summaryEl.textContent = `Mostrando ${filtered.length} sesiones · ${periodo}`;
+      else periodo = t("common.loading");
+      summaryEl.textContent = `${t("sessions.showing")} ${filtered.length} sesiones · ${periodo}`;
     }
     function applyFilters() {
       const filtered = getFilteredRows();
@@ -426,7 +427,7 @@ export async function renderSessionsList(layout) {
       const tbody = document.getElementById("sessions-tbody");
       if (!tbody) return;
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">Sin sesiones para el período seleccionado</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">${escapeHtml(t("sessions.noSessionsForPeriod"))}</td></tr>`;
         return;
       }
       const em = escapeHtml(t("account.emptyDash"));

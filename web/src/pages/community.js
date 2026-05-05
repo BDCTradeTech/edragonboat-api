@@ -96,7 +96,7 @@ function avatarInitial(label) { return (label || "?")[0].toUpperCase(); }
 
 /** @param {Function} layout */
 export async function renderComunidad(layout) {
-  layout(`<p class="loading-line">${escapeHtml(t("common.loading"))}</p>`, { wide: true });
+  layout(`<p class="loading-line">${escapeHtml(t("community.loading"))}</p>`, { wide: true });
   let me, myTeams, dirRaw;
   try {
     [me, myTeams, dirRaw] = await Promise.all([api.apiMe(), api.apiMyTeams(), api.apiCommunityTeams()]);
@@ -157,13 +157,13 @@ export async function renderComunidad(layout) {
       <!-- PANEL IZQUIERDO -->
       <div style="display:flex;flex-direction:column;background:#fff;border-right:0.5px solid #e2e8f0;overflow:hidden;">
         <div style="padding:16px;border-bottom:0.5px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-          <span style="font-size:15px;font-weight:700;color:#1e293b">Mensajes</span>
-          <button id="chat-new-btn" title="Nueva conversación" style="width:28px;height:28px;border-radius:50%;border:none;background:#185fa5;color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+          <span style="font-size:15px;font-weight:700;color:#1e293b">${escapeHtml(t("community.messages"))}</span>
+          <button id="chat-new-btn" title="${escapeHtml(t("community.newConversation"))}" style="width:28px;height:28px;border-radius:50%;border:none;background:#185fa5;color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
         </div>
         <div style="padding:10px 12px;border-bottom:0.5px solid #f1f5f9;flex-shrink:0">
           <div style="position:relative">
             <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#94a3b8" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input id="chat-search" type="text" placeholder="Buscar contacto…" style="width:100%;padding:6px 8px 6px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;background:#f8fafc;box-sizing:border-box;min-width:0">
+            <input id="chat-search" type="text" placeholder="${escapeHtml(t("community.searchPlaceholder"))}" style="width:100%;padding:6px 8px 6px 28px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;background:#f8fafc;box-sizing:border-box;min-width:0">
           </div>
         </div>
         <div id="chat-conv-list" style="flex:1;overflow-y:auto;"></div>
@@ -172,10 +172,10 @@ export async function renderComunidad(layout) {
       <!-- PANEL DERECHO -->
       <div style="display:flex;flex-direction:column;overflow:hidden;background:#f0f4f8;">
         <div id="chat-header" style="padding:14px 20px;border-bottom:0.5px solid #e2e8f0;background:#fff;display:flex;align-items:center;gap:12px;flex-shrink:0">
-          <div style="color:#94a3b8;font-size:14px">Seleccioná una conversación</div>
+          <div style="color:#94a3b8;font-size:14px">${escapeHtml(t("community.selectConversation"))}</div>
         </div>
         <div id="chat-messages" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;">
-          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">Seleccioná una conversación</div>
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">${escapeHtml(t("community.selectConversation"))}</div>
         </div>
         <div id="chat-reply-bar" style="display:none;padding:8px 16px;background:#f8fafc;border-top:0.5px solid #e2e8f0;font-size:12px;color:#64748b;align-items:center;gap:8px;">
           <span id="chat-reply-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
@@ -184,8 +184,8 @@ export async function renderComunidad(layout) {
         <div id="chat-err" style="display:none;padding:6px 16px;background:#fee2e2;color:#dc2626;font-size:12px;"></div>
         <div style="padding:16px;border-top:0.5px solid #e2e8f0;background:#fff;flex-shrink:0">
           <div style="display:flex;gap:10px;align-items:flex-end">
-            <textarea id="chat-input" rows="2" placeholder="Escribí un mensaje…" style="flex:1;resize:none;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:inherit;color:#334155;background:#f8fafc;min-width:0" ${others.length === 0 ? "disabled" : ""}></textarea>
-            <button id="chat-send" style="padding:10px 20px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" ${others.length === 0 ? "disabled" : ""}>Enviar</button>
+            <textarea id="chat-input" rows="2" placeholder="${escapeHtml(t("community.typeMessage"))}" style="flex:1;resize:none;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:14px;font-family:inherit;color:#334155;background:#f8fafc;min-width:0" ${others.length === 0 ? "disabled" : ""}></textarea>
+            <button id="chat-send" style="padding:10px 20px;background:#185fa5;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap" ${others.length === 0 ? "disabled" : ""}>${escapeHtml(t("community.send"))}</button>
           </div>
         </div>
       </div>
@@ -235,7 +235,7 @@ export async function renderComunidad(layout) {
     const q = searchQuery.toLowerCase();
     const filtered = q ? others.filter((o) => (o.threadLabel || "").toLowerCase().includes(q)) : others;
     if (filtered.length === 0) {
-      convListEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">Sin resultados</div>`;
+      convListEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">${escapeHtml(t("community.noResults"))}</div>`;
       return;
     }
     convListEl.innerHTML = filtered.map((o, idx) => {
@@ -329,7 +329,7 @@ export async function renderComunidad(layout) {
           </div>
         </div>`;
       } else {
-        const sender = escapeHtml(m.senderCaption || t("community.fromOther"));
+        const sender = escapeHtml(m.senderCaption || "");
         return `<div style="display:flex;align-items:flex-end;gap:8px">
           <div style="width:32px;height:32px;border-radius:50%;background:${peerColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${escapeHtml(peerInitial)}</div>
           <div style="max-width:65%">
@@ -382,7 +382,7 @@ export async function renderComunidad(layout) {
   async function loadConversation() {
     if (selectedId == null) return;
     if (!messagesEl) return;
-    messagesEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">${escapeHtml(t("common.loading"))}</div>`;
+    messagesEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:14px">${escapeHtml(t("community.loading"))}</div>`;
     setErr("");
     try {
       const raw = await api.apiCommunityMessages(selectedId);
