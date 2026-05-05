@@ -296,11 +296,35 @@
       "Diciembre"
     ],
     "noSessionsForPeriod": "Sin sesiones para el período seleccionado",
-    "noGpsData": "Sin datos de recorrido",
+    "noGpsData": "Keine Streckendaten",
     "dist": "Dist:",
-    "dur": "Dur:",
-    "trackSection": "Tramo {num} — sentido del recorrido en el punto medio",
-    "btnClose": "Cerrar"
+    "dur": "Dauer:",
+    "trackSection": "Abschnitt {num} — Richtung am Mittelpunkt",
+    "btnClose": "Schließen",
+    "compare": "Vergleichen",
+    "compareSelected": "Ausgewählte vergleichen",
+    "comparator": "Einheiten-Vergleich",
+    "sessionA": "Einheit A",
+    "sessionB": "Einheit B",
+    "selectSession": "Einheit wählen",
+    "difference": "Unterschied",
+    "higherInA": "Höher in A",
+    "higherInB": "Höher in B",
+    "equal": "Gleich",
+    "selectBoth": "Zwei Einheiten zum Vergleich auswählen",
+    "loadingComparator": "Vergleich wird geladen...",
+    "metrics": {
+      "distance": "Distanz",
+      "duration": "Dauer",
+      "avgSpm": "Ø SPM",
+      "maxSpeed": "Maximalgeschwindigkeit"
+    },
+    "charts": {
+      "speed": "Geschwindigkeit (km/h)",
+      "spm": "Züge pro Minute",
+      "dps": "Distanz pro Zug (m)",
+      "force": "Zugkraft"
+    }
   },
   "errors": {
     "notFoundDeploy": "Ressource nicht gefunden (404). Aktualisierte app/main.py hochladen (Routen /api/v1/profile und DELETE /api/v1/equipo/{id}) oder das ganze Projekt, dann: sudo systemctl restart edragonboat-api",

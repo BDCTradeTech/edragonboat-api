@@ -296,11 +296,35 @@
       "Déc"
     ],
     "noSessionsForPeriod": "Sin sesiones para el período seleccionado",
-    "noGpsData": "Sin datos de recorrido",
+    "noGpsData": "Aucune donnée de trajet",
     "dist": "Dist:",
     "dur": "Dur:",
-    "trackSection": "Tramo {num} — sentido del recorrido en el punto medio",
-    "btnClose": "Cerrar"
+    "trackSection": "Segment {num} — direction au point médian",
+    "btnClose": "Fermer",
+    "compare": "Comparer",
+    "compareSelected": "Comparer les sélectionnées",
+    "comparator": "Comparateur de séances",
+    "sessionA": "Séance A",
+    "sessionB": "Séance B",
+    "selectSession": "Choisir une séance",
+    "difference": "Différence",
+    "higherInA": "Plus élevé en A",
+    "higherInB": "Plus élevé en B",
+    "equal": "Égal",
+    "selectBoth": "Choisissez deux séances à comparer",
+    "loadingComparator": "Chargement du comparateur...",
+    "metrics": {
+      "distance": "Distance",
+      "duration": "Durée",
+      "avgSpm": "SPM moyen",
+      "maxSpeed": "Vitesse max"
+    },
+    "charts": {
+      "speed": "Vitesse (km/h)",
+      "spm": "Coups par minute",
+      "dps": "Distance par coup (m)",
+      "force": "Force de coup"
+    }
   },
   "errors": {
     "notFoundDeploy": "Ressource introuvable (404). Déployez le fichier app/main.py à jour (routes /api/v1/profile et DELETE /api/v1/equipo/{id}) ou le projet entier, puis : sudo systemctl restart edragonboat-api",

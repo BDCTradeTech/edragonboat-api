@@ -296,11 +296,35 @@
       "Diciembre"
     ],
     "noSessionsForPeriod": "Sin sesiones para el período seleccionado",
-    "noGpsData": "Sin datos de recorrido",
+    "noGpsData": "Walang datos ng ruta",
     "dist": "Dist:",
-    "dur": "Dur:",
-    "trackSection": "Tramo {num} — sentido del recorrido en el punto medio",
-    "btnClose": "Cerrar"
+    "dur": "Tagal:",
+    "trackSection": "Seksyon {num} — direksyon sa gitnang punto",
+    "btnClose": "Isara",
+    "compare": "Ikumpara",
+    "compareSelected": "Ikumpara ang mga napili",
+    "comparator": "Komparador ng sesyon",
+    "sessionA": "Sesyon A",
+    "sessionB": "Sesyon B",
+    "selectSession": "Pumili ng sesyon",
+    "difference": "Pagkakaiba",
+    "higherInA": "Mas mataas sa A",
+    "higherInB": "Mas mataas sa B",
+    "equal": "Pantay",
+    "selectBoth": "Pumili ng dalawang sesyon para ikumpara",
+    "loadingComparator": "Nilo-load ang komparador...",
+    "metrics": {
+      "distance": "Distansya",
+      "duration": "Tagal",
+      "avgSpm": "Average SPM",
+      "maxSpeed": "Pinakamataas na bilis"
+    },
+    "charts": {
+      "speed": "Bilis (km/h)",
+      "spm": "Palada bawat minuto",
+      "dps": "Distansya bawat palada (m)",
+      "force": "Lakas ng palada"
+    }
   },
   "errors": {
     "notFoundDeploy": "Hindi nahanap ang resource (404). I-upload ang na-update na app/main.py (mga ruta /api/v1/profile at DELETE /api/v1/equipo/{id}) o ang buong proyekto, pagkatapos: sudo systemctl restart edragonboat-api",

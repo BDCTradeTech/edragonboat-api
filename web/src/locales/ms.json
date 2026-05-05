@@ -296,11 +296,35 @@
       "Diciembre"
     ],
     "noSessionsForPeriod": "Sin sesiones para el período seleccionado",
-    "noGpsData": "Sin datos de recorrido",
-    "dist": "Dist:",
-    "dur": "Dur:",
-    "trackSection": "Tramo {num} — sentido del recorrido en el punto medio",
-    "btnClose": "Cerrar"
+    "noGpsData": "Tiada data laluan",
+    "dist": "Jarak:",
+    "dur": "Masa:",
+    "trackSection": "Segmen {num} — arah di titik tengah",
+    "btnClose": "Tutup",
+    "compare": "Bandingkan",
+    "compareSelected": "Bandingkan yang dipilih",
+    "comparator": "Pembanding sesi",
+    "sessionA": "Sesi A",
+    "sessionB": "Sesi B",
+    "selectSession": "Pilih sesi",
+    "difference": "Perbezaan",
+    "higherInA": "Lebih tinggi di A",
+    "higherInB": "Lebih tinggi di B",
+    "equal": "Sama",
+    "selectBoth": "Pilih dua sesi untuk dibandingkan",
+    "loadingComparator": "Memuatkan pembanding...",
+    "metrics": {
+      "distance": "Jarak",
+      "duration": "Tempoh",
+      "avgSpm": "SPM purata",
+      "maxSpeed": "Laju maksimum"
+    },
+    "charts": {
+      "speed": "Laju (km/h)",
+      "spm": "Hentakan per minit",
+      "dps": "Jarak per hentakan (m)",
+      "force": "Daya hentakan"
+    }
   },
   "errors": {
     "notFoundDeploy": "Sumber tidak dijumpai (404). Muat naik app/main.py yang dikemas kini (laluan /api/v1/profile dan DELETE /api/v1/equipo/{id}) atau keseluruhan projek, kemudian: sudo systemctl restart edragonboat-api",

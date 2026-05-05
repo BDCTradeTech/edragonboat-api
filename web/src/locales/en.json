@@ -261,7 +261,31 @@
     "dist": "Dist:",
     "dur": "Dur:",
     "trackSection": "Segment {num} — direction at midpoint",
-    "btnClose": "Close"
+    "btnClose": "Close",
+    "compare": "Compare",
+    "compareSelected": "Compare selected",
+    "comparator": "Session comparator",
+    "sessionA": "Session A",
+    "sessionB": "Session B",
+    "selectSession": "Select session",
+    "difference": "Difference",
+    "higherInA": "Higher in A",
+    "higherInB": "Higher in B",
+    "equal": "Equal",
+    "selectBoth": "Select two sessions to compare",
+    "loadingComparator": "Loading comparator...",
+    "metrics": {
+      "distance": "Distance",
+      "duration": "Duration",
+      "avgSpm": "Average SPM",
+      "maxSpeed": "Max speed"
+    },
+    "charts": {
+      "speed": "Speed (km/h)",
+      "spm": "Strokes per minute",
+      "dps": "Distance per stroke (m)",
+      "force": "Stroke force"
+    }
   },
   "errors": {
     "notFoundDeploy": "Resource not found (404). Upload the updated app/main.py (routes /api/v1/profile and DELETE /api/v1/equipo/{id}) or the full project, then restart: sudo systemctl restart edragonboat-api.",

@@ -28,9 +28,19 @@ const SESSION_TEAM_FILTER_KEY = "edb_team_sessions_filter";
 /** @type {Chart[]} */
 let _chartInstances = [];
 
+/** @type {Chart[]} — instancias del comparador, se destruyen al salir */
+let _comparatorCharts = [];
+
+/** IDs de sesiones seleccionadas para comparar (máx. 2) */
+let _compareSelection = new Set();
+
 export function destroySessionCharts() {
   _chartInstances.forEach((c) => c.destroy());
   _chartInstances = [];
+  _comparatorCharts.forEach((c) => c.destroy());
+  _comparatorCharts = [];
+  _compareSelection.clear();
+  document.getElementById("compare-fab")?.remove();
 }
 
 const HIDDEN_DATA_POINT_KEYS = new Set(["latitude", "longitude", "locationAccuracyM"]);
@@ -368,7 +378,7 @@ export async function renderSessionsList(layout) {
         <div id="sessions-summary" style="font-size:12px;color:#94a3b8;margin-bottom:8px"></div>
         <div class="table-scroll free">
           <table>
-            <thead><tr><th>#</th><th>Equipo</th><th>Fecha</th><th>Palistas</th><th>Distancia</th><th>Duración</th><th></th></tr></thead>
+            <thead><tr><th style="width:32px"></th><th>#</th><th>Equipo</th><th>Fecha</th><th>Palistas</th><th>Distancia</th><th>Duración</th><th></th></tr></thead>
             <tbody id="sessions-tbody"></tbody>
           </table>
         </div>
@@ -437,7 +447,9 @@ export async function renderSessionsList(layout) {
           const initial = (s.team_name || "?")[0].toUpperCase();
           const dist = s.distance_meters != null ? `${Math.round(s.distance_meters)} m` : em;
           const dur = s.total_seconds != null ? `${Math.floor(s.total_seconds / 60)}:${String(s.total_seconds % 60).padStart(2, "0")}` : em;
+          const checked = _compareSelection.has(s.id) ? "checked" : "";
           return `<tr>
+            <td style="text-align:center"><input type="checkbox" class="compare-checkbox" data-id="${s.id}" ${checked} /></td>
             <td><span style="color:#94a3b8;font-size:12px">#${s.id}</span></td>
             <td><span class="team-avatar">${escapeHtml(initial)}</span>${escapeHtml(s.team_name || "—")}</td>
             <td>${escapeHtml(fmtDate(s.created_at))}</td>
@@ -449,6 +461,21 @@ export async function renderSessionsList(layout) {
         }).join("");
       tbody.querySelectorAll(".btn-ver").forEach((btn) => {
         btn.addEventListener("click", () => { location.hash = `#/session/${btn.dataset.id}`; });
+      });
+      tbody.querySelectorAll(".compare-checkbox").forEach((cb) => {
+        cb.addEventListener("change", () => {
+          const id = Number(cb.dataset.id);
+          if (cb.checked) {
+            if (_compareSelection.size >= 2) {
+              cb.checked = false;
+              return;
+            }
+            _compareSelection.add(id);
+          } else {
+            _compareSelection.delete(id);
+          }
+          _updateCompareFab();
+        });
       });
     }
 
@@ -470,6 +497,347 @@ export async function renderSessionsList(layout) {
     `);
     document.getElementById("btn-retry").addEventListener("click", route);
   }
+}
+
+// ─── FAB de comparación ───────────────────────────────────────────────────────
+
+function _updateCompareFab() {
+  let fab = document.getElementById("compare-fab");
+  if (_compareSelection.size === 2) {
+    if (!fab) {
+      fab = document.createElement("button");
+      fab.id = "compare-fab";
+      fab.className = "compare-fab";
+      document.body.appendChild(fab);
+    }
+    const ids = [..._compareSelection];
+    fab.textContent = `${t("sessions.compareSelected")} (#${ids[0]} vs #${ids[1]})`;
+    fab.onclick = () => {
+      location.hash = `#/sessions/compare?a=${ids[0]}&b=${ids[1]}`;
+    };
+  } else {
+    fab?.remove();
+  }
+}
+
+// ─── Comparador de sesiones ───────────────────────────────────────────────────
+
+function _fmtDur(seconds) {
+  if (seconds == null || !Number.isFinite(seconds)) return "—";
+  return `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
+}
+
+function _buildComparatorMetrics(sA, sB) {
+  const dpA = sA.dataPoints || [];
+  const dpB = sB.dataPoints || [];
+  const lastA = dpA.length ? dpA[dpA.length - 1] : null;
+  const lastB = dpB.length ? dpB[dpB.length - 1] : null;
+
+  const distA = lastA?.distanceMeters ?? sA.totalDistance ?? null;
+  const distB = lastB?.distanceMeters ?? sB.totalDistance ?? null;
+  const durA = sA.totalSeconds ?? null;
+  const durB = sB.totalSeconds ?? null;
+
+  const spmsA = dpA.filter((p) => typeof p.spm === "number" && Number.isFinite(p.spm));
+  const spmsB = dpB.filter((p) => typeof p.spm === "number" && Number.isFinite(p.spm));
+  const avgSpmA = spmsA.length ? spmsA.reduce((s, p) => s + p.spm, 0) / spmsA.length : null;
+  const avgSpmB = spmsB.length ? spmsB.reduce((s, p) => s + p.spm, 0) / spmsB.length : null;
+
+  const maxSpeedA = dpA.reduce((mx, p) => (typeof p.speedKmh === "number" && p.speedKmh > mx ? p.speedKmh : mx), -Infinity);
+  const maxSpeedB = dpB.reduce((mx, p) => (typeof p.speedKmh === "number" && p.speedKmh > mx ? p.speedKmh : mx), -Infinity);
+
+  const em = "—";
+  function diffHtml(a, b, fmtFn, unit = "") {
+    if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b)) return `<span class="metric-diff neutral">${escapeHtml(t("sessions.equal"))}</span>`;
+    const diff = a - b;
+    if (Math.abs(diff) < 0.001) return `<span class="metric-diff neutral">= ${escapeHtml(t("sessions.equal"))}</span>`;
+    const sign = diff > 0 ? "▲" : "▼";
+    const cls = diff > 0 ? "positive" : "negative";
+    const label = diff > 0 ? t("sessions.higherInA") : t("sessions.higherInB");
+    return `<span class="metric-diff ${cls}">${sign} ${fmtFn(Math.abs(diff))}${unit} (${escapeHtml(label)})</span>`;
+  }
+
+  const cards = [
+    {
+      title: t("sessions.metrics.distance"),
+      valA: distA != null ? `${Math.round(distA)} m` : em,
+      valB: distB != null ? `${Math.round(distB)} m` : em,
+      diff: diffHtml(distA, distB, (v) => `${Math.round(v)} m`),
+    },
+    {
+      title: t("sessions.metrics.duration"),
+      valA: _fmtDur(durA),
+      valB: _fmtDur(durB),
+      diff: diffHtml(durA, durB, (v) => _fmtDur(v)),
+    },
+    {
+      title: t("sessions.metrics.avgSpm"),
+      valA: avgSpmA != null ? avgSpmA.toFixed(1) : em,
+      valB: avgSpmB != null ? avgSpmB.toFixed(1) : em,
+      diff: diffHtml(avgSpmA, avgSpmB, (v) => v.toFixed(1)),
+    },
+    {
+      title: t("sessions.metrics.maxSpeed"),
+      valA: Number.isFinite(maxSpeedA) && maxSpeedA > 0 ? `${maxSpeedA.toFixed(1)} km/h` : em,
+      valB: Number.isFinite(maxSpeedB) && maxSpeedB > 0 ? `${maxSpeedB.toFixed(1)} km/h` : em,
+      diff: diffHtml(
+        Number.isFinite(maxSpeedA) && maxSpeedA > 0 ? maxSpeedA : null,
+        Number.isFinite(maxSpeedB) && maxSpeedB > 0 ? maxSpeedB : null,
+        (v) => `${v.toFixed(1)} km/h`
+      ),
+    },
+  ];
+
+  return `<div class="comparator-metrics">
+    ${cards.map((c) => `
+      <div class="metric-card">
+        <div class="metric-card-title">${escapeHtml(c.title)}</div>
+        <div class="metric-val-a">A: ${c.valA}</div>
+        <div class="metric-val-b">B: ${c.valB}</div>
+        ${c.diff}
+      </div>`).join("")}
+  </div>`;
+}
+
+function _buildComparatorSelectorHtml(which, session) {
+  const cls = `selector-${which}`;
+  const label = t(`sessions.session${which.toUpperCase()}`);
+  if (!session) {
+    return `<div class="session-selector-card ${cls}" id="selector-card-${which}" role="button" tabindex="0" aria-label="${escapeHtml(t('sessions.selectSession'))}">
+      <div class="selector-label">${escapeHtml(label)}</div>
+      <div class="selector-placeholder">${escapeHtml(t("sessions.selectSession"))}…</div>
+    </div>`;
+  }
+  const dp = session.dataPoints || [];
+  const last = dp.length ? dp[dp.length - 1] : null;
+  const dist = last?.distanceMeters != null ? `${Math.round(last.distanceMeters)} m` : "—";
+  const dur = session.totalSeconds != null ? _fmtDur(session.totalSeconds) : "—";
+  const date = session.sessionStartTime ? new Date(session.sessionStartTime).toLocaleDateString(getUiLocale()) : "—";
+  const team = session.teamName ? escapeHtml(session.teamName) : "—";
+  return `<div class="session-selector-card ${cls}" id="selector-card-${which}" role="button" tabindex="0" aria-label="${escapeHtml(label)}">
+    <div class="selector-label">${escapeHtml(label)}</div>
+    <div class="selector-meta">${date} · ${escapeHtml(dist)} · ${escapeHtml(dur)} · ${team}</div>
+  </div>`;
+}
+
+function _initComparatorCharts(dpA, dpB) {
+  _comparatorCharts.forEach((c) => c.destroy());
+  _comparatorCharts = [];
+
+  const COLOR_A = "#185fa5";
+  const COLOR_B = "#854f0b";
+  const commonLine = { borderWidth: 2, pointRadius: 0, pointHoverRadius: 0, tension: 0.3 };
+  const commonOpts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: { legend: { display: true, position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 8, boxHeight: 8, padding: 10, font: { size: 11 } } } },
+    elements: { point: { radius: 0, hoverRadius: 0 } },
+    scales: { x: { ticks: { maxTicksLimit: 10 } } },
+  };
+
+  // Normalizar a la sesión más larga por cantidad de puntos
+  function labelsAndData(dpSrc, key, fallbackFn) {
+    return dpSrc.map((p, i) => {
+      const v = fallbackFn ? fallbackFn(p, i, dpSrc) : p[key];
+      return (typeof v === "number" && Number.isFinite(v)) ? v : null;
+    });
+  }
+
+  function dpsSeries(dp) {
+    return buildDpsSeriesForChart(dp);
+  }
+
+  const labelsA = dpA.map((p) => p.second);
+  const labelsB = dpB.map((p) => p.second);
+
+  const chartDefs = [
+    {
+      canvasId: "cmp-chart-speed",
+      title: t("sessions.charts.speed"),
+      dataA: labelsAndData(dpA, "speedKmh"),
+      dataB: labelsAndData(dpB, "speedKmh"),
+    },
+    {
+      canvasId: "cmp-chart-spm",
+      title: t("sessions.charts.spm"),
+      dataA: labelsAndData(dpA, "spm"),
+      dataB: labelsAndData(dpB, "spm"),
+    },
+    {
+      canvasId: "cmp-chart-dps",
+      title: t("sessions.charts.dps"),
+      dataA: dpsSeries(dpA),
+      dataB: dpsSeries(dpB),
+    },
+    {
+      canvasId: "cmp-chart-force",
+      title: t("sessions.charts.force"),
+      dataA: labelsAndData(dpA, "strokePeakAccelerationMs2"),
+      dataB: labelsAndData(dpB, "strokePeakAccelerationMs2"),
+    },
+  ];
+
+  for (const def of chartDefs) {
+    const canvas = document.getElementById(def.canvasId);
+    if (!canvas) continue;
+    const hasAnyData = [...def.dataA, ...def.dataB].some((v) => v != null);
+    if (!hasAnyData) {
+      canvas.closest(".comparator-chart-card").innerHTML += `<p class="muted small" style="padding:0.5rem 0">${escapeHtml(t("sessionDetail.noSamples"))}</p>`;
+      continue;
+    }
+    const ch = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: labelsA.length >= labelsB.length ? labelsA : labelsB,
+        datasets: [
+          { label: "A", data: def.dataA, borderColor: COLOR_A, backgroundColor: "rgba(24,95,165,0.08)", ...commonLine },
+          { label: "B", data: def.dataB, borderColor: COLOR_B, backgroundColor: "rgba(133,79,11,0.08)", ...commonLine },
+        ],
+      },
+      options: { ...commonOpts },
+    });
+    _comparatorCharts.push(ch);
+  }
+}
+
+function _openSessionPickerModal(allSessions, onPick, currentId) {
+  const existing = document.getElementById("cmp-picker-overlay");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "cmp-picker-overlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1100;display:flex;align-items:center;justify-content:center;padding:16px";
+
+  const em = "—";
+  const items = allSessions
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .map((s) => {
+      const dist = s.distance_meters != null ? `${Math.round(s.distance_meters)} m` : em;
+      const dur = s.total_seconds != null ? _fmtDur(s.total_seconds) : em;
+      const isCurrent = currentId != null && s.id === currentId;
+      return `<div class="comparator-session-item${isCurrent ? " " : ""}" data-id="${s.id}" style="${isCurrent ? "border-color:#185fa5;background:#f0f7ff;" : ""}">
+        <span style="font-weight:600;color:#185fa5">#${s.id}</span>
+        <span style="color:#94a3b8;font-size:11px">${escapeHtml(fmtDate(s.created_at))}</span>
+        <span>${escapeHtml(dist)}</span>
+        <span>${escapeHtml(dur)}</span>
+        <span style="color:#64748b;font-size:11px">${escapeHtml(s.team_name || "")}</span>
+      </div>`;
+    }).join("");
+
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:80vh;overflow-y:auto;display:flex;flex-direction:column">
+      <div style="padding:18px 20px 0;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:15px;font-weight:700;color:#1e293b">${escapeHtml(t("sessions.selectSession"))}</div>
+        <button id="cmp-picker-close" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:22px;line-height:1;padding:0 4px">×</button>
+      </div>
+      <div class="comparator-session-picker" style="padding:14px 20px 20px">${items}</div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById("cmp-picker-close").addEventListener("click", () => overlay.remove());
+  overlay.querySelectorAll(".comparator-session-item").forEach((el) => {
+    el.addEventListener("click", () => {
+      overlay.remove();
+      onPick(Number(el.dataset.id));
+    });
+  });
+}
+
+export async function renderSessionComparator(idA, idB, layout, allSessions) {
+  layout(`<p class="loading-line">${escapeHtml(t("sessions.loadingComparator"))}</p>`);
+  _comparatorCharts.forEach((c) => c.destroy());
+  _comparatorCharts = [];
+
+  let sessionDataA = null;
+  let sessionDataB = null;
+
+  async function fetchAndRender(currentIdA, currentIdB) {
+    try {
+      const fetches = await Promise.all([
+        currentIdA != null ? api.apiGetSession(currentIdA) : Promise.resolve(null),
+        currentIdB != null ? api.apiGetSession(currentIdB) : Promise.resolve(null),
+      ]);
+      sessionDataA = fetches[0]?.session ?? null;
+      sessionDataB = fetches[1]?.session ?? null;
+    } catch (ex) {
+      layout(`<div class="card"><p class="msg-error">${escapeHtml(String(ex.message || ex))}</p><p><a class="link" href="#/sessions">← Volver</a></p></div>`);
+      return;
+    }
+    renderComparatorView(currentIdA, currentIdB);
+  }
+
+  function renderComparatorView(currentIdA, currentIdB) {
+    _comparatorCharts.forEach((c) => c.destroy());
+    _comparatorCharts = [];
+
+    const selectorAHtml = _buildComparatorSelectorHtml("a", sessionDataA);
+    const selectorBHtml = _buildComparatorSelectorHtml("b", sessionDataB);
+
+    const metricsHtml = (sessionDataA && sessionDataB)
+      ? _buildComparatorMetrics(sessionDataA, sessionDataB)
+      : `<div class="card" style="text-align:center;color:#94a3b8;padding:1.5rem">${escapeHtml(t("sessions.selectBoth"))}</div>`;
+
+    const chartsHtml = (sessionDataA && sessionDataB) ? `
+      <div class="comparator-charts">
+        <div class="comparator-chart-card">
+          <h4>${escapeHtml(t("sessions.charts.speed"))}</h4>
+          <div class="chart-canvas-wrap"><canvas id="cmp-chart-speed"></canvas></div>
+        </div>
+        <div class="comparator-chart-card">
+          <h4>${escapeHtml(t("sessions.charts.spm"))}</h4>
+          <div class="chart-canvas-wrap"><canvas id="cmp-chart-spm"></canvas></div>
+        </div>
+        <div class="comparator-chart-card">
+          <h4>${escapeHtml(t("sessions.charts.dps"))}</h4>
+          <div class="chart-canvas-wrap"><canvas id="cmp-chart-dps"></canvas></div>
+        </div>
+        <div class="comparator-chart-card">
+          <h4>${escapeHtml(t("sessions.charts.force"))}</h4>
+          <div class="chart-canvas-wrap"><canvas id="cmp-chart-force"></canvas></div>
+        </div>
+      </div>` : "";
+
+    layout(`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <a class="link" href="#/sessions" style="font-size:13px;color:#185fa5;text-decoration:none">← ${escapeHtml(t("sessions.title"))}</a>
+        <span style="color:#e2e8f0">|</span>
+        <h2 style="margin:0;font-size:16px;font-weight:700;color:#1e293b">${escapeHtml(t("sessions.comparator"))}</h2>
+      </div>
+      <div class="session-comparator card">
+        <div class="comparator-selectors">
+          ${selectorAHtml}
+          <div class="vs-badge">VS</div>
+          ${selectorBHtml}
+        </div>
+        ${metricsHtml}
+        ${chartsHtml}
+      </div>
+    `);
+
+    if (sessionDataA && sessionDataB) {
+      _initComparatorCharts(sessionDataA.dataPoints || [], sessionDataB.dataPoints || []);
+    }
+
+    // Wiring de selectores
+    function wireSelectorClick(which) {
+      const card = document.getElementById(`selector-card-${which}`);
+      if (!card) return;
+      card.addEventListener("click", () => {
+        _openSessionPickerModal(allSessions || [], async (pickedId) => {
+          if (which === "a") { currentIdA = pickedId; sessionDataA = null; }
+          else { currentIdB = pickedId; sessionDataB = null; }
+          await fetchAndRender(currentIdA, currentIdB);
+        }, which === "a" ? currentIdA : currentIdB);
+      });
+      card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") card.click(); });
+    }
+    wireSelectorClick("a");
+    wireSelectorClick("b");
+  }
+
+  await fetchAndRender(idA, idB);
 }
 
 // ─── Detalle de sesión ────────────────────────────────────────────────────────

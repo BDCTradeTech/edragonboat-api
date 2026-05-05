@@ -296,11 +296,35 @@
       "Diciembre"
     ],
     "noSessionsForPeriod": "Sin sesiones para el período seleccionado",
-    "noGpsData": "Sin datos de recorrido",
-    "dist": "Dist:",
-    "dur": "Dur:",
-    "trackSection": "Tramo {num} — sentido del recorrido en el punto medio",
-    "btnClose": "Cerrar"
+    "noGpsData": "无轨迹数据",
+    "dist": "距离:",
+    "dur": "时长:",
+    "trackSection": "段落 {num} — 中间点方向",
+    "btnClose": "关闭",
+    "compare": "对比",
+    "compareSelected": "对比所选",
+    "comparator": "会话对比器",
+    "sessionA": "会话 A",
+    "sessionB": "会话 B",
+    "selectSession": "选择会话",
+    "difference": "差异",
+    "higherInA": "A 更高",
+    "higherInB": "B 更高",
+    "equal": "相等",
+    "selectBoth": "选择两个会话进行对比",
+    "loadingComparator": "正在加载对比器...",
+    "metrics": {
+      "distance": "距离",
+      "duration": "时长",
+      "avgSpm": "平均 SPM",
+      "maxSpeed": "最高速度"
+    },
+    "charts": {
+      "speed": "速度 (km/h)",
+      "spm": "每分钟划桨次数",
+      "dps": "每桨距离 (m)",
+      "force": "划桨力度"
+    }
   },
   "errors": {
     "notFoundDeploy": "未找到资源 (404)。请上传已更新的 app/main.py（/api/v1/profile 与 DELETE /api/v1/equipo/{id} 路由）或整个项目，然后执行：sudo systemctl restart edragonboat-api",

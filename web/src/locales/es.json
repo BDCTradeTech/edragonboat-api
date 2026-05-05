@@ -261,7 +261,31 @@
     "dist": "Dist:",
     "dur": "Dur:",
     "trackSection": "Tramo {num} — sentido del recorrido en el punto medio",
-    "btnClose": "Cerrar"
+    "btnClose": "Cerrar",
+    "compare": "Comparar",
+    "compareSelected": "Comparar seleccionadas",
+    "comparator": "Comparador de sesiones",
+    "sessionA": "Sesión A",
+    "sessionB": "Sesión B",
+    "selectSession": "Seleccionar sesión",
+    "difference": "Diferencia",
+    "higherInA": "Mayor en A",
+    "higherInB": "Mayor en B",
+    "equal": "Iguales",
+    "selectBoth": "Seleccioná dos sesiones para comparar",
+    "loadingComparator": "Cargando comparador...",
+    "metrics": {
+      "distance": "Distancia",
+      "duration": "Duración",
+      "avgSpm": "SPM promedio",
+      "maxSpeed": "Velocidad máxima"
+    },
+    "charts": {
+      "speed": "Velocidad (km/h)",
+      "spm": "Paladas por minuto",
+      "dps": "Distancia por palada (m)",
+      "force": "Fuerza de palada"
+    }
   },
   "errors": {
     "notFoundDeploy": "No se encontró el recurso (404). Subí el archivo app/main.py actualizado (rutas /api/v1/profile y DELETE /api/v1/equipo/{id}) o todo el proyecto, y reiniciá: sudo systemctl restart edragonboat-api.",

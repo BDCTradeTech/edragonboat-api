@@ -296,11 +296,35 @@
       "Diciembre"
     ],
     "noSessionsForPeriod": "Sin sesiones para el período seleccionado",
-    "noGpsData": "Sin datos de recorrido",
-    "dist": "Dist:",
-    "dur": "Dur:",
-    "trackSection": "Tramo {num} — sentido del recorrido en el punto medio",
-    "btnClose": "Cerrar"
+    "noGpsData": "ルートデータなし",
+    "dist": "距離:",
+    "dur": "時間:",
+    "trackSection": "区間 {num} — 中間点の方向",
+    "btnClose": "閉じる",
+    "compare": "比較",
+    "compareSelected": "選択項目を比較",
+    "comparator": "セッション比較",
+    "sessionA": "セッション A",
+    "sessionB": "セッション B",
+    "selectSession": "セッションを選択",
+    "difference": "差",
+    "higherInA": "A が高い",
+    "higherInB": "B が高い",
+    "equal": "同じ",
+    "selectBoth": "比較する2つのセッションを選んでください",
+    "loadingComparator": "比較を読み込み中...",
+    "metrics": {
+      "distance": "距離",
+      "duration": "時間",
+      "avgSpm": "平均 SPM",
+      "maxSpeed": "最高速度"
+    },
+    "charts": {
+      "speed": "速度 (km/h)",
+      "spm": "毎分ストローク数",
+      "dps": "ストロークあたりの距離 (m)",
+      "force": "ストローク力"
+    }
   },
   "errors": {
     "notFoundDeploy": "リソースが見つかりません (404)。更新した app/main.py（/api/v1/profile と DELETE /api/v1/equipo/{id} のルート）またはプロジェクト全体をアップロードし、sudo systemctl restart edragonboat-api を実行してください。",

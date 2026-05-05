@@ -1623,3 +1623,239 @@ details[open] .disclosure-chev::after {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── SESSION COMPARATOR ────────────────────────────────────── */
+
+.session-comparator {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.comparator-selectors {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.session-selector-card {
+  flex: 1;
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.session-selector-card:hover {
+  opacity: 0.85;
+}
+
+.session-selector-card.selector-a {
+  border-color: #185fa5;
+  background: #f0f7ff;
+}
+
+.session-selector-card.selector-b {
+  border-color: #854f0b;
+  background: #fffbf0;
+}
+
+.session-selector-card .selector-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.selector-a .selector-label { color: #185fa5; }
+.selector-b .selector-label { color: #854f0b; }
+
+.session-selector-card .selector-meta {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.session-selector-card .selector-placeholder {
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.vs-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.comparator-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.metric-card {
+  background: #fff;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.metric-card-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.metric-val-a {
+  font-size: 16px;
+  font-weight: 700;
+  color: #185fa5;
+  line-height: 1.2;
+}
+
+.metric-val-b {
+  font-size: 16px;
+  font-weight: 700;
+  color: #854f0b;
+  line-height: 1.2;
+  margin-top: 4px;
+}
+
+.metric-diff {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--border);
+}
+
+.metric-diff.positive { color: #166534; }
+.metric-diff.negative { color: #dc2626; }
+.metric-diff.neutral  { color: var(--muted); }
+
+.comparator-charts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.comparator-chart-card {
+  background: #fff;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.comparator-chart-card h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.comparator-chart-card .chart-canvas-wrap {
+  height: 180px;
+  position: relative;
+}
+
+/* Checkbox en tabla de sesiones */
+.compare-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #185fa5;
+  flex-shrink: 0;
+}
+
+/* FAB flotante "Comparar seleccionadas" */
+.compare-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 500;
+  background: #185fa5;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(24, 95, 165, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.compare-fab:hover {
+  background: #1d6fba;
+  transform: translateY(-1px);
+}
+
+/* Modal de selección de sesión para el comparador */
+.comparator-session-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.comparator-session-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: #f8fafc;
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.12s;
+}
+
+.comparator-session-item:hover {
+  background: #e0f0ff;
+}
+
+@media (max-width: 900px) {
+  .comparator-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .comparator-charts {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .comparator-selectors {
+    flex-direction: column;
+  }
+
+  .vs-badge {
+    padding: 8px 0;
+  }
+
+  .comparator-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}

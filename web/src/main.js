@@ -20,7 +20,7 @@ import panelPkg from "../package.json";
 
 // Pages
 import { renderHome, destroyHomeCharts } from "./pages/home.js";
-import { renderSessionsList, renderSessionDetail, destroySessionCharts } from "./pages/sessions.js";
+import { renderSessionsList, renderSessionDetail, renderSessionComparator, destroySessionCharts } from "./pages/sessions.js";
 import { renderCompetencias } from "./pages/competencias.js";
 import { renderTeamsList, renderTeamNew, renderTeamDetail } from "./pages/teams.js";
 import { renderRutinasHub, renderRutinasNew, renderRutinasViewer, renderRutinasEditor } from "./pages/routines.js";
@@ -351,7 +351,25 @@ function route() {
     return route();
   }
 
-  if (parts[0] === "sessions") return renderSessionsList(layout);
+  if (parts[0] === "sessions") {
+    if (parts[1] === "compare") {
+      const searchStr = location.hash.includes("?") ? location.hash.split("?")[1] : "";
+      const params = new URLSearchParams(searchStr);
+      const idA = params.get("a") ? Number(params.get("a")) : null;
+      const idB = params.get("b") ? Number(params.get("b")) : null;
+      // Precargamos lista de sesiones para el picker modal
+      void (async () => {
+        let allSessions = [];
+        try {
+          const teams = await api.apiMyTeams();
+          if (teams.length) allSessions = await api.apiListSessions(teams[0].team.id);
+        } catch { /* ignore — picker funcionará vacío */ }
+        renderSessionComparator(idA, idB, layout, allSessions);
+      })();
+      return;
+    }
+    return renderSessionsList(layout);
+  }
 
   // Home (default)
   const homeState = {
