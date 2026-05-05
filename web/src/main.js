@@ -352,11 +352,16 @@ function route() {
   }
 
   if (parts[0] === "sessions") {
-    if (parts[1] === "compare") {
-      const searchStr = location.hash.includes("?") ? location.hash.split("?")[1] : "";
-      const params = new URLSearchParams(searchStr);
-      const idA = params.get("a") ? Number(params.get("a")) : null;
-      const idB = params.get("b") ? Number(params.get("b")) : null;
+    const routePart = parts[1]?.split("?")[0] || "";
+    if (routePart === "compare") {
+      // Parsear hash correctamente: #/sessions/compare?a=138&b=130
+      const hash = location.hash.slice(1); // remove #
+      const [pathPart, queryString] = hash.split("?");
+      const params = new URLSearchParams(queryString || "");
+      const aStr = params.get("a");
+      const bStr = params.get("b");
+      const idA = aStr !== null ? Number(aStr) : null;
+      const idB = bStr !== null ? Number(bStr) : null;
       // Precargamos lista de sesiones para el picker modal
       void (async () => {
         let allSessions = [];
