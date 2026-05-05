@@ -12,7 +12,10 @@
       "Bash(apt-get install *)",
       "Bash(sshpass -p '8117' ssh -o StrictHostKeyChecking=accept-new -o PasswordAuthentication=yes -o PubkeyAuthentication=no root@142.93.203.126 'echo ok')",
       "Bash(python3 *)",
-      "Bash(scp -r -v dist/. root@142.93.203.126:/var/www/edragonboat-web/)"
+      "Bash(scp -r -v dist/. root@142.93.203.126:/var/www/edragonboat-web/)",
+      "Bash(node *)",
+      "Bash(git checkout *)",
+      "Bash(scp -r dist/. root@142.93.203.126:/var/www/edragonboat-web/)"
     ]
   }
 }
