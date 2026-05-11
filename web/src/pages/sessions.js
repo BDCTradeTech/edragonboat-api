@@ -374,6 +374,16 @@ export async function renderSessionsList(layout) {
     }
 
     // ── SECCIÓN 1: Records del equipo (sobre TODAS las sesiones filtradas) ──
+    function getSpmMax(s) {
+      // Intenta obtener el máximo real de SPM desde session_json o similar
+      const pts = s.session_json?.dataPoints?.spm
+               ?? s.json?.dataPoints?.spm
+               ?? s.data?.dataPoints?.spm
+               ?? null;
+      if (Array.isArray(pts) && pts.length > 0) return Math.max(...pts);
+      return s.avg_spm ?? 0;
+    }
+
     function computeRecords(allRows) {
       let bestDist = null, bestDistSession = null;
       let bestSpeed = null, bestSpeedSession = null;
@@ -386,17 +396,17 @@ export async function renderSessionsList(layout) {
         if (s.max_speed != null && (bestSpeed === null || s.max_speed > bestSpeed)) {
           bestSpeed = s.max_speed; bestSpeedSession = s;
         }
-        // Usar avg_spm como fallback — el endpoint de listado no expone dataPoints
-        // (solo disponible en apiGetSession()), así que no podemos calcular el máximo absoluto
-        if (s.avg_spm != null && (bestSpm === null || s.avg_spm > bestSpm)) {
-          bestSpm = s.avg_spm; bestSpmSession = s;
+        // Usar SPM máximo real desde session_json si disponible, fallback a avg_spm
+        const spmVal = getSpmMax(s);
+        if (spmVal != null && (bestSpm === null || spmVal > bestSpm)) {
+          bestSpm = spmVal; bestSpmSession = s;
         }
         if (s.avg_speed != null && (bestAvgSpeed === null || s.avg_speed > bestAvgSpeed)) {
           bestAvgSpeed = s.avg_speed; bestAvgSpeedSession = s;
         }
       }
       return [
-        { icon: "📏", key: "bestDistance", val: bestDist != null ? `${Math.round(bestDist)} m` : "—", sess: bestDistSession },
+        { icon: "📏", key: "bestDistance", val: bestDist != null ? `${Math.round(bestDist).toLocaleString()} m` : "—", sess: bestDistSession },
         { icon: "⚡", key: "bestSpeed",    val: bestSpeed != null ? `${bestSpeed.toFixed(1)} km/h` : "—", sess: bestSpeedSession },
         { icon: "🥁", key: "bestSpm",      val: bestSpm != null ? `${Math.round(bestSpm)} spm` : "—", sess: bestSpmSession },
         { icon: "🏃", key: "bestAvgSpeed", val: bestAvgSpeed != null ? `${bestAvgSpeed.toFixed(1)} km/h` : "—", sess: bestAvgSpeedSession },
@@ -647,7 +657,7 @@ export async function renderSessionsList(layout) {
             <div style="display:flex;gap:12px;flex-wrap:wrap;flex:1;font-size:12px;color:#64748b">
               <span>${escapeHtml(t("sessions.sessions"))}: <strong>${daySessions.length}</strong></span>
               <span>${escapeHtml(t("sessions.distance"))}: <strong>${escapeHtml(distLabel)}</strong></span>
-              <span>${escapeHtml(t("sessions.totalStrokes"))}: <strong>${totalStrokesDay}</strong></span>
+              <span>${escapeHtml(t("sessions.totalStrokes"))}: <strong>${totalStrokesDay.toLocaleString()}</strong></span>
               <span>${escapeHtml(t("sessions.paddlers"))}: <strong>${totalPaddlersDay > 0 ? totalPaddlersDay : em}</strong></span>
               <span>${escapeHtml(t("sessions.avgSpmShort"))}: <strong>${avgSpmDay != null ? Math.round(avgSpmDay) : em}</strong></span>
               <span>${escapeHtml(t("sessions.avgSpeedShort"))}: <strong>${avgSpeedDay != null ? avgSpeedDay.toFixed(1) + " km/h" : em}</strong></span>
@@ -685,21 +695,21 @@ export async function renderSessionsList(layout) {
         });
       });
 
-      // Wiring: checkboxes para comparar
-      function _updateDayCompareBtn(dayKey) {
-        const btn = listEl.querySelector(`.btn-compare-selected[data-day="${CSS.escape(dayKey)}"]`);
-        if (!btn) return;
-        const dayIds = (dayMap.get(dayKey) || []).map((s) => s.id);
-        const selectedInDay = dayIds.filter((id) => _compareSelection.has(id));
-        if (selectedInDay.length >= 2) {
-          btn.style.opacity = "1";
-          btn.style.cursor = "pointer";
-          btn.style.pointerEvents = "auto";
-        } else {
-          btn.style.opacity = "0.4";
-          btn.style.cursor = "not-allowed";
-          btn.style.pointerEvents = "none";
-        }
+      // Wiring: checkboxes para comparar (global entre días)
+      function _updateAllDayCompareBtns() {
+        // Actualiza TODOS los botones de compare en función de _compareSelection.size === 2
+        const isValidSelection = _compareSelection.size === 2;
+        listEl.querySelectorAll(".btn-compare-selected").forEach((btn) => {
+          if (isValidSelection) {
+            btn.style.opacity = "1";
+            btn.style.cursor = "pointer";
+            btn.style.pointerEvents = "auto";
+          } else {
+            btn.style.opacity = "0.4";
+            btn.style.cursor = "not-allowed";
+            btn.style.pointerEvents = "none";
+          }
+        });
       }
 
       listEl.querySelectorAll(".compare-checkbox").forEach((cb) => {
@@ -707,28 +717,32 @@ export async function renderSessionsList(layout) {
           e.stopPropagation();
           const id = Number(cb.dataset.id);
           if (cb.checked) {
+            // Si ya hay 2 seleccionadas, desseleccionar la tercera
+            if (_compareSelection.size >= 2) {
+              cb.checked = false;
+              return;
+            }
             _compareSelection.add(id);
           } else {
             _compareSelection.delete(id);
           }
-          // Encontrar el día de este checkbox y actualizar su botón
-          const row = cb.closest(".day-group-card");
-          const dayKey = row?.querySelector(".day-group-header")?.dataset?.day;
-          if (dayKey) _updateDayCompareBtn(dayKey);
+          // Actualizar TODOS los botones (comparación global)
+          _updateAllDayCompareBtns();
         });
       });
 
-      // Wiring: botón "Comparar seleccionadas" por día
+      // Wiring: botón "Comparar seleccionadas" por día (ahora compara desde Set global)
       listEl.querySelectorAll(".btn-compare-selected").forEach((btn) => {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
-          const dayKey = btn.dataset.day;
-          const dayIds = (dayMap.get(dayKey) || []).map((s) => s.id);
-          const selectedInDay = dayIds.filter((id) => _compareSelection.has(id));
-          if (selectedInDay.length < 2) return;
-          location.hash = `#/sessions/compare?a=${selectedInDay[0]}&b=${selectedInDay[1]}`;
+          if (_compareSelection.size !== 2) return;
+          const ids = Array.from(_compareSelection);
+          location.hash = `#/sessions/compare?a=${ids[0]}&b=${ids[1]}`;
         });
       });
+
+      // Inicializar estado de botones
+      _updateAllDayCompareBtns();
 
       // Wiring: botón "Comparar día →"
       listEl.querySelectorAll(".btn-compare-day").forEach((btn) => {
