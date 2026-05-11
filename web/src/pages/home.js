@@ -138,7 +138,7 @@ export async function renderHome(layout, state) {
             const countryName = getCountryNameForUi(String(countryRaw));
             teamCountryEl.textContent = countryName || String(countryRaw);
           } else {
-            teamCountryEl.textContent = "registrados";
+            teamCountryEl.textContent = t("home.registered");
           }
         }
         const teamLogoCardEl = document.getElementById("home-stat-team-logo");

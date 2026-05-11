@@ -215,7 +215,7 @@ export async function renderComunidad(layout) {
       replyBarEl.style.display = "none";
     } else {
       replyBarEl.style.display = "flex";
-      if (replyTextEl) replyTextEl.textContent = `↩ Respondiendo: "${replyToSnippet}"`;
+      if (replyTextEl) replyTextEl.textContent = `${t("community.replyingLabel")} "${replyToSnippet}"`;
     }
   }
 
@@ -289,7 +289,7 @@ export async function renderComunidad(layout) {
         <div style="font-size:14px;font-weight:700;color:#1e293b">${escapeHtml(teamName)}</div>
         ${captain ? `<div style="font-size:12px;color:#94a3b8">${escapeHtml(captain)}</div>` : ""}
       </div>
-      <button id="chat-refresh-btn" style="margin-left:auto;padding:5px 12px;font-size:12px;border-radius:6px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">↻ Actualizar</button>
+      <button id="chat-refresh-btn" style="margin-left:auto;padding:5px 12px;font-size:12px;border-radius:6px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">↻ ${escapeHtml(t("community.refresh"))}</button>
     `;
     document.getElementById("chat-refresh-btn")?.addEventListener("click", () => loadConversation());
   }
@@ -340,7 +340,7 @@ export async function renderComunidad(layout) {
             </div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
               <time style="font-size:11px;color:#94a3b8">${escapeHtml(when)}</time>
-              <button class="chat-rep-btn" data-mid="${m.id}" style="font-size:11px;color:#94a3b8;background:none;border:none;cursor:pointer;padding:0">↩ Responder</button>
+              <button class="chat-rep-btn" data-mid="${m.id}" style="font-size:11px;color:#94a3b8;background:none;border:none;cursor:pointer;padding:0">${escapeHtml(t("community.replyButton"))}</button>
             </div>
           </div>
         </div>`;

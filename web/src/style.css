@@ -678,7 +678,7 @@ select:focus {
 
 .chart-canvas-wrap {
   position: relative;
-  height: 220px;
+  height: 260px;
 }
 
 /* ─── PRE / JSON ────────────────────────────────────────────── */
@@ -1632,124 +1632,78 @@ details[open] .disclosure-chev::after {
   gap: 1.25rem;
 }
 
-.comparator-selectors {
+/* ── Pills/selectors compactos ── */
+.comparator-selectors-row {
   display: flex;
-  align-items: stretch;
-  gap: 0;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.session-selector-card {
-  flex: 1;
-  background: #fff;
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
+.cmp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  min-height: 72px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.session-selector-card:hover {
+.cmp-pill:hover {
   opacity: 0.85;
 }
 
-.session-selector-card.selector-a {
-  border-color: #185fa5;
-  background: #f0f7ff;
+.cmp-pill-a {
+  background: #0ea5e9;
 }
 
-.session-selector-card.selector-b {
-  border-color: #854f0b;
-  background: #fffbf0;
+.cmp-pill-b {
+  background: #f97316;
 }
 
-.session-selector-card .selector-label {
+.cmp-pill-label {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-bottom: 4px;
+  opacity: 0.85;
 }
 
-.selector-a .selector-label { color: #185fa5; }
-.selector-b .selector-label { color: #854f0b; }
-
-.session-selector-card .selector-meta {
-  font-size: 12px;
-  color: var(--text);
-  line-height: 1.5;
-}
-
-.session-selector-card .selector-placeholder {
+.cmp-pill-id {
+  font-weight: 700;
   font-size: 13px;
-  color: var(--muted);
-  font-style: italic;
+}
+
+.cmp-pill-text {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.cmp-pill-edit {
+  font-size: 12px;
+  opacity: 0.75;
+  flex-shrink: 0;
 }
 
 .vs-badge {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 18px;
-  font-size: 13px;
+  padding: 0 10px;
+  font-size: 12px;
   font-weight: 800;
   color: var(--muted);
   letter-spacing: 0.05em;
   flex-shrink: 0;
 }
 
-.comparator-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-.metric-card {
-  background: #fff;
-  border: 0.5px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-}
-
-.metric-card-title {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  margin-bottom: 10px;
-}
-
-.metric-val-a {
-  font-size: 16px;
-  font-weight: 700;
-  color: #185fa5;
-  line-height: 1.2;
-}
-
-.metric-val-b {
-  font-size: 16px;
-  font-weight: 700;
-  color: #854f0b;
-  line-height: 1.2;
-  margin-top: 4px;
-}
-
-.metric-diff {
-  font-size: 11px;
-  font-weight: 600;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 0.5px solid var(--border);
-}
-
-.metric-diff.positive { color: #166534; }
-.metric-diff.negative { color: #dc2626; }
-.metric-diff.neutral  { color: var(--muted); }
-
+/* ── Gráficos del comparador ── */
 .comparator-charts {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1763,15 +1717,56 @@ details[open] .disclosure-chev::after {
   padding: 14px 16px;
 }
 
-.comparator-chart-card h4 {
-  margin: 0 0 10px;
+/* Header del gráfico: título izquierda + métricas derecha */
+.cmp-chart-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.cmp-chart-title {
   font-size: 12px;
   font-weight: 600;
   color: var(--text);
+  flex-shrink: 0;
+}
+
+.cmp-chart-metrics {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cmp-chart-val-a {
+  font-size: 11px;
+  font-weight: 700;
+  color: #185fa5;
+}
+
+.cmp-chart-val-b {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+.cmp-chart-delta {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.cmp-chart-sep {
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .comparator-chart-card .chart-canvas-wrap {
-  height: 180px;
+  height: 260px;
   position: relative;
 }
 
@@ -1837,25 +1832,18 @@ details[open] .disclosure-chev::after {
 }
 
 @media (max-width: 900px) {
-  .comparator-metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .comparator-charts {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 600px) {
-  .comparator-selectors {
+  .comparator-selectors-row {
     flex-direction: column;
+    align-items: flex-start;
   }
 
   .vs-badge {
-    padding: 8px 0;
-  }
-
-  .comparator-metrics {
-    grid-template-columns: 1fr 1fr;
+    padding: 4px 0;
   }
 }

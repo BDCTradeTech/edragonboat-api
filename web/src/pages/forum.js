@@ -15,17 +15,20 @@ const FORUM_CATEGORY_COLORS = {
   general: "#94a3b8",
 };
 
-const FORUM_CATEGORY_LABELS = {
-  todos: "Todos",
-  anuncios: "Anuncios",
-  entrenamiento: "Entrenamiento",
-  competencias: "Competencias",
-  general: "General",
-};
+function forumCategoryLabels() {
+  return {
+    todos: t("forum.catAll"),
+    anuncios: t("forum.catAnnouncements"),
+    entrenamiento: t("forum.catTraining"),
+    competencias: t("forum.catCompetitions"),
+    general: t("forum.catGeneral"),
+  };
+}
 
 function forumCategoryBadge(cat) {
   const color = FORUM_CATEGORY_COLORS[cat] || FORUM_CATEGORY_COLORS.general;
-  const label = FORUM_CATEGORY_LABELS[cat] || escapeHtml(String(cat || "General"));
+  const labels = forumCategoryLabels();
+  const label = labels[cat] || escapeHtml(String(cat || t("forum.catGeneral")));
   return `<span style="background:${color}1a;color:${color};padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600">${escapeHtml(label)}</span>`;
 }
 
@@ -132,10 +135,11 @@ export async function renderForum(layout) {
   const postsThisWeek = posts.filter((p) => new Date(p.created_at) > oneWeekAgo).length;
 
   const catOrder = ["todos", "anuncios", "entrenamiento", "competencias", "general"];
+  const catLabels = forumCategoryLabels();
 
   const categoriesHtml = catOrder.map((cat) => {
     const color = FORUM_CATEGORY_COLORS[cat];
-    const label = FORUM_CATEGORY_LABELS[cat];
+    const label = catLabels[cat];
     return `<div class="foro-cat-item" data-cat="${cat}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:background 0.1s">
       <span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></span>
       <span style="flex:1;font-size:0.9em">${escapeHtml(label)}</span>
@@ -218,7 +222,7 @@ export async function renderForum(layout) {
 
 /** @param {Function} layout */
 export async function renderForumPost(postId, layout) {
-  layout(`<p class="loading-line">Cargando post...</p>`);
+  layout(`<p class="loading-line">${escapeHtml(t("forum.loadingPost"))}</p>`);
 
   let post, comments;
   try {
@@ -270,9 +274,9 @@ export async function renderForumPost(postId, layout) {
               <span style="font-weight:600">${escapeHtml(authorName)}</span>
               ${post.team_name ? `<span style="color:var(--text-muted);font-size:0.85em">· ${escapeHtml(post.team_name)}</span>` : ""}
               ${forumCategoryBadge(cat)}
-              ${post.is_pinned ? `<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600">Fijado</span>` : ""}
+              ${post.is_pinned ? `<span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:600">${escapeHtml(t("forum.pinned2"))}</span>` : ""}
             </div>
-            <div style="font-size:0.8em;color:var(--text-muted)">${forumRelativeTime(post.created_at)} · 👁 ${post.view_count || 0} vistas</div>
+            <div style="font-size:0.8em;color:var(--text-muted)">${forumRelativeTime(post.created_at)} · 👁 ${post.view_count || 0} ${escapeHtml(t("forum.views"))}</div>
           </div>
         </div>
         <h2 style="margin:0 0 12px;font-size:1.3em">${escapeHtml(post.title)}</h2>

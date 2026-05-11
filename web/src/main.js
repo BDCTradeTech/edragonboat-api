@@ -55,7 +55,7 @@ function _activePageTitle() {
   if (key === "rutinas") return escapeHtml(t("nav.routines"));
   if (key === "competencias" || key === "regatas") return escapeHtml(t("nav.competitions"));
   if (key === "comunidad") return escapeHtml(t("nav.community"));
-  if (key === "foro") return "Foro";
+  if (key === "foro") return escapeHtml(t("nav.forum"));
   if (key === "cuenta") return escapeHtml(t("nav.account"));
   if (key === "login") return "Login";
   if (key === "register") return "Register";
@@ -101,7 +101,7 @@ function layout(content, { showNav = true, wide = false } = {}) {
         <a class="nav-item" href="#/sessions" data-match="sessions"><i data-lucide="activity"></i>${escapeHtml(t("nav.sessions"))}</a>
         <a class="nav-item" href="#/competencias" data-match="competencias"><i data-lucide="trophy"></i>${escapeHtml(t("nav.competitions"))}</a>
         <a class="nav-item" href="#/comunidad" data-match="comunidad"><i data-lucide="message-circle"></i>${escapeHtml(t("nav.community"))}</a>
-        <a class="nav-item" href="#/foro" data-match="foro"><i data-lucide="message-square"></i>Foro</a>
+        <a class="nav-item" href="#/foro" data-match="foro"><i data-lucide="message-square"></i>${escapeHtml(t("nav.forum"))}</a>
         <a class="nav-item" href="#/cuenta" data-match="cuenta"><i data-lucide="settings"></i>${escapeHtml(t("nav.account"))}</a>
       </nav>
       <div class="nav-footer">

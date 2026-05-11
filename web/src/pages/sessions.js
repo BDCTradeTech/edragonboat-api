@@ -40,7 +40,6 @@ export function destroySessionCharts() {
   _comparatorCharts.forEach((c) => c.destroy());
   _comparatorCharts = [];
   _compareSelection.clear();
-  document.getElementById("compare-fab")?.remove();
 }
 
 const HIDDEN_DATA_POINT_KEYS = new Set(["latitude", "longitude", "locationAccuracyM"]);
@@ -342,21 +341,24 @@ export async function renderSessionsList(layout) {
     const teamSelectOptions = teams.map((x) => `<option value="${x.team.id}" ${String(x.team.id) === teamFilter ? "selected" : ""}>${escapeHtml(x.team.name)}</option>`).join("");
 
     const MONTH_NAMES_FILTER = t("sessions.monthNames").split(",");
+    // Nombres de mes cortos (3 letras) para los headers de día
+    const MONTH_NAMES_SHORT = t("home.monthNames").split(",");
+    const DAY_NAMES_SHORT = t("sessions.dayNamesShort").split(","); // Lun,Mar,Mié,Jue,Vie,Sáb,Dom
+
     function buildSelectOpts(values, labelFn, allLabelKey) {
       const allLabel = typeof allLabelKey === "string" && allLabelKey.startsWith("sessions.") ? t(allLabelKey) : allLabelKey;
       const allOpt = `<option value="">${escapeHtml(allLabel)}</option>`;
       return allOpt + values.map((v) => `<option value="${escapeHtml(String(v))}">${escapeHtml(labelFn(v))}</option>`).join("");
     }
     const selectStyle = "padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;background:#fff;cursor:pointer;width:auto";
-    const allYears = [...new Set(rows.map((r) => new Date(r.created_at).getFullYear()))].sort((a, b) => b - a);
-    const filterRowHtml = `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      ${teams.length >= 1 ? `<select id="sel-session-team" style="${selectStyle};min-width:130px">${teamSelectOptions}</select><div style="width:1px;height:24px;background:#e2e8f0;align-self:center"></div>` : ""}
-      <select id="filter-year" style="${selectStyle};min-width:130px">${buildSelectOpts(allYears, (y) => String(y), "sessions.allYears")}</select>
-      <select id="filter-month" style="${selectStyle};min-width:130px"><option value="">${escapeHtml(t("sessions.allMonths"))}</option></select>
-      <select id="filter-day" style="${selectStyle};min-width:130px"><option value="">${escapeHtml(t("sessions.allDays"))}</option></select>
-    </div>`;
 
     if (!rows.length) {
+      const allYears = [];
+      const filterRowHtml = `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+        ${teams.length >= 1 ? `<select id="sel-session-team" style="${selectStyle};min-width:130px">${teamSelectOptions}</select><div style="width:1px;height:24px;background:#e2e8f0;align-self:center"></div>` : ""}
+        <select id="filter-year" style="${selectStyle};min-width:130px">${buildSelectOpts(allYears, (y) => String(y), "sessions.allYears")}</select>
+        <select id="filter-month" style="${selectStyle};min-width:130px"><option value="">${escapeHtml(t("sessions.allMonths"))}</option></select>
+      </div>`;
       layout(`
         <div class="card">
           <h2 class="card-title">${escapeHtml(t("sessions.title"))}</h2>
@@ -371,123 +373,389 @@ export async function renderSessionsList(layout) {
       return;
     }
 
-    layout(`
-      <div class="card">
-        <h2 class="card-title">${escapeHtml(t("sessions.title"))}</h2>
-        ${filterRowHtml}
-        <div id="sessions-summary" style="font-size:12px;color:#94a3b8;margin-bottom:8px"></div>
-        <div class="table-scroll free">
-          <table>
-            <thead><tr><th style="width:32px"></th><th>#</th><th>Equipo</th><th>Fecha</th><th>Palistas</th><th>Distancia</th><th>Duración</th><th></th></tr></thead>
-            <tbody id="sessions-tbody"></tbody>
-          </table>
+    // ── SECCIÓN 1: Records del equipo (sobre TODAS las sesiones filtradas) ──
+    function computeRecords(allRows) {
+      let bestDist = null, bestDistSession = null;
+      let bestSpeed = null, bestSpeedSession = null;
+      let bestSpm = null, bestSpmSession = null;
+      let bestAvgSpeed = null, bestAvgSpeedSession = null;
+      for (const s of allRows) {
+        if (s.distance_meters != null && (bestDist === null || s.distance_meters > bestDist)) {
+          bestDist = s.distance_meters; bestDistSession = s;
+        }
+        if (s.max_speed != null && (bestSpeed === null || s.max_speed > bestSpeed)) {
+          bestSpeed = s.max_speed; bestSpeedSession = s;
+        }
+        // Usar avg_spm como fallback — el endpoint de listado no expone dataPoints
+        // (solo disponible en apiGetSession()), así que no podemos calcular el máximo absoluto
+        if (s.avg_spm != null && (bestSpm === null || s.avg_spm > bestSpm)) {
+          bestSpm = s.avg_spm; bestSpmSession = s;
+        }
+        if (s.avg_speed != null && (bestAvgSpeed === null || s.avg_speed > bestAvgSpeed)) {
+          bestAvgSpeed = s.avg_speed; bestAvgSpeedSession = s;
+        }
+      }
+      return [
+        { icon: "📏", key: "bestDistance", val: bestDist != null ? `${Math.round(bestDist)} m` : "—", sess: bestDistSession },
+        { icon: "⚡", key: "bestSpeed",    val: bestSpeed != null ? `${bestSpeed.toFixed(1)} km/h` : "—", sess: bestSpeedSession },
+        { icon: "🥁", key: "bestSpm",      val: bestSpm != null ? `${Math.round(bestSpm)} spm` : "—", sess: bestSpmSession },
+        { icon: "🏃", key: "bestAvgSpeed", val: bestAvgSpeed != null ? `${bestAvgSpeed.toFixed(1)} km/h` : "—", sess: bestAvgSpeedSession },
+      ];
+    }
+
+    function fmtSessionRef(s) {
+      if (!s) return "—";
+      const d = new Date(s.created_at);
+      const mon = MONTH_NAMES_SHORT[d.getMonth()] || "";
+      return `#${s.id} · ${d.getDate()} ${mon} ${d.getFullYear()}`;
+    }
+
+    const records = computeRecords(rows);
+    const recordsHtml = records.map((r) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#f8fafc;border:0.5px solid #e2e8f0;border-radius:10px">
+        <span style="font-size:18px;flex-shrink:0">${r.icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;line-height:1.2">${escapeHtml(t(`sessions.${r.key}`))}</div>
+          <div style="font-size:15px;font-weight:700;color:#185fa5;line-height:1.3">${escapeHtml(r.val)}</div>
         </div>
+        <div style="font-size:11px;color:#94a3b8;white-space:nowrap;flex-shrink:0">${escapeHtml(fmtSessionRef(r.sess))}</div>
+      </div>`).join("");
+
+    // ── SECCIÓN 2: Stats del mes actual ──
+    function computeMonthStats(allRows) {
+      const now = new Date();
+      const curY = now.getFullYear();
+      const curM = now.getMonth();
+      const monthRows = allRows.filter((r) => {
+        const d = new Date(r.created_at);
+        return d.getFullYear() === curY && d.getMonth() === curM;
+      });
+      const totalKm = monthRows.reduce((s, r) => s + (r.distance_meters != null ? r.distance_meters : 0), 0) / 1000;
+      const spms = monthRows.filter((r) => r.avg_spm != null).map((r) => r.avg_spm);
+      const avgSpm = spms.length ? spms.reduce((a, b) => a + b, 0) / spms.length : null;
+      const totalStrokes = monthRows.reduce((sum, r) => {
+        if (r.avg_spm != null && r.total_seconds != null) {
+          return sum + Math.round(r.avg_spm * r.total_seconds / 60);
+        }
+        return sum;
+      }, 0);
+      // DPS promedio: distance_meters / (avg_spm × total_seconds / 60)
+      const dpsValues = monthRows.filter((r) => r.distance_meters != null && r.avg_spm != null && r.total_seconds != null && r.avg_spm > 0 && r.total_seconds > 0).map((r) => r.distance_meters / (r.avg_spm * r.total_seconds / 60));
+      const avgDps = dpsValues.length ? dpsValues.reduce((a, b) => a + b, 0) / dpsValues.length : null;
+      // Palistas promedio (campo paddlers_count si existe)
+      const paddlersCounts = monthRows.filter((r) => r.paddlers_count != null && r.paddlers_count > 0).map((r) => r.paddlers_count);
+      const avgPaddlers = paddlersCounts.length ? paddlersCounts.reduce((a, b) => a + b, 0) / paddlersCounts.length : null;
+      return { count: monthRows.length, km: totalKm, avgSpm, totalStrokes, avgDps, avgPaddlers };
+    }
+
+    const mStats = computeMonthStats(rows);
+    const statBarColors = ["#185fa5", "#0d9488", "#7c3aed", "#d97706", "#ea580c", "#0891b2"];
+    const statCardStyle = "background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:14px 16px;text-align:center";
+    function makeStatCard(labelKey, value, colorIdx) {
+      const color = statBarColors[colorIdx] || "#185fa5";
+      return `<div style="${statCardStyle}">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:4px">${escapeHtml(t(labelKey))}</div>
+        <div style="font-size:20px;font-weight:700;color:${color};margin-bottom:6px">${escapeHtml(String(value))}</div>
+        <div style="height:3px;border-radius:2px;background:${color};opacity:0.25"></div>
+      </div>`;
+    }
+    const monthStatsHtml =
+      makeStatCard("sessions.sessionsMonth", mStats.count, 0) +
+      makeStatCard("sessions.kmMonth", mStats.km.toFixed(1), 1) +
+      makeStatCard("sessions.avgDpsMonth", mStats.avgDps != null ? mStats.avgDps.toFixed(1) + " m" : "—", 2) +
+      makeStatCard("sessions.avgPaddlersMonth", mStats.avgPaddlers != null ? Math.round(mStats.avgPaddlers) : "—", 3) +
+      makeStatCard("sessions.totalStrokesMonth", mStats.totalStrokes > 0 ? mStats.totalStrokes.toLocaleString() : "—", 4) +
+      makeStatCard("sessions.avgSpmMonth", mStats.avgSpm != null ? Math.round(mStats.avgSpm) : "—", 5);
+
+    // ── FILTROS: Equipo, Año, Mes (sin Día) ──
+    const allYears = [...new Set(rows.map((r) => new Date(r.created_at).getFullYear()))].sort((a, b) => b - a);
+    const filterColHtml = `<div style="display:flex;flex-direction:column;gap:10px">
+      ${teams.length >= 1 ? `<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${escapeHtml(t("sessions.filterLabel"))}</label><select id="sel-session-team" style="${selectStyle};width:100%">${teamSelectOptions}</select></div>` : ""}
+      <div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${escapeHtml(t("sessions.year"))}</label><select id="filter-year" style="${selectStyle};width:100%">${buildSelectOpts(allYears, (y) => String(y), "sessions.allYears")}</select></div>
+      <div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${escapeHtml(t("sessions.month"))}</label><select id="filter-month" style="${selectStyle};width:100%"><option value="">${escapeHtml(t("sessions.allMonths"))}</option></select></div>
+    </div>`;
+
+    const divider = `<div style="background:#e5e7eb;align-self:stretch"></div>`;
+
+    layout(`
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <div class="card">
+          <div style="display:grid;grid-template-columns:auto 1px 1fr 1px 1fr;gap:0 20px;align-items:start">
+
+            <div>
+              <h2 class="card-title" style="margin-bottom:12px">${escapeHtml(t("sessions.filterTitle"))}</h2>
+              ${filterColHtml}
+            </div>
+
+            ${divider}
+
+            <div style="background:#f8fafc; border:0.5px solid #e2e8f0; border-radius:12px;padding:14px 16px">
+              <h2 class="card-title" style="margin-bottom:12px">${escapeHtml(`\u{1F4CA} Stats ${MONTH_NAMES_FILTER[new Date().getMonth()]} ${new Date().getFullYear()}`)}</h2>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                ${monthStatsHtml}
+              </div>
+            </div>
+
+            ${divider}
+
+            <div style="background:#f8fafc; border:0.5px solid #e2e8f0; border-radius:12px;padding:14px 16px">
+              <h2 class="card-title" style="margin-bottom:12px">🏆 ${escapeHtml(t("sessions.records"))}</h2>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                ${recordsHtml}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div id="sessions-day-list" style="display:flex;flex-direction:column;gap:10px"></div>
+
       </div>
     `, { wide: true });
+
+    // ── SECCIÓN 4: Lista agrupada por día ──
+    function fmtDayBadge(dateKey) {
+      // dateKey: "YYYY-MM-DD"
+      const [y, m, d] = dateKey.split("-").map(Number);
+      const date = new Date(y, m - 1, d);
+      const dow = DAY_NAMES_SHORT[date.getDay()] || "";
+      const mon = MONTH_NAMES_SHORT[date.getMonth()] || "";
+      return `${dow} ${d} ${mon}`;
+    }
+
+    function fmtDur(secs) {
+      if (secs == null || !Number.isFinite(secs)) return "—";
+      return `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, "0")}`;
+    }
+
+    function fmtTime(isoStr) {
+      if (!isoStr) return "—";
+      return new Date(isoStr).toLocaleTimeString(getUiLocale(), { hour: "2-digit", minute: "2-digit" });
+    }
 
     function getFilteredRows() {
       const yr = document.getElementById("filter-year")?.value || "";
       const mo = document.getElementById("filter-month")?.value || "";
-      const dy = document.getElementById("filter-day")?.value || "";
       return rows.filter((r) => {
         const d = new Date(r.created_at);
         if (yr && d.getFullYear() !== Number(yr)) return false;
         if (mo && d.getMonth() !== Number(mo)) return false;
-        if (dy && d.getDate() !== Number(dy)) return false;
         return true;
       });
     }
+
     function rebuildMonthSelect(yearVal) {
       const moSel = document.getElementById("filter-month");
       if (!moSel) return;
       const filtered = yearVal ? rows.filter((r) => new Date(r.created_at).getFullYear() === Number(yearVal)) : rows;
       const months = [...new Set(filtered.map((r) => new Date(r.created_at).getMonth()))].sort((a, b) => a - b);
-      moSel.innerHTML = buildSelectOpts(months, (m) => MONTH_NAMES_FILTER[m], "Todos los meses");
+      moSel.innerHTML = buildSelectOpts(months, (mo) => MONTH_NAMES_FILTER[mo], "sessions.allMonths");
       moSel.value = "";
     }
-    function rebuildDaySelect(yearVal, monthVal) {
-      const dySel = document.getElementById("filter-day");
-      if (!dySel) return;
-      const filtered = rows.filter((r) => {
-        const d = new Date(r.created_at);
-        if (yearVal && d.getFullYear() !== Number(yearVal)) return false;
-        if (monthVal !== "" && d.getMonth() !== Number(monthVal)) return false;
-        return true;
-      });
-      const days = [...new Set(filtered.map((r) => new Date(r.created_at).getDate()))].sort((a, b) => a - b);
-      dySel.innerHTML = buildSelectOpts(days, (d) => String(d), "sessions.allDays");
-      dySel.value = "";
-    }
-    function updateSummary(filtered) {
-      const summaryEl = document.getElementById("sessions-summary");
-      if (!summaryEl) return;
-      const yr = document.getElementById("filter-year")?.value || "";
-      const mo = document.getElementById("filter-month")?.value || "";
-      const dy = document.getElementById("filter-day")?.value || "";
-      let periodo = "";
-      if (yr && mo !== "" && dy) periodo = `${dy} de ${MONTH_NAMES_FILTER[Number(mo)]} ${yr}`;
-      else if (yr && mo !== "") periodo = `${MONTH_NAMES_FILTER[Number(mo)]} ${yr}`;
-      else if (yr) periodo = yr;
-      else periodo = t("common.loading");
-      summaryEl.textContent = `${t("sessions.showing")} ${filtered.length} sesiones · ${periodo}`;
-    }
-    function applyFilters() {
-      const filtered = getFilteredRows();
-      updateSummary(filtered);
-      const tbody = document.getElementById("sessions-tbody");
-      if (!tbody) return;
+
+    function renderDayList() {
+      const listEl = document.getElementById("sessions-day-list");
+      if (!listEl) return;
+
+      const filtered = getFilteredRows().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px">${escapeHtml(t("sessions.noSessionsForPeriod"))}</td></tr>`;
+        listEl.innerHTML = `<div class="card"><p style="color:#94a3b8;text-align:center;padding:20px">${escapeHtml(t("sessions.noSessionsForPeriod"))}</p></div>`;
         return;
       }
-      const em = escapeHtml(t("account.emptyDash"));
-      tbody.innerHTML = filtered
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .map((s) => {
-          const initial = (s.team_name || "?")[0].toUpperCase();
-          const dist = s.distance_meters != null ? `${Math.round(s.distance_meters)} m` : em;
-          const dur = s.total_seconds != null ? `${Math.floor(s.total_seconds / 60)}:${String(s.total_seconds % 60).padStart(2, "0")}` : em;
+
+      // Agrupar por día (YYYY-MM-DD en hora local)
+      const dayMap = new Map();
+      for (const s of filtered) {
+        const key = localDateKeyFromIso(s.created_at);
+        if (!dayMap.has(key)) dayMap.set(key, []);
+        dayMap.get(key).push(s);
+      }
+      // dayMap ya está ordenado porque filtered está ordenado y localDateKeyFromIso es monotónico
+      const dayKeys = [...dayMap.keys()]; // más reciente primero
+
+      const em = "—";
+      const html = dayKeys.map((dayKey) => {
+        const daySessions = dayMap.get(dayKey);
+
+        // Métricas del header del día
+        const totalDist = daySessions.reduce((s, r) => s + (r.distance_meters != null ? r.distance_meters : 0), 0);
+        const spmsDay = daySessions.filter((r) => r.avg_spm != null).map((r) => r.avg_spm);
+        const avgSpmDay = spmsDay.length ? spmsDay.reduce((a, b) => a + b, 0) / spmsDay.length : null;
+        const speedsDay = daySessions.filter((r) => r.avg_speed != null).map((r) => r.avg_speed);
+        const avgSpeedDay = speedsDay.length ? speedsDay.reduce((a, b) => a + b, 0) / speedsDay.length : null;
+
+        // Paladas del día: suma de Math.round(s.avg_spm * s.total_seconds / 60)
+        const totalStrokesDay = daySessions.reduce((sum, s) => {
+          if (s.avg_spm != null && s.total_seconds != null) {
+            return sum + Math.round(s.avg_spm * s.total_seconds / 60);
+          }
+          return sum;
+        }, 0);
+
+        // Palistas del día: suma de s.paddlers_count (null/undefined → 0)
+        const totalPaddlersDay = daySessions.reduce((sum, s) => {
+          return sum + (s.paddlers_count != null ? s.paddlers_count : 0);
+        }, 0);
+
+        const badgeLabel = escapeHtml(fmtDayBadge(dayKey));
+        const distLabel = totalDist >= 1000 ? `${(totalDist / 1000).toFixed(1)} km` : `${Math.round(totalDist)} m`;
+
+        // Distancia máxima del día (para barras proporcionales)
+        const maxDistDay = Math.max(...daySessions.map((s) => s.distance_meters ?? 0), 1);
+
+        // Filas de sesiones individuales
+        const sessionRows = daySessions.map((s) => {
+          const distM = s.distance_meters ?? 0;
+          const barPct = Math.round((distM / maxDistDay) * 100);
+          const distStr = s.distance_meters != null ? `${Math.round(s.distance_meters)} m` : em;
+          const durStr = fmtDur(s.total_seconds);
+          const hora = fmtTime(s.created_at);
           const checked = _compareSelection.has(s.id) ? "checked" : "";
-          return `<tr>
-            <td style="text-align:center"><input type="checkbox" class="compare-checkbox" data-id="${s.id}" ${checked} /></td>
-            <td><span style="color:#94a3b8;font-size:12px">#${s.id}</span></td>
-            <td><span class="team-avatar">${escapeHtml(initial)}</span>${escapeHtml(s.team_name || "—")}</td>
-            <td>${escapeHtml(fmtDate(s.created_at))}</td>
-            <td>${s.paddlers_count != null ? s.paddlers_count : em}</td>
-            <td>${escapeHtml(dist)}</td>
-            <td>${escapeHtml(dur)}</td>
-            <td><button class="btn btn-ver" data-id="${s.id}" style="padding:4px 10px;font-size:12px;background:#f1f5f9;color:#185fa5;border:0.5px solid #e2e8f0">Ver</button></td>
-          </tr>`;
+          const paladas = (s.avg_spm != null && s.total_seconds != null)
+            ? Math.round(s.avg_spm * s.total_seconds / 60)
+            : null;
+          const paladasStr = paladas != null ? String(paladas) : em;
+          return `<div class="day-session-row" data-id="${s.id}" style="display:grid;grid-template-columns:24px 36px 48px 1fr 64px 52px 48px 36px;gap:6px;align-items:center;padding:6px 0;border-bottom:0.5px solid #f1f5f9">
+            <input type="checkbox" class="compare-checkbox" data-id="${s.id}" ${checked} style="width:14px;height:14px;accent-color:#185fa5" />
+            <span style="font-size:11px;color:#94a3b8">#${s.id}</span>
+            <span style="font-size:12px;color:#334155">${escapeHtml(hora)}</span>
+            <div style="background:#e2e8f0;border-radius:4px;height:6px;overflow:hidden">
+              <div style="background:#185fa5;height:100%;width:${barPct}%;border-radius:4px"></div>
+            </div>
+            <span style="font-size:12px;color:#334155;text-align:right">${escapeHtml(distStr)}</span>
+            <span style="font-size:12px;color:#94a3b8">${escapeHtml(durStr)}</span>
+            <span style="font-size:11px;color:#94a3b8;text-align:right" title="${escapeHtml(t("sessions.totalStrokes"))}">${escapeHtml(paladasStr)}</span>
+            <button class="btn-ver-session" data-id="${s.id}" style="padding:3px 8px;font-size:11px;background:#f1f5f9;color:#185fa5;border:0.5px solid #e2e8f0;border-radius:6px;cursor:pointer;white-space:nowrap">${escapeHtml(t("sessions.btnView"))}</button>
+          </div>`;
         }).join("");
-      tbody.querySelectorAll(".btn-ver").forEach((btn) => {
-        btn.addEventListener("click", () => { location.hash = `#/session/${btn.dataset.id}`; });
+
+        // Fecha completa en header del día
+        const dateObj = new Date(dayKey + 'T00:00:00');
+        const dateLabel = dateObj.toLocaleDateString(getUiLocale(), {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        });
+
+        return `<div class="card day-group-card" style="padding:0;overflow:hidden">
+          <div class="day-group-header" data-day="${escapeHtml(dayKey)}" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;background:#f8fafc;border-bottom:0.5px solid #e2e8f0">
+            <span class="day-chevron" style="font-size:13px;color:#94a3b8;transition:transform .15s">▶</span>
+            <span style="font-size:13px;font-weight:700;color:#1e293b">${escapeHtml(dateLabel)}</span>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;flex:1;font-size:12px;color:#64748b">
+              <span>${escapeHtml(t("sessions.sessions"))}: <strong>${daySessions.length}</strong></span>
+              <span>${escapeHtml(t("sessions.distance"))}: <strong>${escapeHtml(distLabel)}</strong></span>
+              <span>${escapeHtml(t("sessions.totalStrokes"))}: <strong>${totalStrokesDay}</strong></span>
+              <span>${escapeHtml(t("sessions.paddlers"))}: <strong>${totalPaddlersDay > 0 ? totalPaddlersDay : em}</strong></span>
+              <span>${escapeHtml(t("sessions.avgSpmShort"))}: <strong>${avgSpmDay != null ? Math.round(avgSpmDay) : em}</strong></span>
+              <span>${escapeHtml(t("sessions.avgSpeedShort"))}: <strong>${avgSpeedDay != null ? avgSpeedDay.toFixed(1) + " km/h" : em}</strong></span>
+            </div>
+            <button class="btn-compare-selected" data-day="${escapeHtml(dayKey)}" style="padding:4px 10px;font-size:12px;background:#059669;color:#fff;border:none;border-radius:8px;white-space:nowrap;flex-shrink:0;opacity:0.4;cursor:not-allowed;pointer-events:none">${escapeHtml(t("sessions.compareSelected"))}</button>
+            <button class="btn-compare-day" data-day="${escapeHtml(dayKey)}" style="padding:4px 10px;font-size:12px;background:#185fa5;color:#fff;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;flex-shrink:0">${escapeHtml(t("sessions.resumeDay"))} →</button>
+          </div>
+          <div class="day-group-body" style="padding:0 16px;display:none">
+            ${sessionRows}
+          </div>
+        </div>`;
+      }).join("");
+
+      listEl.innerHTML = html;
+
+      // Wiring: toggle de acordeón
+      listEl.querySelectorAll(".day-group-header").forEach((header) => {
+        header.addEventListener("click", (e) => {
+          // No colapsar si se hace click en los botones de acción del header
+          if (e.target.closest(".btn-compare-day") || e.target.closest(".btn-compare-selected")) return;
+          const card = header.closest(".day-group-card");
+          const body = card.querySelector(".day-group-body");
+          const chevron = header.querySelector(".day-chevron");
+          const isOpen = body.style.display !== "none";
+          body.style.display = isOpen ? "none" : "block";
+          chevron.textContent = isOpen ? "▶" : "▼";
+        });
       });
-      tbody.querySelectorAll(".compare-checkbox").forEach((cb) => {
-        cb.addEventListener("change", () => {
+
+      // Wiring: botón "Ver" sesión individual
+      listEl.querySelectorAll(".btn-ver-session").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          location.hash = `#/session/${btn.dataset.id}`;
+        });
+      });
+
+      // Wiring: checkboxes para comparar
+      function _updateDayCompareBtn(dayKey) {
+        const btn = listEl.querySelector(`.btn-compare-selected[data-day="${CSS.escape(dayKey)}"]`);
+        if (!btn) return;
+        const dayIds = (dayMap.get(dayKey) || []).map((s) => s.id);
+        const selectedInDay = dayIds.filter((id) => _compareSelection.has(id));
+        if (selectedInDay.length >= 2) {
+          btn.style.opacity = "1";
+          btn.style.cursor = "pointer";
+          btn.style.pointerEvents = "auto";
+        } else {
+          btn.style.opacity = "0.4";
+          btn.style.cursor = "not-allowed";
+          btn.style.pointerEvents = "none";
+        }
+      }
+
+      listEl.querySelectorAll(".compare-checkbox").forEach((cb) => {
+        cb.addEventListener("change", (e) => {
+          e.stopPropagation();
           const id = Number(cb.dataset.id);
           if (cb.checked) {
-            if (_compareSelection.size >= 2) {
-              cb.checked = false;
-              return;
-            }
             _compareSelection.add(id);
           } else {
             _compareSelection.delete(id);
           }
-          _updateCompareFab();
+          // Encontrar el día de este checkbox y actualizar su botón
+          const row = cb.closest(".day-group-card");
+          const dayKey = row?.querySelector(".day-group-header")?.dataset?.day;
+          if (dayKey) _updateDayCompareBtn(dayKey);
+        });
+      });
+
+      // Wiring: botón "Comparar seleccionadas" por día
+      listEl.querySelectorAll(".btn-compare-selected").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const dayKey = btn.dataset.day;
+          const dayIds = (dayMap.get(dayKey) || []).map((s) => s.id);
+          const selectedInDay = dayIds.filter((id) => _compareSelection.has(id));
+          if (selectedInDay.length < 2) return;
+          location.hash = `#/sessions/compare?a=${selectedInDay[0]}&b=${selectedInDay[1]}`;
+        });
+      });
+
+      // Wiring: botón "Comparar día →"
+      listEl.querySelectorAll(".btn-compare-day").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const dayKey = btn.dataset.day;
+          const daySessionsForModal = dayMap.get(dayKey) || [];
+          if (!daySessionsForModal.length) return;
+          openDayModal(daySessionsForModal[0], rows);
         });
       });
     }
 
     rebuildMonthSelect("");
-    rebuildDaySelect("", "");
-    applyFilters();
-    document.getElementById("filter-year")?.addEventListener("change", (e) => { rebuildMonthSelect(e.target.value); rebuildDaySelect(e.target.value, ""); applyFilters(); });
-    document.getElementById("filter-month")?.addEventListener("change", (e) => { rebuildDaySelect(document.getElementById("filter-year")?.value || "", e.target.value); applyFilters(); });
-    document.getElementById("filter-day")?.addEventListener("change", applyFilters);
+    renderDayList();
+
+    document.getElementById("filter-year")?.addEventListener("change", (e) => {
+      rebuildMonthSelect(e.target.value);
+      renderDayList();
+    });
+    document.getElementById("filter-month")?.addEventListener("change", () => {
+      renderDayList();
+    });
     document.getElementById("sel-session-team")?.addEventListener("change", (e) => {
       if (e.target?.value) { sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value); route(); }
     });
+
   } catch (ex) {
     layout(`
       <div class="card">
@@ -499,27 +767,6 @@ export async function renderSessionsList(layout) {
   }
 }
 
-// ─── FAB de comparación ───────────────────────────────────────────────────────
-
-function _updateCompareFab() {
-  let fab = document.getElementById("compare-fab");
-  if (_compareSelection.size === 2) {
-    if (!fab) {
-      fab = document.createElement("button");
-      fab.id = "compare-fab";
-      fab.className = "compare-fab";
-      document.body.appendChild(fab);
-    }
-    const ids = [..._compareSelection];
-    fab.textContent = `${t("sessions.compareSelected")} (#${ids[0]} vs #${ids[1]})`;
-    fab.onclick = () => {
-      location.hash = `#/sessions/compare?a=${ids[0]}&b=${ids[1]}`;
-    };
-  } else {
-    fab?.remove();
-  }
-}
-
 // ─── Comparador de sesiones ───────────────────────────────────────────────────
 
 function _fmtDur(seconds) {
@@ -527,177 +774,491 @@ function _fmtDur(seconds) {
   return `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
 }
 
-function _buildComparatorMetrics(sA, sB) {
+/** Calcula métricas inline para el header de cada gráfico del comparador */
+function _computeComparatorMetrics(sA, sB) {
   const dpA = sA.dataPoints || [];
   const dpB = sB.dataPoints || [];
-  const lastA = dpA.length ? dpA[dpA.length - 1] : null;
-  const lastB = dpB.length ? dpB[dpB.length - 1] : null;
 
-  const distA = lastA?.distanceMeters ?? sA.totalDistance ?? null;
-  const distB = lastB?.distanceMeters ?? sB.totalDistance ?? null;
-  const durA = sA.totalSeconds ?? null;
-  const durB = sB.totalSeconds ?? null;
-
-  const spmsA = dpA.filter((p) => typeof p.spm === "number" && Number.isFinite(p.spm));
-  const spmsB = dpB.filter((p) => typeof p.spm === "number" && Number.isFinite(p.spm));
-  const avgSpmA = spmsA.length ? spmsA.reduce((s, p) => s + p.spm, 0) / spmsA.length : null;
-  const avgSpmB = spmsB.length ? spmsB.reduce((s, p) => s + p.spm, 0) / spmsB.length : null;
-
-  const maxSpeedA = dpA.reduce((mx, p) => (typeof p.speedKmh === "number" && p.speedKmh > mx ? p.speedKmh : mx), -Infinity);
-  const maxSpeedB = dpB.reduce((mx, p) => (typeof p.speedKmh === "number" && p.speedKmh > mx ? p.speedKmh : mx), -Infinity);
-
-  const em = "—";
-  function diffHtml(a, b, fmtFn, unit = "") {
-    if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b)) return `<span class="metric-diff neutral">${escapeHtml(t("sessions.equal"))}</span>`;
-    const diff = a - b;
-    if (Math.abs(diff) < 0.001) return `<span class="metric-diff neutral">= ${escapeHtml(t("sessions.equal"))}</span>`;
-    const sign = diff > 0 ? "▲" : "▼";
-    const cls = diff > 0 ? "positive" : "negative";
-    const label = diff > 0 ? t("sessions.higherInA") : t("sessions.higherInB");
-    return `<span class="metric-diff ${cls}">${sign} ${fmtFn(Math.abs(diff))}${unit} (${escapeHtml(label)})</span>`;
+  function seriesStats(arr, key) {
+    const vals = arr.map((p) => {
+      const v = p[key];
+      return (typeof v === "number" && Number.isFinite(v) && v > 0) ? v : null;
+    });
+    const valid = vals.filter((v) => v != null);
+    if (!valid.length) return { max: null, avg: null };
+    const max = Math.max(...valid);
+    const avg = valid.reduce((a, b) => a + b, 0) / valid.length;
+    return { max, avg };
   }
 
-  const cards = [
-    {
-      title: t("sessions.metrics.distance"),
-      valA: distA != null ? `${Math.round(distA)} m` : em,
-      valB: distB != null ? `${Math.round(distB)} m` : em,
-      diff: diffHtml(distA, distB, (v) => `${Math.round(v)} m`),
-    },
-    {
-      title: t("sessions.metrics.duration"),
-      valA: _fmtDur(durA),
-      valB: _fmtDur(durB),
-      diff: diffHtml(durA, durB, (v) => _fmtDur(v)),
-    },
-    {
-      title: t("sessions.metrics.avgSpm"),
-      valA: avgSpmA != null ? avgSpmA.toFixed(1) : em,
-      valB: avgSpmB != null ? avgSpmB.toFixed(1) : em,
-      diff: diffHtml(avgSpmA, avgSpmB, (v) => v.toFixed(1)),
-    },
-    {
-      title: t("sessions.metrics.maxSpeed"),
-      valA: Number.isFinite(maxSpeedA) && maxSpeedA > 0 ? `${maxSpeedA.toFixed(1)} km/h` : em,
-      valB: Number.isFinite(maxSpeedB) && maxSpeedB > 0 ? `${maxSpeedB.toFixed(1)} km/h` : em,
-      diff: diffHtml(
-        Number.isFinite(maxSpeedA) && maxSpeedA > 0 ? maxSpeedA : null,
-        Number.isFinite(maxSpeedB) && maxSpeedB > 0 ? maxSpeedB : null,
-        (v) => `${v.toFixed(1)} km/h`
-      ),
-    },
-  ];
+  /** DPS real = totalDistance / totalStrokes desde la sesión */
+  function dpsRealAvg(session) {
+    const dist = session.totalDistance;
+    const strokes = session.totalStrokes;
+    if (!dist || !strokes || dist <= 0 || strokes <= 0) return null;
+    return dist / strokes;
+  }
 
-  return `<div class="comparator-metrics">
-    ${cards.map((c) => `
-      <div class="metric-card">
-        <div class="metric-card-title">${escapeHtml(c.title)}</div>
-        <div class="metric-val-a">A: ${c.valA}</div>
-        <div class="metric-val-b">B: ${c.valB}</div>
-        ${c.diff}
-      </div>`).join("")}
-  </div>`;
+  const speedA = seriesStats(dpA, "speedKmh");
+  const speedB = seriesStats(dpB, "speedKmh");
+  const spmA = seriesStats(dpA, "spm");
+  const spmB = seriesStats(dpB, "spm");
+  const forceA = seriesStats(dpA, "strokePeakAccelerationMs2");
+  const forceB = seriesStats(dpB, "strokePeakAccelerationMs2");
+
+  return {
+    maxSpeedA: speedA.max, avgSpeedA: speedA.avg,
+    maxSpeedB: speedB.max, avgSpeedB: speedB.avg,
+    avgSpmA: spmA.avg,
+    avgSpmB: spmB.avg,
+    avgDpsA: dpsRealAvg(sA),
+    avgDpsB: dpsRealAvg(sB),
+    avgForceA: forceA.avg,
+    avgForceB: forceB.avg,
+  };
+}
+
+/**
+ * Genera el HTML de métricas inline para el header de un gráfico del comparador.
+ *
+ * Modo velocidad (showMax = true):
+ *   Vel. Máx. A: X km/h · Vel. Prom. A: X km/h · Vel. Máx. B: X km/h · Vel. Prom. B: X km/h · Δ X (+X%)
+ *   El delta se calcula sobre el promedio.
+ *
+ * Modo SPM (unit = "spm"):
+ *   Paladas Prom. A: X spm · Paladas Prom. B: X spm · Δ X (+X%)
+ *
+ * Modo DPS (unit = "m"):
+ *   DPS Prom. A: X m · DPS Prom. B: X m · Δ X m (+X%)
+ *
+ * Modo fuerza (unit = ""):
+ *   Fuerza Prom. A: X m/s² · Fuerza Prom. B: X m/s² · Δ X (+X%)
+ *
+ * decimals: número de decimales para formatear (0 para SPM, 1 para los demás).
+ */
+function _chartHeaderMetricsHtml({ maxA = null, avgA, maxB = null, avgB, unit, showMax = false, decimals = 1 }) {
+  const em = "—";
+  const fmt = (v) => (v != null && Number.isFinite(v)) ? v.toFixed(decimals) : em;
+  const unitStr = unit ? ` ${unit}` : "";
+
+  // El delta siempre se calcula sobre el promedio
+  let deltaHtml = "";
+  if (avgA != null && avgB != null && Number.isFinite(avgA) && Number.isFinite(avgB)) {
+    const diff = avgA - avgB;
+    const pct = avgB !== 0 ? (diff / Math.abs(avgB)) * 100 : null;
+    const sign = diff >= 0 ? "+" : "−";
+    const absDiff = Math.abs(diff).toFixed(decimals);
+    const absPct = pct != null ? Math.abs(pct).toFixed(1) : null;
+    const pctPart = absPct != null ? ` (${sign}${absPct}%)` : "";
+    const unitLabel = unit === "m" ? " m" : unitStr;
+    deltaHtml = `<span class="cmp-chart-sep">·</span><span class="cmp-chart-delta" style="color:#64748b">Δ ${sign}${absDiff}${unitLabel}${escapeHtml(pctPart)}</span>`;
+  }
+
+  let parts;
+  if (showMax) {
+    // Velocidad: Vel. Máx. A / Vel. Prom. A / Vel. Máx. B / Vel. Prom. B
+    const aAvgNull = avgA == null || !Number.isFinite(avgA);
+    const bAvgNull = avgB == null || !Number.isFinite(avgB);
+    parts = [
+      `<span class="cmp-chart-val-a" style="color:#185fa5">Vel. Máx. A: ${fmt(maxA)}${unitStr}</span>`,
+      `<span class="cmp-chart-sep">·</span>`,
+      `<span class="cmp-chart-val-a" style="color:#185fa5">Vel. Prom. A: ${aAvgNull ? em : fmt(avgA)}${unitStr}</span>`,
+      `<span class="cmp-chart-sep">·</span>`,
+      `<span class="cmp-chart-val-b" style="color:#7c3aed">Vel. Máx. B: ${fmt(maxB)}${unitStr}</span>`,
+      `<span class="cmp-chart-sep">·</span>`,
+      `<span class="cmp-chart-val-b" style="color:#7c3aed">Vel. Prom. B: ${bAvgNull ? em : fmt(avgB)}${unitStr}</span>`,
+      deltaHtml,
+    ];
+  } else if (unit === "spm") {
+    parts = [
+      `<span class="cmp-chart-val-a" style="color:#185fa5">Paladas Prom. A: ${fmt(avgA)}${unitStr}</span>`,
+      `<span class="cmp-chart-sep">·</span>`,
+      `<span class="cmp-chart-val-b" style="color:#7c3aed">Paladas Prom. B: ${fmt(avgB)}${unitStr}</span>`,
+      deltaHtml,
+    ];
+  } else if (unit === "m") {
+    // DPS
+    parts = [
+      `<span class="cmp-chart-val-a" style="color:#185fa5">DPS Prom. A: ${fmt(avgA)}${unitStr}</span>`,
+      `<span class="cmp-chart-sep">·</span>`,
+      `<span class="cmp-chart-val-b" style="color:#7c3aed">DPS Prom. B: ${fmt(avgB)}${unitStr}</span>`,
+      deltaHtml,
+    ];
+  } else {
+    // Fuerza (unit = "" → mostramos m/s²)
+    const forceUnit = " m/s²";
+    parts = [
+      `<span class="cmp-chart-val-a" style="color:#185fa5">Fuerza Prom. A: ${fmt(avgA)}${forceUnit}</span>`,
+      `<span class="cmp-chart-sep">·</span>`,
+      `<span class="cmp-chart-val-b" style="color:#7c3aed">Fuerza Prom. B: ${fmt(avgB)}${forceUnit}</span>`,
+      deltaHtml,
+    ];
+  }
+
+  return parts.join("");
+}
+
+/**
+ * Calcula el percentil p (0-100) de un array de números usando interpolación lineal.
+ * Filtra nulls y no-finitos. Retorna null si hay menos de 4 valores válidos.
+ */
+function _percentile(arr, p) {
+  const valid = arr.filter((v) => v != null && Number.isFinite(v));
+  if (valid.length < 4) return null;
+  valid.sort((a, b) => a - b);
+  const idx = (p / 100) * (valid.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return valid[lo];
+  return valid[lo] + (valid[hi] - valid[lo]) * (idx - lo);
 }
 
 function _buildComparatorSelectorHtml(which, session) {
-  const cls = `selector-${which}`;
+  console.warn("[cmp-selector] session:", JSON.stringify(session));
   const label = t(`sessions.session${which.toUpperCase()}`);
   if (!session) {
-    return `<div class="session-selector-card ${cls}" id="selector-card-${which}" role="button" tabindex="0" aria-label="${escapeHtml(t('sessions.selectSession'))}">
-      <div class="selector-label">${escapeHtml(label)}</div>
-      <div class="selector-placeholder">${escapeHtml(t("sessions.selectSession"))}…</div>
+    return `<div class="cmp-pill cmp-pill-${which}" id="selector-card-${which}" role="button" tabindex="0" aria-label="${escapeHtml(t('sessions.selectSession'))}">
+      <span class="cmp-pill-label">${escapeHtml(label)}</span>
+      <span class="cmp-pill-text">${escapeHtml(t("sessions.selectSession"))}…</span>
+      <span class="cmp-pill-edit" aria-hidden="true">✏️</span>
     </div>`;
   }
-  const dp = session.dataPoints || [];
-  const last = dp.length ? dp[dp.length - 1] : null;
-  const dist = last?.distanceMeters != null ? `${Math.round(last.distanceMeters)} m` : "—";
-  const dur = session.totalSeconds != null ? _fmtDur(session.totalSeconds) : "—";
-  const date = session.sessionStartTime ? new Date(session.sessionStartTime).toLocaleDateString(getUiLocale()) : "—";
-  const team = session.teamName ? escapeHtml(session.teamName) : "—";
-  return `<div class="session-selector-card ${cls}" id="selector-card-${which}" role="button" tabindex="0" aria-label="${escapeHtml(label)}">
-    <div class="selector-label">${escapeHtml(label)}</div>
-    <div class="selector-meta">${date} · ${escapeHtml(dist)} · ${escapeHtml(dur)} · ${team}</div>
+  // Distancia en metros: preferir session.totalDistance, fallback al último dataPoint
+  let distM = null;
+  if (session.totalDistance != null && session.totalDistance > 0) {
+    distM = session.totalDistance;
+  } else {
+    const dp = session.dataPoints || [];
+    const last = dp.length ? dp[dp.length - 1] : null;
+    if (last?.distanceMeters != null) distM = last.distanceMeters;
+  }
+  let distStr;
+  if (distM == null) {
+    distStr = "—";
+  } else {
+    const rounded = Math.round(distM);
+    distStr = `${rounded} m`;
+  }
+  // Fecha corta tipo "12 abr"
+  const MONTH_SHORT = t("home.monthNames");
+  const months = Array.isArray(MONTH_SHORT) ? MONTH_SHORT : (typeof MONTH_SHORT === "string" ? MONTH_SHORT.split(",") : []);
+  let dateStr = "—";
+  if (session.sessionStartTime) {
+    const d = new Date(session.sessionStartTime);
+    const mon = months[d.getMonth()] || "";
+    dateStr = `${d.getDate()} ${mon}`;
+  }
+  const sessionId = session.id ?? "?";
+  return `<div class="cmp-pill cmp-pill-${which}" id="selector-card-${which}" role="button" tabindex="0" aria-label="${escapeHtml(label)}">
+    <span class="cmp-pill-label">${escapeHtml(label)}</span>
+    <span class="cmp-pill-id">#${sessionId}</span>
+    <span class="cmp-pill-text">${escapeHtml(dateStr)} · ${escapeHtml(distStr)}</span>
+    <span class="cmp-pill-edit" aria-hidden="true">✏️</span>
   </div>`;
 }
 
-function _initComparatorCharts(dpA, dpB) {
+/**
+ * Calcula el rango Y (min-max) basado en percentiles p5-p95.
+ * Helpers para escala distorsionada por percentiles.
+ * El espacio de display [0-100] se divide en tres zonas:
+ *   [0, 8]   → datos por debajo del p5 (comprimidos)
+ *   [8, 92]  → zona central p5-p95 (expandida, usa el 84% del espacio)
+ *   [92, 100] → datos por encima del p95 (comprimidos)
+ */
+function calcP(arr, pct) {
+  const s = [...arr].filter(v => v > 0).sort((a, b) => a - b);
+  return s[Math.floor(s.length * pct / 100)] || 0;
+}
+function toDisplay(val, p5, p95, maxVal) {
+  if (val <= 0) return 0;
+  if (val <= p5) return (val / p5) * 8;
+  if (val <= p95) return 8 + ((val - p5) / (p95 - p5)) * 84;
+  return 92 + ((val - p95) / (maxVal - p95)) * 8;
+}
+function fromDisplay(pct, p5, p95, maxVal) {
+  if (pct <= 8) return (pct / 8) * p5;
+  if (pct <= 92) return p5 + ((pct - 8) / 84) * (p95 - p5);
+  return p95 + ((pct - 92) / 8) * (maxVal - p95);
+}
+
+function _initComparatorCharts(dpA, dpB, sA, sB) {
   _comparatorCharts.forEach((c) => c.destroy());
   _comparatorCharts = [];
 
-  const COLOR_A = "#185fa5";
-  const COLOR_B = "#854f0b";
+  const COLOR_A = "#0ea5e9";
+  const COLOR_B = "#f97316";
   const commonLine = { borderWidth: 2, pointRadius: 0, pointHoverRadius: 0, tension: 0.3 };
-  const commonOpts = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    plugins: { legend: { display: true, position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 8, boxHeight: 8, padding: 10, font: { size: 11 } } } },
-    elements: { point: { radius: 0, hoverRadius: 0 } },
-    scales: { x: { ticks: { maxTicksLimit: 10 } } },
-  };
 
-  // Normalizar a la sesión más larga por cantidad de puntos
-  function labelsAndData(dpSrc, key, fallbackFn) {
-    return dpSrc.map((p, i) => {
-      const v = fallbackFn ? fallbackFn(p, i, dpSrc) : p[key];
+  /** Opciones base compartidas por todos los gráficos del comparador */
+  function makeOpts() {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: "bottom",
+          labels: {
+            usePointStyle: true,
+            pointStyle: "circle",
+            boxWidth: 8,
+            boxHeight: 8,
+            padding: 10,
+            font: { size: 11 },
+            // Ocultar datasets con label vacío (los scatter de máximos)
+            filter: (item) => item.text !== "",
+          },
+        },
+      },
+      elements: { point: { radius: 0, hoverRadius: 0 } },
+      scales: { x: { ticks: { maxTicksLimit: 10 } } },
+    };
+  }
+
+  function labelsAndData(dpSrc, key) {
+    return dpSrc.map((p) => {
+      const v = p[key];
       return (typeof v === "number" && Number.isFinite(v)) ? v : null;
     });
   }
 
-  function dpsSeries(dp) {
-    return buildDpsSeriesForChart(dp);
-  }
-
   const labelsA = dpA.map((p) => p.second);
   const labelsB = dpB.map((p) => p.second);
+  const mergedLabels = labelsA.length >= labelsB.length ? labelsA : labelsB;
 
-  const chartDefs = [
-    {
-      canvasId: "cmp-chart-speed",
-      title: t("sessions.charts.speed"),
-      dataA: labelsAndData(dpA, "speedKmh"),
-      dataB: labelsAndData(dpB, "speedKmh"),
-    },
-    {
-      canvasId: "cmp-chart-spm",
-      title: t("sessions.charts.spm"),
-      dataA: labelsAndData(dpA, "spm"),
-      dataB: labelsAndData(dpB, "spm"),
-    },
-    {
-      canvasId: "cmp-chart-dps",
-      title: t("sessions.charts.dps"),
-      dataA: dpsSeries(dpA),
-      dataB: dpsSeries(dpB),
-    },
-    {
-      canvasId: "cmp-chart-force",
-      title: t("sessions.charts.force"),
-      dataA: labelsAndData(dpA, "strokePeakAccelerationMs2"),
-      dataB: labelsAndData(dpB, "strokePeakAccelerationMs2"),
-    },
-  ];
+  // ── Gráfico de Velocidad — 2 líneas sólidas ──
+  const speedDataA = labelsAndData(dpA, "speedKmh");
+  const speedDataB = labelsAndData(dpB, "speedKmh");
 
-  for (const def of chartDefs) {
-    const canvas = document.getElementById(def.canvasId);
-    if (!canvas) continue;
-    const hasAnyData = [...def.dataA, ...def.dataB].some((v) => v != null);
-    if (!hasAnyData) {
-      canvas.closest(".comparator-chart-card").innerHTML += `<p class="muted small" style="padding:0.5rem 0">${escapeHtml(t("sessionDetail.noSamples"))}</p>`;
-      continue;
+  const speedCanvas = document.getElementById("cmp-chart-speed");
+  if (speedCanvas) {
+    const hasSpeed = [...speedDataA, ...speedDataB].some((v) => v != null);
+    if (!hasSpeed) {
+      speedCanvas.closest(".comparator-chart-card")?.insertAdjacentHTML("beforeend", `<p class="muted small" style="padding:0.5rem 0">${escapeHtml(t("sessionDetail.noSamples"))}</p>`);
+    } else {
+      const opts = makeOpts();
+      const speedCombined = [...speedDataA, ...speedDataB].filter(v => v != null && v > 0);
+      const speedP5 = calcP(speedCombined, 5);
+      const speedP95 = calcP(speedCombined, 95);
+      const speedMax = (speedCombined.length ? Math.max(...speedCombined) : 1) * 1.02;
+      const usePercentileSpeed = speedCombined.length >= 2 && speedP95 > speedP5 && speedMax > speedP95;
+      let displaySpeedA = speedDataA;
+      let displaySpeedB = speedDataB;
+      if (usePercentileSpeed) {
+        displaySpeedA = speedDataA.map(v => v == null ? null : toDisplay(v, speedP5, speedP95, speedMax));
+        displaySpeedB = speedDataB.map(v => v == null ? null : toDisplay(v, speedP5, speedP95, speedMax));
+        opts.scales.y = {
+          type: "linear",
+          min: 0,
+          max: 100,
+          afterBuildTicks(axis) {
+            const points = [0, speedP5 * 0.4, speedP5, (speedP5 + speedP95) / 2, speedP95, speedMax].filter(v => v > 0);
+            axis.ticks = points.map(v => ({ value: toDisplay(v, speedP5, speedP95, speedMax) }));
+          },
+          ticks: {
+            callback(value) {
+              const real = fromDisplay(value, speedP5, speedP95, speedMax);
+              return real < 10 ? real.toFixed(1) : Math.round(real);
+            },
+          },
+        };
+        opts.plugins.tooltip = opts.plugins.tooltip || {};
+        opts.plugins.tooltip.callbacks = opts.plugins.tooltip.callbacks || {};
+        opts.plugins.tooltip.callbacks.label = function(ctx) {
+          const real = fromDisplay(ctx.parsed.y, speedP5, speedP95, speedMax);
+          const rounded = real < 10 ? real.toFixed(1) : Math.round(real);
+          return `${ctx.dataset.label}: ${rounded}`;
+        };
+      }
+      const ch = new Chart(speedCanvas, {
+        type: "line",
+        data: {
+          labels: mergedLabels,
+          datasets: [
+            { label: "Sesión A", data: displaySpeedA, borderColor: COLOR_A, backgroundColor: "rgba(14,165,233,0.08)", ...commonLine },
+            { label: "Sesión B", data: displaySpeedB, borderColor: COLOR_B, backgroundColor: "rgba(249,115,22,0.08)", ...commonLine },
+          ],
+        },
+        options: opts,
+      });
+      _comparatorCharts.push(ch);
     }
-    const ch = new Chart(canvas, {
-      type: "line",
-      data: {
-        labels: labelsA.length >= labelsB.length ? labelsA : labelsB,
-        datasets: [
-          { label: "A", data: def.dataA, borderColor: COLOR_A, backgroundColor: "rgba(24,95,165,0.08)", ...commonLine },
-          { label: "B", data: def.dataB, borderColor: COLOR_B, backgroundColor: "rgba(133,79,11,0.08)", ...commonLine },
-        ],
-      },
-      options: { ...commonOpts },
-    });
-    _comparatorCharts.push(ch);
+  }
+
+  // ── Gráfico de SPM — 2 líneas sólidas ──
+  const spmDataA = labelsAndData(dpA, "spm");
+  const spmDataB = labelsAndData(dpB, "spm");
+
+  const spmCanvas = document.getElementById("cmp-chart-spm");
+  if (spmCanvas) {
+    const hasSpm = [...spmDataA, ...spmDataB].some((v) => v != null);
+    if (!hasSpm) {
+      spmCanvas.closest(".comparator-chart-card")?.insertAdjacentHTML("beforeend", `<p class="muted small" style="padding:0.5rem 0">${escapeHtml(t("sessionDetail.noSamples"))}</p>`);
+    } else {
+      const opts = makeOpts();
+      const spmCombined = [...spmDataA, ...spmDataB].filter(v => v != null && v > 0);
+      const spmP5 = calcP(spmCombined, 5);
+      const spmP95 = calcP(spmCombined, 95);
+      const spmMax = (spmCombined.length ? Math.max(...spmCombined) : 1) * 1.02;
+      const usePercentileSpm = spmCombined.length >= 2 && spmP95 > spmP5 && spmMax > spmP95;
+      let displaySpmA = spmDataA;
+      let displaySpmB = spmDataB;
+      if (usePercentileSpm) {
+        displaySpmA = spmDataA.map(v => v == null ? null : toDisplay(v, spmP5, spmP95, spmMax));
+        displaySpmB = spmDataB.map(v => v == null ? null : toDisplay(v, spmP5, spmP95, spmMax));
+        opts.scales.y = {
+          type: "linear",
+          min: 0,
+          max: 100,
+          afterBuildTicks(axis) {
+            const points = [0, spmP5 * 0.4, spmP5, (spmP5 + spmP95) / 2, spmP95, spmMax].filter(v => v > 0);
+            axis.ticks = points.map(v => ({ value: toDisplay(v, spmP5, spmP95, spmMax) }));
+          },
+          ticks: {
+            callback(value) {
+              const real = fromDisplay(value, spmP5, spmP95, spmMax);
+              return real < 10 ? real.toFixed(1) : Math.round(real);
+            },
+          },
+        };
+        opts.plugins.tooltip = opts.plugins.tooltip || {};
+        opts.plugins.tooltip.callbacks = opts.plugins.tooltip.callbacks || {};
+        opts.plugins.tooltip.callbacks.label = function(ctx) {
+          const real = fromDisplay(ctx.parsed.y, spmP5, spmP95, spmMax);
+          const rounded = real < 10 ? real.toFixed(1) : Math.round(real);
+          return `${ctx.dataset.label}: ${rounded}`;
+        };
+      }
+      const ch = new Chart(spmCanvas, {
+        type: "line",
+        data: {
+          labels: mergedLabels,
+          datasets: [
+            { label: "Sesión A", data: displaySpmA, borderColor: COLOR_A, backgroundColor: "rgba(14,165,233,0.08)", ...commonLine },
+            { label: "Sesión B", data: displaySpmB, borderColor: COLOR_B, backgroundColor: "rgba(249,115,22,0.08)", ...commonLine },
+          ],
+        },
+        options: opts,
+      });
+      _comparatorCharts.push(ch);
+    }
+  }
+
+  // ── Gráfico DPS — 2 líneas sólidas ──
+  const dpsDataA = buildDpsSeriesForChart(dpA);
+  const dpsDataB = buildDpsSeriesForChart(dpB);
+  const dpsCanvas = document.getElementById("cmp-chart-dps");
+  if (dpsCanvas) {
+    const hasDps = [...dpsDataA, ...dpsDataB].some((v) => v != null && v !== 0);
+    if (!hasDps) {
+      dpsCanvas.closest(".comparator-chart-card")?.insertAdjacentHTML("beforeend", `<p class="muted small" style="padding:0.5rem 0">${escapeHtml(t("sessionDetail.noSamples"))}</p>`);
+    } else {
+      const opts = makeOpts();
+      const dpsCombined = [...dpsDataA, ...dpsDataB].filter(v => v != null && v > 0);
+      const dpsP5 = calcP(dpsCombined, 5);
+      const dpsP95 = calcP(dpsCombined, 95);
+      const dpsMax = (dpsCombined.length ? Math.max(...dpsCombined) : 1) * 1.02;
+      const usePercentileDps = dpsCombined.length >= 2 && dpsP95 > dpsP5 && dpsMax > dpsP95;
+      let displayDpsA = dpsDataA;
+      let displayDpsB = dpsDataB;
+      if (usePercentileDps) {
+        displayDpsA = dpsDataA.map(v => v == null ? null : toDisplay(v, dpsP5, dpsP95, dpsMax));
+        displayDpsB = dpsDataB.map(v => v == null ? null : toDisplay(v, dpsP5, dpsP95, dpsMax));
+        opts.scales.y = {
+          type: "linear",
+          min: 0,
+          max: 100,
+          afterBuildTicks(axis) {
+            const points = [0, dpsP5 * 0.4, dpsP5, (dpsP5 + dpsP95) / 2, dpsP95, dpsMax].filter(v => v > 0);
+            axis.ticks = points.map(v => ({ value: toDisplay(v, dpsP5, dpsP95, dpsMax) }));
+          },
+          ticks: {
+            callback(value) {
+              const real = fromDisplay(value, dpsP5, dpsP95, dpsMax);
+              return real < 10 ? real.toFixed(1) : Math.round(real);
+            },
+          },
+        };
+        opts.plugins.tooltip = opts.plugins.tooltip || {};
+        opts.plugins.tooltip.callbacks = opts.plugins.tooltip.callbacks || {};
+        opts.plugins.tooltip.callbacks.label = function(ctx) {
+          const real = fromDisplay(ctx.parsed.y, dpsP5, dpsP95, dpsMax);
+          const rounded = real < 10 ? real.toFixed(1) : Math.round(real);
+          return `${ctx.dataset.label}: ${rounded}`;
+        };
+      }
+      const ch = new Chart(dpsCanvas, {
+        type: "line",
+        data: {
+          labels: mergedLabels,
+          datasets: [
+            { label: "Sesión A", data: displayDpsA, borderColor: COLOR_A, backgroundColor: "rgba(14,165,233,0.08)", ...commonLine },
+            { label: "Sesión B", data: displayDpsB, borderColor: COLOR_B, backgroundColor: "rgba(249,115,22,0.08)", ...commonLine },
+          ],
+        },
+        options: opts,
+      });
+      _comparatorCharts.push(ch);
+    }
+  }
+
+  // ── Gráfico Force — 2 líneas sólidas ──
+  const forceDataA = labelsAndData(dpA, "strokePeakAccelerationMs2");
+  const forceDataB = labelsAndData(dpB, "strokePeakAccelerationMs2");
+  const forceCanvas = document.getElementById("cmp-chart-force");
+  if (forceCanvas) {
+    const hasForce = [...forceDataA, ...forceDataB].some((v) => v != null);
+    if (!hasForce) {
+      forceCanvas.closest(".comparator-chart-card")?.insertAdjacentHTML("beforeend", `<p class="muted small" style="padding:0.5rem 0">${escapeHtml(t("sessionDetail.noSamples"))}</p>`);
+    } else {
+      const opts = makeOpts();
+      const forceCombined = [...forceDataA, ...forceDataB].filter(v => v != null && v > 0);
+      const forceP5 = calcP(forceCombined, 5);
+      const forceP95 = calcP(forceCombined, 95);
+      const forceMax = (forceCombined.length ? Math.max(...forceCombined) : 1) * 1.02;
+      const usePercentileForce = forceCombined.length >= 2 && forceP95 > forceP5 && forceMax > forceP95;
+      let displayForceA = forceDataA;
+      let displayForceB = forceDataB;
+      if (usePercentileForce) {
+        displayForceA = forceDataA.map(v => v == null ? null : toDisplay(v, forceP5, forceP95, forceMax));
+        displayForceB = forceDataB.map(v => v == null ? null : toDisplay(v, forceP5, forceP95, forceMax));
+        opts.scales.y = {
+          type: "linear",
+          min: 0,
+          max: 100,
+          afterBuildTicks(axis) {
+            const points = [0, forceP5 * 0.4, forceP5, (forceP5 + forceP95) / 2, forceP95, forceMax].filter(v => v > 0);
+            axis.ticks = points.map(v => ({ value: toDisplay(v, forceP5, forceP95, forceMax) }));
+          },
+          ticks: {
+            callback(value) {
+              const real = fromDisplay(value, forceP5, forceP95, forceMax);
+              return real < 10 ? real.toFixed(1) : Math.round(real);
+            },
+          },
+        };
+        opts.plugins.tooltip = opts.plugins.tooltip || {};
+        opts.plugins.tooltip.callbacks = opts.plugins.tooltip.callbacks || {};
+        opts.plugins.tooltip.callbacks.label = function(ctx) {
+          const real = fromDisplay(ctx.parsed.y, forceP5, forceP95, forceMax);
+          const rounded = real < 10 ? real.toFixed(1) : Math.round(real);
+          return `${ctx.dataset.label}: ${rounded}`;
+        };
+      }
+      const ch = new Chart(forceCanvas, {
+        type: "line",
+        data: {
+          labels: mergedLabels,
+          datasets: [
+            { label: "Sesión A", data: displayForceA, borderColor: COLOR_A, backgroundColor: "rgba(14,165,233,0.08)", ...commonLine },
+            { label: "Sesión B", data: displayForceB, borderColor: COLOR_B, backgroundColor: "rgba(249,115,22,0.08)", ...commonLine },
+          ],
+        },
+        options: opts,
+      });
+      _comparatorCharts.push(ch);
+    }
   }
 }
 
@@ -759,8 +1320,11 @@ export async function renderSessionComparator(idA, idB, layout, allSessions) {
         currentIdA != null ? api.apiGetSession(currentIdA) : Promise.resolve(null),
         currentIdB != null ? api.apiGetSession(currentIdB) : Promise.resolve(null),
       ]);
+      // El payload de sesión no incluye el id de la fila BD; lo inyectamos desde el nivel raíz
       sessionDataA = fetches[0]?.session ?? null;
+      if (sessionDataA && fetches[0]?.id != null) sessionDataA = { ...sessionDataA, id: fetches[0].id };
       sessionDataB = fetches[1]?.session ?? null;
+      if (sessionDataB && fetches[1]?.id != null) sessionDataB = { ...sessionDataB, id: fetches[1].id };
     } catch (ex) {
       layout(`<div class="card"><p class="msg-error">${escapeHtml(String(ex.message || ex))}</p><p><a class="link" href="#/sessions">← Volver</a></p></div>`);
       return;
@@ -775,49 +1339,69 @@ export async function renderSessionComparator(idA, idB, layout, allSessions) {
     const selectorAHtml = _buildComparatorSelectorHtml("a", sessionDataA);
     const selectorBHtml = _buildComparatorSelectorHtml("b", sessionDataB);
 
-    const metricsHtml = (sessionDataA && sessionDataB)
-      ? _buildComparatorMetrics(sessionDataA, sessionDataB)
-      : `<div class="card" style="text-align:center;color:#94a3b8;padding:1.5rem">${escapeHtml(t("sessions.selectBoth"))}</div>`;
+    let chartsHtml = "";
+    if (sessionDataA && sessionDataB) {
+      const m = _computeComparatorMetrics(sessionDataA, sessionDataB);
+      const speedMetrics = _chartHeaderMetricsHtml({ maxA: m.maxSpeedA, avgA: m.avgSpeedA, maxB: m.maxSpeedB, avgB: m.avgSpeedB, unit: "km/h", showMax: true, decimals: 1 });
+      const spmMetrics = _chartHeaderMetricsHtml({ avgA: m.avgSpmA, avgB: m.avgSpmB, unit: "spm", showMax: false, decimals: 0 });
+      const dpsMetrics = _chartHeaderMetricsHtml({ avgA: m.avgDpsA, avgB: m.avgDpsB, unit: "m", showMax: false, decimals: 1 });
+      const forceMetrics = _chartHeaderMetricsHtml({ avgA: m.avgForceA, avgB: m.avgForceB, unit: "", showMax: false, decimals: 1 });
+      chartsHtml = `
+        <div class="comparator-charts">
+          <div class="comparator-chart-card">
+            <div class="cmp-chart-header">
+              <span class="cmp-chart-title">${escapeHtml(t("sessions.charts.speed"))}</span>
+              <span class="cmp-chart-metrics">${speedMetrics}</span>
+            </div>
+            <div class="chart-canvas-wrap"><canvas id="cmp-chart-speed"></canvas></div>
+          </div>
+          <div class="comparator-chart-card">
+            <div class="cmp-chart-header">
+              <span class="cmp-chart-title">${escapeHtml(t("sessions.charts.spm"))}</span>
+              <span class="cmp-chart-metrics">${spmMetrics}</span>
+            </div>
+            <div class="chart-canvas-wrap"><canvas id="cmp-chart-spm"></canvas></div>
+          </div>
+          <div class="comparator-chart-card">
+            <div class="cmp-chart-header">
+              <span class="cmp-chart-title">${escapeHtml(t("sessions.charts.dps"))}</span>
+              <span class="cmp-chart-metrics">${dpsMetrics}</span>
+            </div>
+            <div class="chart-canvas-wrap"><canvas id="cmp-chart-dps"></canvas></div>
+          </div>
+          <div class="comparator-chart-card">
+            <div class="cmp-chart-header">
+              <span class="cmp-chart-title">${escapeHtml(t("sessions.charts.force"))}</span>
+              <span class="cmp-chart-metrics">${forceMetrics}</span>
+            </div>
+            <div class="chart-canvas-wrap"><canvas id="cmp-chart-force"></canvas></div>
+          </div>
+        </div>`;
+    }
 
-    const chartsHtml = (sessionDataA && sessionDataB) ? `
-      <div class="comparator-charts">
-        <div class="comparator-chart-card">
-          <h4>${escapeHtml(t("sessions.charts.speed"))}</h4>
-          <div class="chart-canvas-wrap"><canvas id="cmp-chart-speed"></canvas></div>
-        </div>
-        <div class="comparator-chart-card">
-          <h4>${escapeHtml(t("sessions.charts.spm"))}</h4>
-          <div class="chart-canvas-wrap"><canvas id="cmp-chart-spm"></canvas></div>
-        </div>
-        <div class="comparator-chart-card">
-          <h4>${escapeHtml(t("sessions.charts.dps"))}</h4>
-          <div class="chart-canvas-wrap"><canvas id="cmp-chart-dps"></canvas></div>
-        </div>
-        <div class="comparator-chart-card">
-          <h4>${escapeHtml(t("sessions.charts.force"))}</h4>
-          <div class="chart-canvas-wrap"><canvas id="cmp-chart-force"></canvas></div>
-        </div>
-      </div>` : "";
+    const promptHtml = (!sessionDataA || !sessionDataB)
+      ? `<div style="text-align:center;color:#94a3b8;padding:1.5rem;font-size:13px">${escapeHtml(t("sessions.selectBoth"))}</div>`
+      : "";
 
     layout(`
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <a class="link" href="#/sessions" style="font-size:13px;color:#185fa5;text-decoration:none">← ${escapeHtml(t("sessions.title"))}</a>
         <span style="color:#e2e8f0">|</span>
-        <h2 style="margin:0;font-size:16px;font-weight:700;color:#1e293b">${escapeHtml(t("sessions.comparator"))}</h2>
+        <h2 style="margin:0;font-size:16px;font-weight:700;color:#1e293b">${escapeHtml(t("sessions.comparatorTitle"))}</h2>
       </div>
       <div class="session-comparator card">
-        <div class="comparator-selectors">
+        <div class="comparator-selectors-row">
           ${selectorAHtml}
           <div class="vs-badge">VS</div>
           ${selectorBHtml}
         </div>
-        ${metricsHtml}
+        ${promptHtml}
         ${chartsHtml}
       </div>
     `);
 
     if (sessionDataA && sessionDataB) {
-      _initComparatorCharts(sessionDataA.dataPoints || [], sessionDataB.dataPoints || []);
+      _initComparatorCharts(sessionDataA.dataPoints || [], sessionDataB.dataPoints || [], sessionDataA, sessionDataB);
     }
 
     // Wiring de selectores

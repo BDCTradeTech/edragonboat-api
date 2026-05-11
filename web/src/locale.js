@@ -19,7 +19,7 @@ export const UI_LANG_DEFAULT = "en";
 /** Orden de visualización fijo (no se ordena dinámicamente). */
 export const UI_LANGUAGES = [
   { code: "es", label: "🇪🇸 Español" },
-  { code: "en", label: "🇬🇧 English" },
+  { code: "en", label: "🇺🇸 English" },
   { code: "pt", label: "🇧🇷 Português" },
   { code: "zh", label: "🇨🇳 中文" },
   { code: "fil", label: "🇵🇭 Filipino" },
