@@ -374,17 +374,18 @@ export async function renderSessionsList(layout) {
     }
 
     // ── SECCIÓN 1: Records del equipo (sobre TODAS las sesiones filtradas) ──
-    function getSpmMax(s) {
-      // Intenta obtener el máximo real de SPM desde session_json o similar
-      const pts = s.session_json?.dataPoints?.spm
-               ?? s.json?.dataPoints?.spm
-               ?? s.data?.dataPoints?.spm
-               ?? null;
-      if (Array.isArray(pts) && pts.length > 0) return Math.max(...pts);
+    function getSpmMax(s, fullSessionsMap) {
+      // Si hay una sesión completa con dataPoints, usar el máximo real
+      const full = fullSessionsMap?.get(s.id);
+      if (full) {
+        const pts = full.dataPoints || full.session?.dataPoints || [];
+        const spmVals = pts.map(p => p.spm).filter(v => typeof v === 'number' && v > 0);
+        if (spmVals.length > 0) return Math.max(...spmVals);
+      }
       return s.avg_spm ?? 0;
     }
 
-    function computeRecords(allRows) {
+    function computeRecords(allRows, fullSessionsMap) {
       let bestDist = null, bestDistSession = null;
       let bestSpeed = null, bestSpeedSession = null;
       let bestSpm = null, bestSpmSession = null;
@@ -396,8 +397,8 @@ export async function renderSessionsList(layout) {
         if (s.max_speed != null && (bestSpeed === null || s.max_speed > bestSpeed)) {
           bestSpeed = s.max_speed; bestSpeedSession = s;
         }
-        // Usar SPM máximo real desde session_json si disponible, fallback a avg_spm
-        const spmVal = getSpmMax(s);
+        // Usar SPM máximo real desde dataPoints si disponible, fallback a avg_spm
+        const spmVal = getSpmMax(s, fullSessionsMap);
         if (spmVal != null && (bestSpm === null || spmVal > bestSpm)) {
           bestSpm = spmVal; bestSpmSession = s;
         }
@@ -420,7 +421,27 @@ export async function renderSessionsList(layout) {
       return `#${s.id} · ${d.getDate()} ${mon} ${d.getFullYear()}`;
     }
 
-    const records = computeRecords(rows);
+    // Obtener top 10 candidatos al record de SPM para cargar sus dataPoints
+    const topSpmCandidates = [...rows]
+      .filter(s => s.avg_spm != null)
+      .sort((a, b) => (b.avg_spm ?? 0) - (a.avg_spm ?? 0))
+      .slice(0, 10);
+
+    const fullSessionsMap = new Map();
+    if (topSpmCandidates.length > 0) {
+      try {
+        const fullSessions = await Promise.all(topSpmCandidates.map(s => api.apiGetSession(s.id)));
+        for (let i = 0; i < topSpmCandidates.length; i++) {
+          const data = fullSessions[i];
+          // apiGetSession retorna { session: {..., dataPoints: [...] } }
+          fullSessionsMap.set(topSpmCandidates[i].id, data.session || data);
+        }
+      } catch (e) {
+        console.warn('Could not fetch full sessions for SPM record', e);
+      }
+    }
+
+    const records = computeRecords(rows, fullSessionsMap);
     const recordsHtml = records.map((r) => `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#f8fafc;border:0.5px solid #e2e8f0;border-radius:10px">
         <span style="font-size:18px;flex-shrink:0">${r.icon}</span>
@@ -477,12 +498,13 @@ export async function renderSessionsList(layout) {
       makeStatCard("sessions.totalStrokesMonth", mStats.totalStrokes > 0 ? mStats.totalStrokes.toLocaleString() : "—", 4) +
       makeStatCard("sessions.avgSpmMonth", mStats.avgSpm != null ? Math.round(mStats.avgSpm) : "—", 5);
 
-    // ── FILTROS: Equipo, Año, Mes (sin Día) ──
+    // ── FILTROS: Equipo, Año, Mes + Botón Comparar ──
     const allYears = [...new Set(rows.map((r) => new Date(r.created_at).getFullYear()))].sort((a, b) => b - a);
     const filterColHtml = `<div style="display:flex;flex-direction:column;gap:10px">
       ${teams.length >= 1 ? `<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${escapeHtml(t("sessions.filterLabel"))}</label><select id="sel-session-team" style="${selectStyle};width:100%">${teamSelectOptions}</select></div>` : ""}
       <div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${escapeHtml(t("sessions.year"))}</label><select id="filter-year" style="${selectStyle};width:100%">${buildSelectOpts(allYears, (y) => String(y), "sessions.allYears")}</select></div>
       <div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${escapeHtml(t("sessions.month"))}</label><select id="filter-month" style="${selectStyle};width:100%"><option value="">${escapeHtml(t("sessions.allMonths"))}</option></select></div>
+      <button id="btn-compare-global" style="padding:8px 12px;font-size:12px;font-weight:600;background:#059669;color:#fff;border:none;border-radius:8px;cursor:pointer;width:100%;opacity:0.4;cursor:not-allowed;pointer-events:none;transition:opacity .15s">${escapeHtml(t("sessions.compareSessions"))}</button>
     </div>`;
 
     const divider = `<div style="background:#e5e7eb;align-self:stretch"></div>`;
@@ -604,10 +626,11 @@ export async function renderSessionsList(layout) {
           return sum;
         }, 0);
 
-        // Palistas del día: suma de s.paddlers_count (null/undefined → 0)
+        // Palistas del día: promedio de s.paddlers_count (null/undefined → 0)
         const totalPaddlersDay = daySessions.reduce((sum, s) => {
           return sum + (s.paddlers_count != null ? s.paddlers_count : 0);
         }, 0);
+        const avgPaddlersDay = daySessions.length > 0 ? Math.round(totalPaddlersDay / daySessions.length) : 0;
 
         const badgeLabel = escapeHtml(fmtDayBadge(dayKey));
         const distLabel = totalDist >= 1000 ? `${(totalDist / 1000).toFixed(1)} km` : `${Math.round(totalDist)} m`;
@@ -616,6 +639,7 @@ export async function renderSessionsList(layout) {
         const maxDistDay = Math.max(...daySessions.map((s) => s.distance_meters ?? 0), 1);
 
         // Filas de sesiones individuales
+        // [Ver][Checkbox][Hora][Barra dist max-width:200px][Metros][Tiempo][Paladas][Palistas]
         const sessionRows = daySessions.map((s) => {
           const distM = s.distance_meters ?? 0;
           const barPct = Math.round((distM / maxDistDay) * 100);
@@ -627,17 +651,18 @@ export async function renderSessionsList(layout) {
             ? Math.round(s.avg_spm * s.total_seconds / 60)
             : null;
           const paladasStr = paladas != null ? String(paladas) : em;
-          return `<div class="day-session-row" data-id="${s.id}" style="display:grid;grid-template-columns:24px 36px 48px 1fr 64px 52px 48px 36px;gap:6px;align-items:center;padding:6px 0;border-bottom:0.5px solid #f1f5f9">
-            <input type="checkbox" class="compare-checkbox" data-id="${s.id}" ${checked} style="width:14px;height:14px;accent-color:#185fa5" />
-            <span style="font-size:11px;color:#94a3b8">#${s.id}</span>
-            <span style="font-size:12px;color:#334155">${escapeHtml(hora)}</span>
-            <div style="background:#e2e8f0;border-radius:4px;height:6px;overflow:hidden">
+          const paddlersStr = s.paddlers_count != null && s.paddlers_count > 0 ? String(s.paddlers_count) : em;
+          return `<div class="day-session-row" data-id="${s.id}" style="display:grid;grid-template-columns:auto auto auto 200px auto auto auto auto;gap:6px;align-items:center;padding:6px 0;border-bottom:0.5px solid #f1f5f9">
+            <button class="btn-ver-session" data-id="${s.id}" style="padding:3px 8px;font-size:11px;background:#f1f5f9;color:#185fa5;border:0.5px solid #e2e8f0;border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0">Ver #${s.id}</button>
+            <input type="checkbox" class="compare-checkbox" data-id="${s.id}" ${checked} style="width:14px;height:14px;accent-color:#185fa5;flex-shrink:0" />
+            <span style="font-size:12px;color:#334155;white-space:nowrap;flex-shrink:0">${escapeHtml(hora)}</span>
+            <div style="background:#e2e8f0;border-radius:4px;height:6px;overflow:hidden;max-width:200px">
               <div style="background:#185fa5;height:100%;width:${barPct}%;border-radius:4px"></div>
             </div>
-            <span style="font-size:12px;color:#334155;text-align:right">${escapeHtml(distStr)}</span>
-            <span style="font-size:12px;color:#94a3b8">${escapeHtml(durStr)}</span>
-            <span style="font-size:11px;color:#94a3b8;text-align:right" title="${escapeHtml(t("sessions.totalStrokes"))}">${escapeHtml(paladasStr)}</span>
-            <button class="btn-ver-session" data-id="${s.id}" style="padding:3px 8px;font-size:11px;background:#f1f5f9;color:#185fa5;border:0.5px solid #e2e8f0;border-radius:6px;cursor:pointer;white-space:nowrap">${escapeHtml(t("sessions.btnView"))}</button>
+            <span style="font-size:12px;color:#334155;white-space:nowrap;flex-shrink:0">${escapeHtml(`Metros: ${distStr}`)}</span>
+            <span style="font-size:12px;color:#94a3b8;white-space:nowrap;flex-shrink:0">${escapeHtml(`Tiempo: ${durStr}`)}</span>
+            <span style="font-size:12px;color:#94a3b8;white-space:nowrap;flex-shrink:0">${escapeHtml(`Paladas: ${paladasStr}`)}</span>
+            <span style="font-size:12px;color:#94a3b8;white-space:nowrap;flex-shrink:0">${escapeHtml(`Palistas: ${paddlersStr}`)}</span>
           </div>`;
         }).join("");
 
@@ -658,12 +683,11 @@ export async function renderSessionsList(layout) {
               <span>${escapeHtml(t("sessions.sessions"))}: <strong>${daySessions.length}</strong></span>
               <span>${escapeHtml(t("sessions.distance"))}: <strong>${escapeHtml(distLabel)}</strong></span>
               <span>${escapeHtml(t("sessions.totalStrokes"))}: <strong>${totalStrokesDay.toLocaleString()}</strong></span>
-              <span>${escapeHtml(t("sessions.paddlers"))}: <strong>${totalPaddlersDay > 0 ? totalPaddlersDay : em}</strong></span>
+              <span>${escapeHtml(t("sessions.paddlersAvg"))}: <strong>${avgPaddlersDay > 0 ? avgPaddlersDay : em}</strong></span>
               <span>${escapeHtml(t("sessions.avgSpmShort"))}: <strong>${avgSpmDay != null ? Math.round(avgSpmDay) : em}</strong></span>
               <span>${escapeHtml(t("sessions.avgSpeedShort"))}: <strong>${avgSpeedDay != null ? avgSpeedDay.toFixed(1) + " km/h" : em}</strong></span>
             </div>
-            <button class="btn-compare-selected" data-day="${escapeHtml(dayKey)}" style="padding:4px 10px;font-size:12px;background:#059669;color:#fff;border:none;border-radius:8px;white-space:nowrap;flex-shrink:0;opacity:0.4;cursor:not-allowed;pointer-events:none">${escapeHtml(t("sessions.compareSelected"))}</button>
-            <button class="btn-compare-day" data-day="${escapeHtml(dayKey)}" style="padding:4px 10px;font-size:12px;background:#185fa5;color:#fff;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;flex-shrink:0">${escapeHtml(t("sessions.resumeDay"))} →</button>
+            <button class="btn-resumen-dia-header" data-day="${escapeHtml(dayKey)}" style="padding:3px 8px;font-size:11px;background:#e0e7ff;color:#4f46e5;border:0.5px solid #c7d2fe;border-radius:6px;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-left:auto">${escapeHtml(t("sessions.btnDaySummary") || "Resumen del día →")}</button>
           </div>
           <div class="day-group-body" style="padding:0 16px;display:none">
             ${sessionRows}
@@ -676,8 +700,6 @@ export async function renderSessionsList(layout) {
       // Wiring: toggle de acordeón
       listEl.querySelectorAll(".day-group-header").forEach((header) => {
         header.addEventListener("click", (e) => {
-          // No colapsar si se hace click en los botones de acción del header
-          if (e.target.closest(".btn-compare-day") || e.target.closest(".btn-compare-selected")) return;
           const card = header.closest(".day-group-card");
           const body = card.querySelector(".day-group-body");
           const chevron = header.querySelector(".day-chevron");
@@ -696,20 +718,20 @@ export async function renderSessionsList(layout) {
       });
 
       // Wiring: checkboxes para comparar (global entre días)
-      function _updateAllDayCompareBtns() {
-        // Actualiza TODOS los botones de compare en función de _compareSelection.size === 2
+      function _updateGlobalCompareBtn() {
+        // Actualiza el botón global en función de _compareSelection.size === 2
+        const btn = document.getElementById("btn-compare-global");
+        if (!btn) return;
         const isValidSelection = _compareSelection.size === 2;
-        listEl.querySelectorAll(".btn-compare-selected").forEach((btn) => {
-          if (isValidSelection) {
-            btn.style.opacity = "1";
-            btn.style.cursor = "pointer";
-            btn.style.pointerEvents = "auto";
-          } else {
-            btn.style.opacity = "0.4";
-            btn.style.cursor = "not-allowed";
-            btn.style.pointerEvents = "none";
-          }
-        });
+        if (isValidSelection) {
+          btn.style.opacity = "1";
+          btn.style.cursor = "pointer";
+          btn.style.pointerEvents = "auto";
+        } else {
+          btn.style.opacity = "0.4";
+          btn.style.cursor = "not-allowed";
+          btn.style.pointerEvents = "none";
+        }
       }
 
       listEl.querySelectorAll(".compare-checkbox").forEach((cb) => {
@@ -726,26 +748,13 @@ export async function renderSessionsList(layout) {
           } else {
             _compareSelection.delete(id);
           }
-          // Actualizar TODOS los botones (comparación global)
-          _updateAllDayCompareBtns();
+          // Actualizar botón global
+          _updateGlobalCompareBtn();
         });
       });
 
-      // Wiring: botón "Comparar seleccionadas" por día (ahora compara desde Set global)
-      listEl.querySelectorAll(".btn-compare-selected").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (_compareSelection.size !== 2) return;
-          const ids = Array.from(_compareSelection);
-          location.hash = `#/sessions/compare?a=${ids[0]}&b=${ids[1]}`;
-        });
-      });
-
-      // Inicializar estado de botones
-      _updateAllDayCompareBtns();
-
-      // Wiring: botón "Comparar día →"
-      listEl.querySelectorAll(".btn-compare-day").forEach((btn) => {
+      // Wiring: botón "Resumen del día →" en el header del día
+      listEl.querySelectorAll(".btn-resumen-dia-header").forEach((btn) => {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           const dayKey = btn.dataset.day;
@@ -754,6 +763,9 @@ export async function renderSessionsList(layout) {
           openDayModal(daySessionsForModal[0], rows);
         });
       });
+
+      // Inicializar estado del botón global
+      _updateGlobalCompareBtn();
     }
 
     rebuildMonthSelect("");
@@ -768,6 +780,12 @@ export async function renderSessionsList(layout) {
     });
     document.getElementById("sel-session-team")?.addEventListener("change", (e) => {
       if (e.target?.value) { sessionStorage.setItem(SESSION_TEAM_FILTER_KEY, e.target.value); route(); }
+    });
+    document.getElementById("btn-compare-global")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (_compareSelection.size !== 2) return;
+      const ids = Array.from(_compareSelection);
+      location.hash = `#/sessions/compare?a=${ids[0]}&b=${ids[1]}`;
     });
 
   } catch (ex) {
@@ -1555,27 +1573,91 @@ function renderExploreChart(points) {
     return typeof p[key] === "number" ? p[key] : null;
   };
   const hasDistance = points.some((p) => typeof p.distanceMeters === "number" && Number.isFinite(p.distanceMeters));
-  function exploreDataset(key, yAxisId, borderColor, fillRgba) {
-    const data = points.map((p, i) => valAt(p, key, i));
-    const isForce = key === "strokePeakAccelerationMs2";
-    if (isForce) return { type: "bar", label: metricLabelForKey(key), data, yAxisID: yAxisId, xAxisID: "x", backgroundColor: "rgba(94, 53, 177, 0.72)", borderColor: "rgba(62, 39, 120, 0.95)", borderWidth: 0, borderRadius: 2, maxBarThickness: 14, order: 0 };
-    return { type: "line", label: metricLabelForKey(key), data, borderColor, backgroundColor: fillRgba, yAxisID: yAxisId, xAxisID: "x", order: 1, ...lineDataset };
+  function getPercentileParams(key) {
+    const rawArr = points.map((p, i) => valAt(p, key, i)).filter(v => v != null && Number.isFinite(v) && v > 0);
+    const p5 = calcP(rawArr, 5);
+    const p95 = calcP(rawArr, 95);
+    const maxVal = rawArr.length ? Math.max(...rawArr) : 1;
+    return { p5, p95, maxVal };
   }
-  const datasets = [exploreDataset(y1Key, "y1", "#1565c0", "rgba(21, 101, 192, 0.08)")];
+  const percParams = {};
+  [y1Key, y2Key, y3Key].filter(Boolean).forEach(k => { percParams[k] = getPercentileParams(k); });
+
+  function makeExploreYScale(key, position, extraOpts = {}) {
+    const { p5, p95, maxVal } = percParams[key];
+    return {
+      position,
+      min: 0,
+      max: 100,
+      title: { display: true, text: metricLabelForKey(key) },
+      ticks: {
+        callback(value) {
+          const real = fromDisplay(value, p5, p95, maxVal);
+          return Math.round(real * 10) / 10;
+        },
+      },
+      afterBuildTicks(axis) {
+        const rawArr2 = points.map((p, i) => valAt(p, key, i)).filter(v => v != null && Number.isFinite(v) && v > 0);
+        const pMin = rawArr2.length ? Math.min(...rawArr2) : 0;
+        const p25 = calcP(rawArr2, 25);
+        const p50 = calcP(rawArr2, 50);
+        const p75 = calcP(rawArr2, 75);
+        const candidates = [pMin, p25, p50, p75, p95, maxVal].filter(v => v > 0);
+        const unique = [...new Set(candidates.map(v => Math.round(v * 1000) / 1000))].sort((a, b) => a - b);
+        axis.ticks = unique.map(v => ({ value: toDisplay(v, p5, p95, maxVal) }));
+      },
+      ...extraOpts,
+    };
+  }
+
+  function exploreDataset(key, yAxisId, borderColor, fillRgba) {
+    const { p5, p95, maxVal } = percParams[key];
+    const rawData = points.map((p, i) => valAt(p, key, i));
+    const data = rawData.map(v => v != null && Number.isFinite(v) ? toDisplay(v, p5, p95, maxVal) : null);
+    const isForce = key === "strokePeakAccelerationMs2";
+    const mainDs = isForce
+      ? { type: "bar", label: metricLabelForKey(key), data, yAxisID: yAxisId, xAxisID: "x", backgroundColor: "rgba(94, 53, 177, 0.72)", borderColor: "rgba(62, 39, 120, 0.95)", borderWidth: 0, borderRadius: 2, maxBarThickness: 14, order: 0 }
+      : { type: "line", label: metricLabelForKey(key), data, borderColor, backgroundColor: fillRgba, yAxisID: yAxisId, xAxisID: "x", order: 1, ...lineDataset };
+
+    let maxIdx = -1, maxReal = -Infinity;
+    rawData.forEach((v, i) => { if (v != null && Number.isFinite(v) && v > 0 && v > maxReal) { maxReal = v; maxIdx = i; } });
+    const maxDs = maxIdx >= 0 ? {
+      label: 'Max',
+      _isMaxPoint: true,
+      _maxReal: maxReal,
+      type: 'scatter',
+      data: [{ x: maxIdx, y: data[maxIdx] }],
+      parsing: false,
+      clip: false,
+      pointRadius: 6,
+      pointHoverRadius: 8,
+      pointBackgroundColor: isForce ? "rgba(94, 53, 177, 0.75)" : borderColor,
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      yAxisID: yAxisId,
+      order: 0,
+    } : null;
+
+    return { mainDs, maxDs };
+  }
+  const { mainDs: ds1, maxDs: maxDs1 } = exploreDataset(y1Key, "y1", "#1565c0", "rgba(21, 101, 192, 0.08)");
+  const datasets = [ds1, ...(maxDs1 ? [maxDs1] : [])];
   const scales = {
     x: { title: { display: true, text: t("sessionDetail.metrics.second") }, ticks: { maxTicksLimit: 14 } },
-    y1: { position: "left", title: { display: true, text: metricLabelForKey(y1Key) }, ...(y1Key === "strokePeakAccelerationMs2" ? { beginAtZero: true } : {}) },
+    y1: makeExploreYScale(y1Key, "left"),
   };
   if (hasDistance) {
     scales.x1 = { type: "category", position: "top", display: true, grid: { drawOnChartArea: false }, title: { display: true, text: t("sessionDetail.metrics.distanceMeters") }, ticks: { maxTicksLimit: 14, callback(tickValue) { const p = points[tickValue]; if (!p || p.distanceMeters == null || !Number.isFinite(p.distanceMeters)) return ""; return String(Math.round(p.distanceMeters)); } } };
   }
   if (y2Key && y2Key !== y1Key) {
-    datasets.push(exploreDataset(y2Key, "y2", "#e65100", "rgba(230, 81, 0, 0.06)"));
-    scales.y2 = { position: "right", title: { display: true, text: metricLabelForKey(y2Key) }, grid: { drawOnChartArea: false }, ...(y2Key === "strokePeakAccelerationMs2" ? { beginAtZero: true } : {}) };
+    const { mainDs: ds2, maxDs: maxDs2 } = exploreDataset(y2Key, "y2", "#e65100", "rgba(230, 81, 0, 0.06)");
+    datasets.push(ds2, ...(maxDs2 ? [maxDs2] : []));
+    scales.y2 = makeExploreYScale(y2Key, "right", { grid: { drawOnChartArea: false } });
   }
   if (y3Key && y3Key !== y1Key && y3Key !== y2Key) {
-    datasets.push(exploreDataset(y3Key, "y3", "#5e35b1", "rgba(94, 53, 177, 0.06)"));
-    scales.y3 = { position: "right", title: { display: true, text: metricLabelForKey(y3Key) }, grid: { drawOnChartArea: false }, offset: true, ...(y3Key === "strokePeakAccelerationMs2" ? { beginAtZero: true } : {}) };
+    const { mainDs: ds3, maxDs: maxDs3 } = exploreDataset(y3Key, "y3", "#5e35b1", "rgba(94, 53, 177, 0.06)");
+    datasets.push(ds3, ...(maxDs3 ? [maxDs3] : []));
+    scales.y3 = makeExploreYScale(y3Key, "right", { grid: { drawOnChartArea: false }, offset: true });
   }
   const anyBar = datasets.some((d) => d.type === "bar");
   const allBar = datasets.length > 0 && datasets.every((d) => d.type === "bar");
@@ -1586,7 +1668,28 @@ function renderExploreChart(points) {
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
-      plugins: { legend: { display: true, position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 8, boxHeight: 8, padding: 12 } } },
+      plugins: {
+        legend: { display: true, position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 8, boxHeight: 8, padding: 12, filter: (item) => item.text !== "Max" } },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              if (ctx.dataset._isMaxPoint) {
+                const real = ctx.dataset._maxReal;
+                return `Max: ${real.toFixed(2)} en t=${labels[ctx.dataIndex]}s`;
+              }
+              const yId = ctx.dataset.yAxisID;
+              let k;
+              if (yId === "y1") k = y1Key;
+              else if (yId === "y2") k = y2Key;
+              else if (yId === "y3") k = y3Key;
+              if (!k || !percParams[k]) return `${ctx.dataset.label}: ${ctx.parsed.y}`;
+              const { p5, p95, maxVal } = percParams[k];
+              const real = fromDisplay(ctx.parsed.y, p5, p95, maxVal);
+              return `${ctx.dataset.label}: ${real.toFixed(2)}`;
+            },
+          },
+        },
+      },
       elements: { point: { radius: 0, hoverRadius: 0 } },
       ...(anyBar ? { datasets: { bar: { borderSkipped: false } } } : {}),
       scales,
@@ -1625,10 +1728,107 @@ function initSessionCharts(dataPoints) {
   const elForce = document.getElementById("chart-stroke-force");
   if (!elSpeed || !elSpm || !elDps || !elForce) return;
   const dpsSeries = buildDpsSeriesForChart(dataPoints);
-  _chartInstances.push(new Chart(elSpeed, { type: "line", data: { labels, datasets: [{ label: metricLabelForKey("speedKmh"), data: dataPoints.map((p) => p.speedKmh), borderColor: "#1565c0", ...lineDs }] }, options: { ...common, scales: { ...common.scales, y: { title: { display: true, text: metricLabelForKey("speedKmh") } } } } }));
-  _chartInstances.push(new Chart(elSpm, { type: "line", data: { labels, datasets: [{ label: metricLabelForKey("spm"), data: dataPoints.map((p) => p.spm), borderColor: "#e65100", ...lineDs }] }, options: { ...common, scales: { ...common.scales, y: { title: { display: true, text: metricLabelForKey("spm") } } } } }));
-  _chartInstances.push(new Chart(elDps, { type: "line", data: { labels, datasets: [{ label: metricLabelForKey("dpsMeters"), data: dpsSeries, borderColor: "#00897b", ...lineDs }] }, options: { ...common, scales: { ...common.scales, y: { title: { display: true, text: metricLabelForKey("dpsMeters") } } } } }));
-  _chartInstances.push(new Chart(elForce, { type: "bar", data: { labels, datasets: [{ label: metricLabelForKey("strokePeakAccelerationMs2"), data: dataPoints.map((p) => typeof p.strokePeakAccelerationMs2 === "number" && Number.isFinite(p.strokePeakAccelerationMs2) ? p.strokePeakAccelerationMs2 : null), backgroundColor: "rgba(94, 53, 177, 0.75)", borderColor: "rgba(62, 39, 120, 0.95)", borderWidth: 0, borderRadius: 2, maxBarThickness: 14 }] }, options: { ...common, datasets: { bar: { borderSkipped: false } }, scales: { ...common.scales, y: { beginAtZero: true, title: { display: true, text: t("common.unitMPerS2") } } } } }));
+
+  /** Construye las opciones de escala Y normalizada por percentil y el callback de tooltip para un chart de sesión. */
+  function makePercentileYScale(rawArr, yTitle, labels) {
+    const filtered = rawArr.filter((v) => v != null && Number.isFinite(v) && v > 0);
+    const p5 = calcP(filtered, 5);
+    const p95 = calcP(filtered, 95);
+    const maxVal = filtered.length ? Math.max(...filtered) : 1;
+    const yScale = {
+      min: 0,
+      max: 100,
+      title: { display: true, text: yTitle },
+      ticks: {
+        callback(value) {
+          const real = fromDisplay(value, p5, p95, maxVal);
+          return Math.round(real * 10) / 10;
+        },
+      },
+      afterBuildTicks(axis) {
+        const pMin = filtered.length ? Math.min(...filtered) : 0;
+        const p25 = calcP(filtered, 25);
+        const p50 = calcP(filtered, 50);
+        const p75 = calcP(filtered, 75);
+        const candidates = [pMin, p25, p50, p75, p95, maxVal].filter(v => v > 0);
+        const unique = [...new Set(candidates.map(v => Math.round(v * 1000) / 1000))].sort((a, b) => a - b);
+        axis.ticks = unique.map(v => ({ value: toDisplay(v, p5, p95, maxVal) }));
+      },
+    };
+    const tooltipLabel = function(ctx) {
+      const real = fromDisplay(ctx.parsed.y, p5, p95, maxVal);
+      if (ctx.dataset._isMaxPoint) {
+        const sec = labels[Math.round(ctx.parsed.x)] ?? ctx.parsed.x;
+        return `Max: ${real.toFixed(2)} en t=${sec}s`;
+      }
+      return `${ctx.dataset.label}: ${real.toFixed(2)}`;
+    };
+    const transform = (v) => (v != null && Number.isFinite(v) ? toDisplay(v, p5, p95, maxVal) : null);
+    const makeMaxDataset = (rawArr2, color) => {
+      let maxIdx = -1, maxReal = -Infinity;
+      rawArr2.forEach((v, i) => { if (v != null && Number.isFinite(v) && v > 0 && v > maxReal) { maxReal = v; maxIdx = i; } });
+      if (maxIdx < 0) return null;
+      const maxDisplayVal = toDisplay(maxReal, p5, p95, maxVal);
+      console.log('[maxPoint]', { maxIdx, maxReal, maxDisplayVal, p5, p95, maxVal });
+      return {
+        label: 'Max',
+        _isMaxPoint: true,
+        type: 'scatter',
+        data: [{ x: maxIdx, y: maxDisplayVal }],
+        parsing: false,
+        clip: false,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointBackgroundColor: color,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+      };
+    };
+    return { yScale, tooltipLabel, transform, makeMaxDataset };
+  }
+
+  // ── Speed ──
+  const speedRaw = dataPoints.map((p) => p.speedKmh);
+  const speedPerc = makePercentileYScale(speedRaw, metricLabelForKey("speedKmh"), labels);
+  const speedDisplayData = speedRaw.map(speedPerc.transform);
+  const speedMaxDs = speedPerc.makeMaxDataset(speedRaw, "#1565c0");
+  _chartInstances.push(new Chart(elSpeed, {
+    type: "line",
+    data: { labels, datasets: [{ label: metricLabelForKey("speedKmh"), data: speedDisplayData, borderColor: "#1565c0", ...lineDs }, ...(speedMaxDs ? [speedMaxDs] : [])] },
+    options: { ...common, plugins: { ...common.plugins, tooltip: { callbacks: { label: speedPerc.tooltipLabel } } }, scales: { ...common.scales, y: speedPerc.yScale } },
+  }));
+
+  // ── SPM ──
+  const spmRaw = dataPoints.map((p) => p.spm);
+  const spmPerc = makePercentileYScale(spmRaw, metricLabelForKey("spm"), labels);
+  const spmDisplayData = spmRaw.map(spmPerc.transform);
+  const spmMaxDs = spmPerc.makeMaxDataset(spmRaw, "#e65100");
+  _chartInstances.push(new Chart(elSpm, {
+    type: "line",
+    data: { labels, datasets: [{ label: metricLabelForKey("spm"), data: spmDisplayData, borderColor: "#e65100", ...lineDs }, ...(spmMaxDs ? [spmMaxDs] : [])] },
+    options: { ...common, plugins: { ...common.plugins, tooltip: { callbacks: { label: spmPerc.tooltipLabel } } }, scales: { ...common.scales, y: spmPerc.yScale } },
+  }));
+
+  // ── DPS ──
+  const dpsPerc = makePercentileYScale(dpsSeries, metricLabelForKey("dpsMeters"), labels);
+  const dpsDisplayData = dpsSeries.map(dpsPerc.transform);
+  const dpsMaxDs = dpsPerc.makeMaxDataset(dpsSeries, "#00897b");
+  _chartInstances.push(new Chart(elDps, {
+    type: "line",
+    data: { labels, datasets: [{ label: metricLabelForKey("dpsMeters"), data: dpsDisplayData, borderColor: "#00897b", ...lineDs }, ...(dpsMaxDs ? [dpsMaxDs] : [])] },
+    options: { ...common, plugins: { ...common.plugins, tooltip: { callbacks: { label: dpsPerc.tooltipLabel } } }, scales: { ...common.scales, y: dpsPerc.yScale } },
+  }));
+
+  // ── Force (bar) ──
+  const forceRaw = dataPoints.map((p) => (typeof p.strokePeakAccelerationMs2 === "number" && Number.isFinite(p.strokePeakAccelerationMs2) ? p.strokePeakAccelerationMs2 : null));
+  const forcePerc = makePercentileYScale(forceRaw.filter((v) => v != null), t("common.unitMPerS2"), labels);
+  const forceDisplayData = forceRaw.map(forcePerc.transform);
+  const forceMaxDs = forcePerc.makeMaxDataset(forceRaw, "rgba(94, 53, 177, 0.75)");
+  _chartInstances.push(new Chart(elForce, {
+    type: "bar",
+    data: { labels, datasets: [{ label: metricLabelForKey("strokePeakAccelerationMs2"), data: forceDisplayData, backgroundColor: "rgba(94, 53, 177, 0.75)", borderColor: "rgba(62, 39, 120, 0.95)", borderWidth: 0, borderRadius: 2, maxBarThickness: 14 }, ...(forceMaxDs ? [forceMaxDs] : [])] },
+    options: { ...common, datasets: { bar: { borderSkipped: false } }, plugins: { ...common.plugins, tooltip: { callbacks: { label: forcePerc.tooltipLabel } } }, scales: { ...common.scales, y: forcePerc.yScale } },
+  }));
 }
 
 function initSessionMap(points) {
@@ -1728,18 +1928,13 @@ export async function renderSessionDetail(id, layout) {
 
     const allCardsGrid = `
       <div style="position:sticky;top:0;z-index:10;background:#f0f4f8;padding:10px 0;margin-bottom:12px">
-        <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px">
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
           <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statDate"))}</div><div style="${valueStyle}">${escapeHtml(fmtSessionStartMap(s.sessionStartTime))}</div></div>
           <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statTotalTime"))}</div><div style="${valueStyle}">${s.totalSeconds != null ? `${Math.floor(s.totalSeconds / 60)}:${String(s.totalSeconds % 60).padStart(2, "0")}` : em}</div></div>
           <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statFinalDistance"))}</div><div style="${valueStyle}">${last ? last.distanceMeters.toFixed(0) + " m" : em}</div></div>
           <div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.statStrokes"))}</div><div style="${valueStyle}">${last ? last.paladas : em}</div></div>
-          ${s.teamName ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.teamInSession"))}</div><div style="${valueStyle}">${escapeHtml(s.teamName)}</div></div>` : `<div style="${cardStyle}"></div>`}
-          ${s.boatType ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.boat"))}</div><div style="${valueStyle}">${escapeHtml(s.boatType.charAt(0).toUpperCase() + s.boatType.slice(1))}</div></div>` : `<div style="${cardStyle}"></div>`}
+          ${s.boatType != null ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.boat"))}</div><div style="${valueStyle}">${escapeHtml(s.boatType.charAt(0).toUpperCase() + s.boatType.slice(1))}</div></div>` : `<div style="${cardStyle}"></div>`}
           ${s.paddlersCount != null ? `<div style="${cardStyle}"><div style="${labelStyle}">${escapeHtml(t("sessionDetail.paddlersCount"))}</div><div style="${valueStyle}">${escapeHtml(String(s.paddlersCount))}</div></div>` : `<div style="${cardStyle}"></div>`}
-          <div style="${cardStyle};border-color:#185fa5;background:#f0f7ff">
-            <div style="${labelStyle}">ACCIONES</div>
-            <button id="btn-graficar-dia" style="padding:5px 10px;font-size:12px;font-weight:600;border-radius:6px;border:none;background:#185fa5;color:#fff;cursor:pointer;width:100%">Graficar día</button>
-          </div>
         </div>
       </div>
     `;
@@ -1791,24 +1986,20 @@ export async function renderSessionDetail(id, layout) {
         <pre class="json">${escapeHtml(JSON.stringify(data.session, null, 2))}</pre>
       </div>`;
 
-    const deleteBtn = canDelete
-      ? `<button type="button" class="btn-danger btn-sm" id="btn-delete-session">${escapeHtml(t("sessionDetail.delete"))}</button>`
-      : "";
+    const deleteBtn = canDelete;
 
     layout(`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <a class="link" href="#/sessions" style="font-size:13px;color:#185fa5;text-decoration:none">← Volver</a>
-          <span style="color:#e2e8f0">|</span>
-          <button id="btn-nav-prev" style="padding:4px 10px;font-size:12px;border-radius:6px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">← Anterior</button>
-          <button id="btn-nav-next" style="padding:4px 10px;font-size:12px;border-radius:6px;border:0.5px solid #e2e8f0;background:#f8fafc;color:#334155;cursor:pointer">Siguiente →</button>
+        <a href="#/sessions" style="padding:4px 10px;font-size:12px;border-radius:6px;border:0.5px solid #185fa5;background:transparent;color:#185fa5;text-decoration:none;cursor:pointer">← Volver</a>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button id="btn-nav-prev" style="padding:4px 10px;font-size:12px;border-radius:6px;border:0.5px solid #e2e8f0;background:transparent;color:#334155;cursor:pointer">← Anterior</button>
+          <button id="btn-nav-next" style="padding:4px 10px;font-size:12px;border-radius:6px;border:0.5px solid #e2e8f0;background:transparent;color:#334155;cursor:pointer">Siguiente →</button>
         </div>
         <h2 style="margin:0;font-size:16px;font-weight:700;color:#1e293b">${escapeHtml(t("sessionDetail.title", { id: String(data.id) }))}</h2>
-        <div>${deleteBtn || "<div></div>"}</div>
+        <div>${deleteBtn ? `<button type="button" id="btn-delete-session" style="padding:4px 12px;font-size:12px;border-radius:6px;border:0.5px solid #dc2626;background:transparent;color:#dc2626;cursor:pointer">${escapeHtml(t("sessionDetail.delete"))}</button>` : "<div></div>"}</div>
       </div>
       ${allCardsGrid}
       <div class="card session-card">
-        <p class="muted">${escapeHtml(t("sessionDetail.dateUploaded", { date: fmtDate(data.created_at) }))}</p>
         ${isPaddler ? `<p class="muted small">${t("sessionDetail.paddlerNoteHtml")}</p>` : ""}
         <div class="tabs" id="session-tabs">
           <div class="tab-list" role="tablist">${tabButtons}</div>
@@ -1841,15 +2032,6 @@ export async function renderSessionDetail(id, layout) {
         }
       } catch {}
     })();
-
-    document.getElementById("btn-graficar-dia")?.addEventListener("click", async () => {
-      try {
-        const teamId = myTeams.length ? myTeams[0].team.id : null;
-        const allSessions = teamId ? await api.apiListSessions(teamId) : [];
-        const sessionAsList = allSessions.find((x) => x.id === Number(id)) || { id: Number(id), created_at: data.created_at, team_name: s.teamName, team_id: null };
-        openDayModal(sessionAsList, allSessions.length ? allSessions : [sessionAsList]);
-      } catch (e) { console.error(e); }
-    });
 
     const tabRoot = document.getElementById("session-tabs");
     const panels = isPaddler ? ["mapas"] : ["graficos", "tabla", "mapas", "json"];
