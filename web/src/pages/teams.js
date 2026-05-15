@@ -11,31 +11,43 @@ import { route } from "../router.js";
 
 const SESSION_TEAM_FILTER_KEY = "edb_team_sessions_filter";
 
+const AVATAR_COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6','#8b5cf6','#ec4899','#14b8a6'];
+
 function buildTeamInviteHtml(teamId, myRole, isCoach, isPlatformAdmin) {
   if (myRole === "captain" || isPlatformAdmin) {
     return `
-      <details class="disclosure-card" style="margin-top:0.75rem">
-        <summary class="disclosure-summary">
-          <span>${escapeHtml(t("teams.inviteTitle"))}</span>
-          <span class="disclosure-chev" aria-hidden="true"></span>
-        </summary>
-        <div class="disclosure-body">
-          <p class="muted small">${t("teams.inviteHintHtml")}</p>
-          <form id="form-invite-${teamId}">
-            <label for="inv-name-${teamId}">${escapeHtml(t("teams.nameOptional"))}</label>
-            <input id="inv-name-${teamId}" type="text" maxlength="200" autocomplete="name" />
-            <label for="inv-email-${teamId}">${escapeHtml(t("teams.email"))}</label>
-            <input id="inv-email-${teamId}" type="email" required autocomplete="email" />
-            <label for="inv-role-${teamId}">${escapeHtml(t("teams.role"))}</label>
-            <select id="inv-role-${teamId}">
-              <option value="coach">${escapeHtml(t("teams.roleCoach"))}</option>
-              <option value="paddler" selected>${escapeHtml(t("teams.rolePaddler"))}</option>
-            </select>
-            <button type="submit">${escapeHtml(t("teams.inviteSubmit"))}</button>
-            <p id="inv-err-${teamId}" class="msg-error"></p>
-          </form>
+      <div class="invite-card-modern" style="border-radius:12px;background:#fff;border:0.5px solid #e2e8f0;padding:1rem;margin-top:0.75rem">
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.5rem">
+          <span style="font-size:1rem">&#128101;</span>
+          <strong style="font-size:0.9rem">${escapeHtml(t("teams.inviteTitle"))}</strong>
         </div>
-      </details>`;
+        <div style="display:inline-flex;align-items:center;background:#fef9c3;border:1px solid #fde047;border-radius:999px;padding:0.15rem 0.7rem;font-size:0.75rem;color:#854d0e;margin-bottom:0.75rem">
+          &#9888; ${escapeHtml(t("teams.invitePasswordHint"))}
+        </div>
+        <form id="form-invite-${teamId}">
+          <div style="display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px">
+              <label style="font-size:0.75rem;color:#64748b;display:block;margin-bottom:0.2rem" for="inv-name-${teamId}">${escapeHtml(t("teams.name"))}</label>
+              <input id="inv-name-${teamId}" type="text" maxlength="200" autocomplete="name" style="width:100%;padding:0.35rem 0.5rem;border:1px solid #e2e8f0;border-radius:6px;font-size:0.82rem" />
+            </div>
+            <div style="flex:1.5;min-width:150px">
+              <label style="font-size:0.75rem;color:#64748b;display:block;margin-bottom:0.2rem" for="inv-email-${teamId}">${escapeHtml(t("teams.email"))}</label>
+              <input id="inv-email-${teamId}" type="email" required autocomplete="email" style="width:100%;padding:0.35rem 0.5rem;border:1px solid #e2e8f0;border-radius:6px;font-size:0.82rem" />
+            </div>
+            <div style="min-width:110px">
+              <label style="font-size:0.75rem;color:#64748b;display:block;margin-bottom:0.2rem" for="inv-role-${teamId}">${escapeHtml(t("teams.role"))}</label>
+              <select id="inv-role-${teamId}" style="width:100%;padding:0.35rem 0.5rem;border:1px solid #e2e8f0;border-radius:6px;font-size:0.82rem;background:#fff">
+                <option value="coach">${escapeHtml(t("teams.roleCoach"))}</option>
+                <option value="paddler" selected>${escapeHtml(t("teams.rolePaddler"))}</option>
+              </select>
+            </div>
+            <div>
+              <button type="submit" style="padding:0.38rem 1rem;background:#3b82f6;color:#fff;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer;white-space:nowrap">${escapeHtml(t("teams.inviteSubmit"))}</button>
+            </div>
+          </div>
+          <p id="inv-err-${teamId}" class="msg-error" style="margin-top:0.4rem"></p>
+        </form>
+      </div>`;
   }
   if (isCoach) return `<p class="muted small">${t("teams.inviteCoachOnlyHtml")}</p>`;
   return `<p class="muted small">${t("teams.inviteOnlyCaptain")}</p>`;
@@ -71,6 +83,14 @@ function bindTeamInviteForm(teamId, renderTeamsListFn) {
       errEl.textContent = humanizeApiError(ex.message) || String(ex.message);
     }
   });
+}
+
+function formatBirthDateDisplay(birthDateStr) {
+  if (!birthDateStr) return null;
+  // birthDateStr is ISO format: YYYY-MM-DD
+  const [year, month, day] = birthDateStr.split("-");
+  if (!year || !month || !day) return null;
+  return `${day}/${month}/${year}`;
 }
 
 function preferredSideOptionsHtml(m) {
@@ -115,44 +135,247 @@ function rosterCellsHtml(m, canEditRoster) {
     <td>${escapeHtml(preferredSideLabel(m.preferred_side))}</td>`;
 }
 
+const ROLE_BADGE_STYLES = {
+  captain: "background:#dbeafe;color:#1d4ed8",
+  coach:   "background:#dcfce7;color:#166534",
+  paddler: "background:#f3f4f6;color:#374151",
+  timonel: "background:#dbeafe;color:#1d4ed8",
+  drummer: "background:#fef3c7;color:#92400e",
+};
+
+function roleBadgeHtml(role) {
+  const style = ROLE_BADGE_STYLES[role] || ROLE_BADGE_STYLES.paddler;
+  return `<span style="display:inline-block;${style};border-radius:999px;padding:0.1rem 0.55rem;font-size:0.72rem;font-weight:600">${escapeHtml(roleLabel(role))}</span>`;
+}
+
+function rosterInputStyle() {
+  return "padding:0.28rem 0.45rem;border:1px solid #e2e8f0;border-radius:6px;font-size:0.78rem;background:#fff;width:100%";
+}
+
 function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, canEditEmail }, teamId) {
   const canManage = isCaptain || isCoach || isPlatformAdmin;
   const canEditRoster = canManage;
-  const th = (k) => escapeHtml(t(k));
-  const thead = canManage
-    ? `<thead><tr><th>${th("teams.thEmail")}</th><th>${th("teams.thName")}</th><th>${th("teams.thSex")}</th><th>${th("teams.thDocument")}</th><th>${th("teams.thBirth")}</th><th>${th("teams.thAge")}</th><th>${th("teams.thHeight")}</th><th>${th("teams.thWeight")}</th><th>${th("teams.thPreferredSide")}</th><th>${th("teams.thRole")}</th><th>${th("teams.thManage")}</th></tr></thead>`
-    : `<thead><tr><th>${th("teams.thEmail")}</th><th>${th("teams.thName")}</th><th>${th("teams.thSex")}</th><th>${th("teams.thDocument")}</th><th>${th("teams.thBirth")}</th><th>${th("teams.thAge")}</th><th>${th("teams.thHeight")}</th><th>${th("teams.thWeight")}</th><th>${th("teams.thPreferredSide")}</th><th>${th("teams.thRole")}</th></tr></thead>`;
 
-  function emailCell(m) {
-    if (canEditEmail) return `<td><input type="email" class="member-email" maxlength="320" autocomplete="email" value="${escapeHtml(m.email)}" /></td>`;
-    return `<td>${escapeHtml(m.email)}</td>`;
+  const thStyle = "font-size:9px;text-transform:uppercase;color:#94a3b8;font-weight:600;padding:0.5rem 0.6rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;white-space:nowrap";
+  const tdStyle = "padding:0.45rem 0.6rem;border-bottom:1px solid #f1f5f9;vertical-align:middle";
+
+  // Grid columns (exact widths): 220px avatar+name+email, 70px sex, 110px birth, 90px height, 90px weight, 120px side, 120px role, 80px manage
+  const gridCols = canManage
+    ? "220px 70px 110px 90px 90px 120px 120px 80px"
+    : "220px 70px 110px 90px 90px 120px 120px";
+
+  const theadStyle = `display:grid;grid-template-columns:${gridCols};width:100%;gap:0`;
+  const trStyle = `display:grid;grid-template-columns:${gridCols};width:100%;gap:0`;
+
+  const th = (label, sortKey = null) => {
+    if (sortKey === null) {
+      return `<th style="${thStyle}">${escapeHtml(label)}</th>`;
+    }
+    return `<th style="${thStyle};cursor:pointer" data-sort-key="${sortKey}" role="button" tabindex="0">${escapeHtml(label)}</th>`;
+  };
+
+  const thead = `<thead style="${theadStyle}"><tr style="display:grid;grid-template-columns:${gridCols};gap:0">
+    ${th("")}
+    ${th(t("teams.thName"), "name")}
+    ${th(t("teams.thSex"), "sex")}
+    ${th(t("teams.thBirth"), "birth")}
+    ${th(t("teams.thHeight"), "height")}
+    ${th(t("teams.thWeight"), "weight")}
+    ${th(t("teams.thPreferredSide"), "side")}
+    ${th(t("teams.thRole"), "role")}
+    ${canManage ? th(t("teams.thManage")) : ""}
+  </tr></thead>`;
+
+  function avatarCell(m, idx) {
+    const color = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+    const initial = (m.full_name || m.email || "?")[0].toUpperCase();
+    const nameHtml = escapeHtml(m.full_name || t("account.emptyDash"));
+    let emailHtml;
+    if (canEditEmail) {
+      emailHtml = `<input type="email" class="member-email" maxlength="320" autocomplete="email" value="${escapeHtml(m.email)}" style="${rosterInputStyle()};font-size:0.72rem;color:#64748b" />`;
+    } else {
+      emailHtml = `<span style="font-size:0.72rem;color:#64748b">${escapeHtml(m.email)}</span>`;
+    }
+    return `<td style="${tdStyle}">
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <div style="width:32px;height:32px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.82rem;font-weight:700;flex-shrink:0">${initial}</div>
+        <div style="min-width:0">
+          <div style="font-weight:600;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">${nameHtml}</div>
+          ${emailHtml}
+        </div>
+      </div>
+    </td>`;
   }
-  function rolCell(m) {
+
+  function sexTd(m) {
+    if (canEditRoster) return `<td style="${tdStyle}"><select class="roster-sex" aria-label="${escapeHtml(t("teams.sexAria"))}" style="${rosterInputStyle()}">${sexSelectOptionsHtml(m)}</select></td>`;
+    const label = m.sex === "male" ? t("teams.sexMale") : t("teams.sexFemale");
+    return `<td style="${tdStyle};font-size:0.82rem">${escapeHtml(label)}</td>`;
+  }
+
+  function rosterTds(m) {
+    if (canEditRoster) {
+      return `
+        <td style="${tdStyle}"><input class="roster-birth" type="date" value="${rosterBirthInputValue(m.birth_date)}" style="${rosterInputStyle()}" /></td>
+        <td style="${tdStyle}"><input class="roster-h" type="number" step="0.1" min="0" placeholder="${escapeHtml(t("teams.placeholderCm"))}" value="${m.height_cm != null ? escapeHtml(String(m.height_cm)) : ""}" style="${rosterInputStyle()};width:68px" /></td>
+        <td style="${tdStyle}"><input class="roster-w" type="number" step="0.1" min="0" placeholder="${escapeHtml(t("teams.placeholderKg"))}" value="${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : ""}" style="${rosterInputStyle()};width:68px" /></td>
+        <td style="${tdStyle}"><select class="roster-side" style="${rosterInputStyle()}">${preferredSideOptionsHtml(m)}</select></td>`;
+    }
+    const d = t("account.emptyDash");
+    const birthDisplay = m.birth_date ? formatBirthDateDisplay(m.birth_date) : null;
+    return `
+      <td style="${tdStyle};font-size:0.82rem">${birthDisplay ? escapeHtml(birthDisplay) : escapeHtml(d)}</td>
+      <td style="${tdStyle};font-size:0.82rem">${m.height_cm != null ? escapeHtml(String(m.height_cm)) : escapeHtml(d)}</td>
+      <td style="${tdStyle};font-size:0.82rem">${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : escapeHtml(d)}</td>
+      <td style="${tdStyle};font-size:0.82rem">${escapeHtml(preferredSideLabel(m.preferred_side))}</td>`;
+  }
+
+  function roleTd(m) {
     const rAria = escapeHtml(t("teams.roleAria"));
-    if (isPlatformAdmin) return `<td><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="${rAria}"><option value="captain" ${m.role === "captain" ? "selected" : ""}>${escapeHtml(t("roles.captain"))}</option><option value="coach" ${m.role === "coach" ? "selected" : ""}>${escapeHtml(t("roles.coach"))}</option><option value="paddler" ${m.role === "paddler" ? "selected" : ""}>${escapeHtml(t("roles.paddler"))}</option></select></td>`;
-    if (m.role === "captain") return `<td>${escapeHtml(roleLabel(m.role))}</td>`;
-    if (isCoach && m.role === "coach") return `<td>${escapeHtml(roleLabel(m.role))}</td>`;
-    if (isCaptain) return `<td><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="${rAria}"><option value="coach" ${m.role === "coach" ? "selected" : ""}>${escapeHtml(t("roles.coach"))}</option><option value="paddler" ${m.role === "paddler" ? "selected" : ""}>${escapeHtml(t("roles.paddler"))}</option></select></td>`;
-    return `<td>${escapeHtml(roleLabel(m.role))}</td>`;
+    const selStyle = rosterInputStyle();
+    if (isPlatformAdmin) return `<td style="${tdStyle}"><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="${rAria}" style="${selStyle}"><option value="captain" ${m.role === "captain" ? "selected" : ""}>${escapeHtml(t("roles.captain"))}</option><option value="coach" ${m.role === "coach" ? "selected" : ""}>${escapeHtml(t("roles.coach"))}</option><option value="paddler" ${m.role === "paddler" ? "selected" : ""}>${escapeHtml(t("roles.paddler"))}</option></select></td>`;
+    if (m.role === "captain") return `<td style="${tdStyle}">${roleBadgeHtml(m.role)}</td>`;
+    if (isCoach && m.role === "coach") return `<td style="${tdStyle}">${roleBadgeHtml(m.role)}</td>`;
+    if (isCaptain) return `<td style="${tdStyle}"><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="${rAria}" style="${selStyle}"><option value="coach" ${m.role === "coach" ? "selected" : ""}>${escapeHtml(t("roles.coach"))}</option><option value="paddler" ${m.role === "paddler" ? "selected" : ""}>${escapeHtml(t("roles.paddler"))}</option></select></td>`;
+    return `<td style="${tdStyle}">${roleBadgeHtml(m.role)}</td>`;
   }
-  function gestionCell(m) {
+
+  function manageTd(m) {
     if (!canManage) return "";
-    if (isPlatformAdmin) return `<td class="actions-cell"><button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}" ${m.role === "captain" ? `disabled title="${escapeHtml(t("teams.removeCaptainHint"))}"` : ""}>${escapeHtml(t("teams.remove"))}</button></td>`;
-    if (m.role === "captain") return `<td class="actions-cell"><span class="muted">${escapeHtml(t("account.emptyDash"))}</span></td>`;
-    if (isCoach && m.role === "coach") return `<td class="actions-cell"><span class="muted">${escapeHtml(t("teams.coachOnlyManagesPaddler"))}</span></td>`;
-    if (isCaptain) return `<td class="actions-cell"><button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">${escapeHtml(t("teams.remove"))}</button></td>`;
-    return `<td class="actions-cell"><button type="button" class="secondary btn-sm btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}">${escapeHtml(t("teams.remove"))}</button></td>`;
+    const btnStyle = "padding:0.22rem 0.6rem;border:1px solid #ef4444;color:#ef4444;background:transparent;border-radius:5px;font-size:0.75rem;cursor:pointer";
+    if (isPlatformAdmin) return `<td style="${tdStyle}"><button type="button" class="btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}" style="${btnStyle}" ${m.role === "captain" ? `disabled title="${escapeHtml(t("teams.removeCaptainHint"))}"` : ""}>${escapeHtml(t("teams.remove"))}</button></td>`;
+    if (m.role === "captain") return `<td style="${tdStyle}"><span style="color:#94a3b8;font-size:0.78rem">${escapeHtml(t("account.emptyDash"))}</span></td>`;
+    if (isCoach && m.role === "coach") return `<td style="${tdStyle}"><span style="color:#94a3b8;font-size:0.78rem">${escapeHtml(t("teams.coachOnlyManagesPaddler"))}</span></td>`;
+    return `<td style="${tdStyle}"><button type="button" class="btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}" style="${btnStyle}">${escapeHtml(t("teams.remove"))}</button></td>`;
   }
-  const rows = members.map((m) => {
-    const rc = rosterCellsHtml(m, canEditRoster);
-    const trOpen = `<tr data-user-id="${m.user_id}" data-initial-role="${m.role}" data-initial-email="${encodeURIComponent(m.email)}">`;
-    if (!canManage) return `${trOpen}${emailCell(m)}<td>${escapeHtml(m.full_name || t("account.emptyDash"))}</td>${sexCellHtml(m, canEditRoster)}${rc}${rolCell(m)}</tr>`;
-    return `${trOpen}${emailCell(m)}<td>${escapeHtml(m.full_name || t("account.emptyDash"))}</td>${sexCellHtml(m, canEditRoster)}${rc}${rolCell(m)}${gestionCell(m)}</tr>`;
+
+  const rows = members.map((m, idx) => {
+    const rowAttrs = `data-user-id="${m.user_id}" data-initial-role="${m.role}" data-initial-email="${encodeURIComponent(m.email)}" style="transition:background 0.15s;${trStyle}" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''"`;
+    return `<tr ${rowAttrs}>${avatarCell(m, idx)}${sexTd(m)}${rosterTds(m)}${roleTd(m)}${manageTd(m)}</tr>`;
   }).join("");
-  return `<div class="table-scroll"><table class="plantel-table" data-team="${teamId}">${thead}<tbody>${rows}</tbody></table></div>`;
+
+  const tableWrapStyle = "border-radius:10px;overflow:hidden;border:0.5px solid #e2e8f0";
+
+  // Store members and sort info for later re-rendering
+  const tableHtml = `<div style="${tableWrapStyle}"><div class="table-scroll"><table class="plantel-table" data-team="${teamId}" style="width:100%;border-collapse:collapse">${thead}<tbody style="display:contents" class="plantel-tbody">${rows}</tbody></table></div></div>`;
+
+  // Return HTML with metadata
+  return {
+    html: tableHtml,
+    _members: members,
+    _gridCols: gridCols,
+    _tdStyle: tdStyle,
+    _teamId: teamId,
+    _canEditRoster: canEditRoster,
+    _canManage: canManage,
+  };
 }
 
 function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditEmail }, renderTeamsListFn) {
+  let rosterSort = { col: null, dir: "asc" };
+
+  // Wire up table header sorting
+  const table = document.querySelector(`.plantel-table[data-team="${teamId}"]`);
+  if (table) {
+    const headers = table.querySelectorAll("thead th[data-sort-key]");
+    headers.forEach((th) => {
+      th.addEventListener("click", () => {
+        const sortKey = th.getAttribute("data-sort-key");
+        const tbody = table.querySelector("tbody");
+        if (!tbody) return;
+
+        // Toggle sort direction if same column, else reset to asc
+        if (rosterSort.col === sortKey) {
+          rosterSort.dir = rosterSort.dir === "asc" ? "desc" : "asc";
+        } else {
+          rosterSort.col = sortKey;
+          rosterSort.dir = "asc";
+        }
+
+        // Get all rows
+        const rows = Array.from(tbody.querySelectorAll("tr[data-user-id]"));
+        if (rows.length === 0) return;
+
+        // Sort rows based on sortKey
+        rows.sort((a, b) => {
+          let aVal, bVal;
+
+          switch (sortKey) {
+            case "name":
+              aVal = (a.querySelector("td:nth-child(2)")?.textContent || "").toLowerCase();
+              bVal = (b.querySelector("td:nth-child(2)")?.textContent || "").toLowerCase();
+              break;
+            case "sex":
+              aVal = a.querySelector("select.roster-sex, td:nth-child(3)")?.textContent || "";
+              bVal = b.querySelector("select.roster-sex, td:nth-child(3)")?.textContent || "";
+              aVal = aVal.toLowerCase();
+              bVal = bVal.toLowerCase();
+              break;
+            case "birth":
+              // Extract date from input or text
+              const birthInputA = a.querySelector("input.roster-birth");
+              const birthInputB = b.querySelector("input.roster-birth");
+              aVal = birthInputA ? birthInputA.value : (a.querySelector("td:nth-child(4)")?.textContent || "");
+              bVal = birthInputB ? birthInputB.value : (b.querySelector("td:nth-child(4)")?.textContent || "");
+              // Convert dd/mm/yyyy back to ISO or compare as is
+              if (aVal && aVal.includes("/")) aVal = aVal.split("/").reverse().join("-");
+              if (bVal && bVal.includes("/")) bVal = bVal.split("/").reverse().join("-");
+              break;
+            case "height":
+              const heightInputA = a.querySelector("input.roster-h");
+              const heightInputB = b.querySelector("input.roster-h");
+              aVal = heightInputA ? parseFloat(heightInputA.value) || 0 : parseFloat(a.querySelector("td:nth-child(5)")?.textContent || "0");
+              bVal = heightInputB ? parseFloat(heightInputB.value) || 0 : parseFloat(b.querySelector("td:nth-child(5)")?.textContent || "0");
+              break;
+            case "weight":
+              const weightInputA = a.querySelector("input.roster-w");
+              const weightInputB = b.querySelector("input.roster-w");
+              aVal = weightInputA ? parseFloat(weightInputA.value) || 0 : parseFloat(a.querySelector("td:nth-child(6)")?.textContent || "0");
+              bVal = weightInputB ? parseFloat(weightInputB.value) || 0 : parseFloat(b.querySelector("td:nth-child(6)")?.textContent || "0");
+              break;
+            case "side":
+              aVal = a.querySelector("select.roster-side, td:nth-child(7)")?.textContent || "";
+              bVal = b.querySelector("select.roster-side, td:nth-child(7)")?.textContent || "";
+              aVal = aVal.toLowerCase();
+              bVal = bVal.toLowerCase();
+              break;
+            case "role":
+              aVal = a.getAttribute("data-initial-role") || "";
+              bVal = b.getAttribute("data-initial-role") || "";
+              aVal = aVal.toLowerCase();
+              bVal = bVal.toLowerCase();
+              break;
+            default:
+              return 0;
+          }
+
+          // Compare
+          if (typeof aVal === "string" && typeof bVal === "string") {
+            return rosterSort.dir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+          } else {
+            const aNum = typeof aVal === "number" ? aVal : parseFloat(aVal) || 0;
+            const bNum = typeof bVal === "number" ? bVal : parseFloat(bVal) || 0;
+            return rosterSort.dir === "asc" ? aNum - bNum : bNum - aNum;
+          }
+        });
+
+        // Update visual indicators (▲/▼)
+        headers.forEach((h) => {
+          const hSortKey = h.getAttribute("data-sort-key");
+          if (hSortKey === sortKey) {
+            h.textContent = h.textContent.replace(/[\s▲▼]$/, "");
+            h.textContent += (rosterSort.dir === "asc" ? " ▲" : " ▼");
+          } else {
+            h.textContent = h.textContent.replace(/[\s▲▼]$/, "");
+          }
+        });
+
+        // Re-insert rows in sorted order
+        rows.forEach((row) => tbody.appendChild(row));
+      });
+    });
+  }
+
   document.querySelector(`.btn-plantel-save-all[data-team="${teamId}"]`)?.addEventListener("click", async () => {
     const tbody = document.querySelector(`.plantel-table[data-team="${teamId}"] tbody`);
     if (!tbody) return;
@@ -205,15 +428,22 @@ function wireTeamPlantelPage(teamId, { canChangeRoles, canRemoveMember, canEditE
 
 function renderTeamPlantelWrapHtml(teamId, members, { isCaptain, isCoach, isPlatformAdmin }, inviteBlock) {
   const canManage = isCaptain || isCoach || isPlatformAdmin;
+  const count = members.length;
+  const subtitle = t("teams.plantelSubtitle").replace("{count}", String(count));
   const saveBtn = canManage
-    ? `<p style="margin-top:0.75rem"><button type="button" class="secondary btn-plantel-save-all" data-team="${teamId}">${escapeHtml(t("teams.saveRoster"))}</button></p>`
+    ? `<button type="button" class="btn-plantel-save-all" data-team="${teamId}" style="padding:0.3rem 0.85rem;background:#3b82f6;color:#fff;border:none;border-radius:6px;font-size:0.82rem;cursor:pointer">${escapeHtml(t("teams.saveRoster"))}</button>`
     : "";
+  const tableData = buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, canEditEmail: isCaptain || isPlatformAdmin }, teamId);
   return `
     <div class="card team-plantel-card" style="margin-top:1rem">
-      <h3 style="margin-top:0">${escapeHtml(t("teams.plantelTitle"))}</h3>
-      <p class="muted small">${t("teams.plantelHint")}</p>
-      ${buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, canEditEmail: isCaptain || isPlatformAdmin }, teamId)}
-      ${saveBtn}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.6rem;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0;font-size:1rem">${escapeHtml(t("teams.plantelTitle"))}</h3>
+          <p class="muted small" style="margin:0.15rem 0 0">${escapeHtml(subtitle)}</p>
+        </div>
+        ${saveBtn}
+      </div>
+      ${tableData.html}
       ${inviteBlock}
     </div>`;
 }
@@ -284,7 +514,7 @@ export async function renderTeamsList(layout) {
     }
 
     const ctx0 = plantelContextForTeam(selectedTeamId);
-    const plantelHtml = renderTeamPlantelWrapHtml(selectedTeamId, members, { isCaptain: ctx0.isCaptain, isCoach: ctx0.isCoach, isPlatformAdmin }, ctx0.inviteBlock);
+    const plantelWrapHtml = renderTeamPlantelWrapHtml(selectedTeamId, members, { isCaptain: ctx0.isCaptain, isCoach: ctx0.isCoach, isPlatformAdmin }, ctx0.inviteBlock);
 
     // Closure para el re-render
     const renderTeamsListBound = () => renderTeamsList(layout);
@@ -292,7 +522,7 @@ export async function renderTeamsList(layout) {
     layout(`
       <p><a class="link" href="#/">${escapeHtml(t("nav.home"))}</a></p>
       ${topCardHtml}
-      <div id="team-plantel-wrap">${plantelHtml}</div>
+      <div id="team-plantel-wrap">${plantelWrapHtml}</div>
     `, { wide: true });
 
     wireTeamPlantelPage(selectedTeamId, ctx0.wire, renderTeamsListBound);
@@ -305,7 +535,8 @@ export async function renderTeamsList(layout) {
         sessionStorage.setItem("edb-teams-selected-team", String(tid));
         const m = await api.apiListMembers(tid);
         const c = plantelContextForTeam(tid);
-        document.getElementById("team-plantel-wrap").innerHTML = renderTeamPlantelWrapHtml(tid, m, { isCaptain: c.isCaptain, isCoach: c.isCoach, isPlatformAdmin }, c.inviteBlock);
+        const plantelHtml = renderTeamPlantelWrapHtml(tid, m, { isCaptain: c.isCaptain, isCoach: c.isCoach, isPlatformAdmin }, c.inviteBlock);
+        document.getElementById("team-plantel-wrap").innerHTML = plantelHtml;
         wireTeamPlantelPage(tid, c.wire, renderTeamsListBound);
         bindTeamInviteForm(tid, renderTeamsListBound);
       } catch (ex) { alert(humanizeApiError(ex.message) || String(ex.message)); }
