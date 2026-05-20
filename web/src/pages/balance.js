@@ -114,16 +114,16 @@ function renderSeatHtml(seatId, isSpecial = false) {
 function balRenderBoat() {
   const rows = rowCount();
 
-  // Drummer
-  const drummerEl = document.getElementById("seat-drummer");
-  if (drummerEl) {
-    drummerEl.innerHTML = renderSeatHtml("drummer", true);
+  // Drummer (solo el slot interno, preserva el label)
+  const drummerSlot = document.getElementById("slot-drummer");
+  if (drummerSlot) {
+    drummerSlot.innerHTML = renderSeatHtml("drummer", true);
   }
 
-  // Timonel
-  const timonelEl = document.getElementById("seat-timonel");
-  if (timonelEl) {
-    timonelEl.innerHTML = renderSeatHtml("timonel", true);
+  // Timonel (solo el slot interno, preserva el label)
+  const timonelSlot = document.getElementById("slot-timonel");
+  if (timonelSlot) {
+    timonelSlot.innerHTML = renderSeatHtml("timonel", true);
   }
 
   // Filas de remeros
@@ -293,16 +293,28 @@ function balUpdateScores() {
 // Algoritmo de balanceo
 // ---------------------------------------------------------------------------
 function balRun() {
-  // Guard: verificar que _members está cargado
   if (!_members || _members.length === 0) {
     alert('No hay palistas cargados.');
     return;
   }
 
-  // A) Lectura de checkboxes con selector exacto
   const checkboxes = document.querySelectorAll('#bal-member-list input[type="checkbox"]:checked');
+  if (checkboxes.length === 0) {
+    alert('Seleccioná al menos un palista.');
+    return;
+  }
+
   const selectedIds = new Set([...checkboxes].map(cb => String(cb.dataset.memberId)));
-  const selected = _members.filter((m) => selectedIds.has(String(m.id)));
+
+  // Construir lista deduplicada respetando el orden de _members
+  const seenSel = new Set();
+  const selected = [];
+  for (const m of _members) {
+    if (selectedIds.has(String(m.id)) && !seenSel.has(String(m.id))) {
+      seenSel.add(String(m.id));
+      selected.push(m);
+    }
+  }
 
   const drummerSel = document.getElementById("sel-drummer")?.value || "";
   const timonelSel = document.getElementById("sel-timonel")?.value || "";
@@ -319,68 +331,77 @@ function balRun() {
     }
   }
 
-  // Asignar drummer y timonel si no están bloqueados
-  if (drummerSel && !_locked.has("drummer")) newSeats["drummer"] = { memberId: String(drummerSel) };
-  if (timonelSel && !_locked.has("timonel")) newSeats["timonel"] = { memberId: String(timonelSel) };
+  // Asignar roles especiales si no están bloqueados
+  if (drummerSel && !_locked.has("drummer")) newSeats["drummer"] = { memberId: drummerSel };
+  if (timonelSel && !_locked.has("timonel")) newSeats["timonel"] = { memberId: timonelSel };
 
-  // Palistas disponibles (excluir drummer, timonel y bloqueados ya asignados)
-  const usedIds = new Set(Object.values(newSeats).map((s) => s.memberId).filter(Boolean));
-  const seenIds = new Set(usedIds);
-  const available = selected.filter((m) => {
-    if (seenIds.has(String(m.id))) return false;
-    seenIds.add(String(m.id));
-    return true;
-  });
+  // Pool de palistas: seleccionados menos los ya colocados, deduplicado
+  const placed = new Set(Object.values(newSeats).map(s => s.memberId).filter(Boolean));
+  const poolSeen = new Set(placed);
+  const pool = [];
+  for (const m of selected) {
+    if (!poolSeen.has(String(m.id))) {
+      poolSeen.add(String(m.id));
+      pool.push(m);
+    }
+  }
 
   // Separar por lado preferido
-  let leftPref = available.filter((m) => m.preferred_side === "left");
-  let rightPref = available.filter((m) => m.preferred_side === "right");
-  let either = available.filter((m) => !m.preferred_side || m.preferred_side === "either");
+  let lPool = pool.filter(m => m.preferred_side === "left");
+  let rPool = pool.filter(m => m.preferred_side === "right");
+  let ePool = pool.filter(m => !m.preferred_side || m.preferred_side === "either");
 
-  // Si priority < 50: ignorar lado, ordenar todos por peso desc y distribuir
+  // Modo peso: ignorar lado, ordenar por peso desc
   if (_priority < 50) {
-    const all = [...leftPref, ...rightPref, ...either].sort(
+    const all = [...lPool, ...rPool, ...ePool].sort(
       (a, b) => memberWeight(b) - memberWeight(a)
     );
-    leftPref = [];
-    rightPref = [];
-    either = [...all];
+    lPool = [];
+    rPool = [];
+    ePool = all;
   }
 
-  const freeLeft = leftSeats.filter((s) => !newSeats[s]);
-  const freeRight = rightSeats.filter((s) => !newSeats[s]);
+  // Extrae y elimina el primer elemento del primer array no vacío
+  const take = (...arrs) => {
+    for (const arr of arrs) {
+      if (arr.length > 0) return arr.splice(0, 1)[0];
+    }
+    return null;
+  };
 
-  // Llenar izquierda con preferencia izquierda primero
+  const freeLeft = leftSeats.filter(s => !newSeats[s]);
+  const freeRight = rightSeats.filter(s => !newSeats[s]);
+
+  // Llenar izquierda: preferencia izquierda, luego indiferentes
   for (const seat of freeLeft) {
-    const m = leftPref.shift() || either.shift();
+    const m = take(lPool, ePool);
     if (!m) break;
     newSeats[seat] = { memberId: String(m.id) };
   }
 
-  // Llenar derecha con preferencia derecha primero
+  // Llenar derecha: preferencia derecha, luego indiferentes
   for (const seat of freeRight) {
-    const m = rightPref.shift() || either.shift();
+    const m = take(rPool, ePool);
     if (!m) break;
     newSeats[seat] = { memberId: String(m.id) };
   }
 
-  // Sobrantes de derecha que no cupieron → intentar ubicar en izquierda libre
-  const stillFreeLeft = freeLeft.filter((s) => !newSeats[s]);
+  // Sobrantes derecha → asientos izquierda libres
+  const stillFreeLeft = freeLeft.filter(s => !newSeats[s]);
   for (const seat of stillFreeLeft) {
-    const m = rightPref.shift() || either.shift();
+    const m = take(rPool, ePool);
     if (!m) break;
     newSeats[seat] = { memberId: String(m.id) };
   }
 
-  // Sobrantes de izquierda que no cupieron → intentar ubicar en derecha libre
-  const stillFreeRight = freeRight.filter((s) => !newSeats[s]);
+  // Sobrantes izquierda → asientos derecha libres
+  const stillFreeRight = freeRight.filter(s => !newSeats[s]);
   for (const seat of stillFreeRight) {
-    const m = leftPref.shift() || either.shift();
+    const m = take(lPool, ePool);
     if (!m) break;
     newSeats[seat] = { memberId: String(m.id) };
   }
 
-  // D) Asignar y renderizar incondicionalmente
   _seats = newSeats;
   balRenderBoat();
   balUpdateScores();
@@ -580,29 +601,29 @@ function buildPageHtml(teamName) {
     <!-- Card 2: roles especiales -->
     <div style="${cardStyle}">
       <div style="${labelStyle}">ROLES ESPECIALES</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
-        <div style="border:1px solid #fed7aa;border-radius:8px;padding:0.5rem;background:#fff7ed">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;overflow:hidden">
+        <div style="border:1px solid #fed7aa;border-radius:8px;padding:0.5rem;background:#fff7ed;min-width:0;overflow:hidden">
           <div style="font-size:0.75rem;font-weight:600;color:#ea580c;margin-bottom:0.3rem">🥁 Drummer</div>
-          <select id="sel-drummer" style="width:100%;font-size:0.75rem;border:1px solid #e2e8f0;border-radius:6px;padding:0.25rem;margin-bottom:0.3rem">
+          <select id="sel-drummer" style="width:100%;max-width:100%;font-size:0.75rem;border:1px solid #e2e8f0;border-radius:6px;padding:0.25rem;margin-bottom:0.3rem;box-sizing:border-box">
             <option value="">— ninguno —</option>
           </select>
-          <div style="display:flex;align-items:center;gap:0.3rem;font-size:0.7rem;color:#64748b">
-            <span>Tambor</span>
+          <div style="display:flex;align-items:center;gap:0.25rem;font-size:0.7rem;color:#64748b;min-width:0">
+            <span style="flex-shrink:0">Tambor</span>
             <input id="inp-drummer-weight" type="number" min="0" step="0.1" value="3"
-              style="width:45px;border:1px solid #e2e8f0;border-radius:4px;padding:0.15rem 0.3rem;font-size:0.75rem">
-            <span>kg</span>
+              style="width:40px;min-width:0;border:1px solid #e2e8f0;border-radius:4px;padding:0.15rem 0.25rem;font-size:0.75rem;box-sizing:border-box">
+            <span style="flex-shrink:0">kg</span>
           </div>
         </div>
-        <div style="border:1px solid #e9d5ff;border-radius:8px;padding:0.5rem;background:#faf5ff">
+        <div style="border:1px solid #e9d5ff;border-radius:8px;padding:0.5rem;background:#faf5ff;min-width:0;overflow:hidden">
           <div style="font-size:0.75rem;font-weight:600;color:#7c3aed;margin-bottom:0.3rem">🎯 Timonel</div>
-          <select id="sel-timonel" style="width:100%;font-size:0.75rem;border:1px solid #e2e8f0;border-radius:6px;padding:0.25rem;margin-bottom:0.3rem">
+          <select id="sel-timonel" style="width:100%;max-width:100%;font-size:0.75rem;border:1px solid #e2e8f0;border-radius:6px;padding:0.25rem;margin-bottom:0.3rem;box-sizing:border-box">
             <option value="">— ninguno —</option>
           </select>
-          <div style="display:flex;align-items:center;gap:0.3rem;font-size:0.7rem;color:#64748b">
-            <span>Timón</span>
+          <div style="display:flex;align-items:center;gap:0.25rem;font-size:0.7rem;color:#64748b;min-width:0">
+            <span style="flex-shrink:0">Timón</span>
             <input id="inp-timonel-weight" type="number" min="0" step="0.1" value="3"
-              style="width:45px;border:1px solid #e2e8f0;border-radius:4px;padding:0.15rem 0.3rem;font-size:0.75rem">
-            <span>kg</span>
+              style="width:40px;min-width:0;border:1px solid #e2e8f0;border-radius:4px;padding:0.15rem 0.25rem;font-size:0.75rem;box-sizing:border-box">
+            <span style="flex-shrink:0">kg</span>
           </div>
         </div>
       </div>
@@ -724,7 +745,9 @@ function buildPageHtml(teamName) {
       <div id="seat-drummer" onclick="balToggleLock('drummer')"
         style="border:1px solid #fed7aa;border-radius:8px;padding:0.4rem 0.5rem;cursor:pointer;min-height:40px;background:rgba(234,88,12,0.15);margin-bottom:0.5rem">
         <div style="font-size:0.6rem;color:#fed7aa;font-weight:600;margin-bottom:0.2rem">🥁 DRUMMER</div>
-        <div style="font-size:0.65rem;color:#94a3b8;text-align:center;padding:0.2rem">Vacío</div>
+        <div id="slot-drummer">
+          <div style="font-size:0.65rem;color:#94a3b8;text-align:center;padding:0.2rem">Vacío</div>
+        </div>
       </div>
 
       <!-- Filas de asientos -->
@@ -734,7 +757,9 @@ function buildPageHtml(teamName) {
       <div id="seat-timonel" onclick="balToggleLock('timonel')"
         style="border:1px solid #e9d5ff;border-radius:8px;padding:0.4rem 0.5rem;cursor:pointer;min-height:40px;background:rgba(124,58,237,0.15);margin-top:0.5rem">
         <div style="font-size:0.6rem;color:#e9d5ff;font-weight:600;margin-bottom:0.2rem">🎯 TIMONEL</div>
-        <div style="font-size:0.65rem;color:#94a3b8;text-align:center;padding:0.2rem">Vacío</div>
+        <div id="slot-timonel">
+          <div style="font-size:0.65rem;color:#94a3b8;text-align:center;padding:0.2rem">Vacío</div>
+        </div>
       </div>
 
       <!-- Instrucción timonel -->
