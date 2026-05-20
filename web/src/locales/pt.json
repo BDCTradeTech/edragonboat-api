@@ -9,6 +9,7 @@
     "ariaMain": "Menu principal",
     "home": "Início",
     "teams": "Equipa",
+    "balance": "Balance",
     "routines": "Rotinas",
     "sessions": "Treinos",
     "competitions": "Provas",
@@ -206,7 +207,9 @@
       "paladas": "Remadas",
       "dpsMeters": "DPS (m/remada)",
       "strokePeakAccelerationMs2": "Força da remada (m/s²)"
-    }
+    },
+    "btnShowVariation": "Mostrar variação %",
+    "btnHideVariation": "Ocultar variação %"
   },
   "sessions": {
     "loading": "A carregar treinos…",
@@ -273,8 +276,7 @@
     "sessionsThisMonth": "Sessões este mês",
     "kmThisMonth": "Km percorridos este mês",
     "avgSpmThisMonth": "SPM médio este mês",
-    "compareDay": "Comparar dia →",
-    "compareSelected": "Comparar selecionadas",
+    "compareSessions": "Comparar sessões",
     "totalDistance": "Distância total",
     "avgSpeed": "Vel. média",
     "avgSpm": "SPM médio",
@@ -290,8 +292,10 @@
     "avgDpsMonth": "DPS méd.",
     "avgPaddlersMonth": "Remadores méd.",
     "paddlers": "Remadores",
+    "paddlersAvg": "Palistas méd.",
     "totalStrokes": "Total de remadas",
     "resumeDay": "Resumo do dia",
+    "btnDaySummary": "Resumo do dia",
     "sessions": "Sessões",
     "distance": "Distância",
     "avgSpmShort": "SPM méd.",
@@ -358,6 +362,8 @@
     "plantelTitle": "Plantel",
     "plantelHint": "Os dados do plantel são guardados no servidor. O capitão e o treinador podem editar linhas; o capitão e o admin podem alterar e-mails. Use <strong>Guardar plantel</strong> para aplicar todas as alterações.",
     "saveRoster": "Guardar plantel",
+    "plantelSubtitle": "{count} membros · Edite e pressione Guardar",
+    "invitePasswordHint": "Senha inicial: 12345678 (alterar em Conta)",
     "inviteTitle": "Convidar para a equipa",
     "inviteHintHtml": "Pode convidar por e-mail mesmo sem conta: é criado um utilizador com a senha <strong>12345678</strong> (deve alterá-la em Conta). Se o servidor tiver SMTP, recebe o e-mail de acesso.",
     "nameOptional": "Nome completo (opcional)",
@@ -614,5 +620,64 @@
     "catTraining": "Treino",
     "catCompetitions": "Provas",
     "catGeneral": "Geral"
+  },
+  "analysis": {
+    "tabLabel": "Análise IA",
+    "noData": "Dados insuficientes para analisar esta sessão.",
+    "scoreLabel": "Pontuação geral",
+    "sectionSpeed": "Velocidade",
+    "sectionRhythm": "Ritmo (SPM)",
+    "sectionTech": "Técnica (DPS)",
+    "sectionForce": "Força de remada",
+    "statusGood": "Bem",
+    "statusWarning": "Atenção",
+    "statusProblem": "Problema",
+    "speed": {
+      "excellent": "Excelente velocidade de cruzeiro",
+      "low": "Velocidade baixa — considere aumentar o SPM ou a potência da remada",
+      "cruiseDropSignificant": "Queda significativa de velocidade — possível fadiga ou perda técnica na segunda metade",
+      "instability": "Instabilidade na velocidade — revise a sincronização da equipe"
+    },
+    "spm": {
+      "tooLow": "SPM muito baixo para treino competitivo",
+      "tooHigh": "SPM muito alto — difícil manter técnica, considere reduzir o ritmo e ganhar potência",
+      "fatigue": "Fadiga de ritmo — trabalhe a resistência aeróbica",
+      "irregular": "Ritmo irregular — melhore a consistência"
+    },
+    "dps": {
+      "excellent": "Excelente eficiência de remada",
+      "veryLow": "DPS muito baixo — a remada não gera propulsão suficiente. Revise profundidade e ângulo de entrada",
+      "fatigueDrop": "Perda de comprimento de remada por fadiga — trabalhe técnica sob fadiga",
+      "spmCorrelation": "O aumento do ritmo não se traduz em velocidade — a equipe pode estar perdendo potência por remada"
+    },
+    "force": {
+      "low": "Força de remada baixa — trabalhe potência explosiva no catch",
+      "irregular": "Força muito irregular entre remadas — melhore a consistência técnica",
+      "fatigue": "Fadiga de força — incorpore treinamento de potência anaeróbica"
+    },
+    "betaNote": "Análise baseada em heurísticas de dragon boat. Sem IA generativa.",
+    "scoreBreakdown": "Detalhamento do score",
+    "consistLabel": "Consistência"
+  },
+  "balance": {
+    "title": "Equilíbrio do Plantel",
+    "selectTeam": "Selecione um time",
+    "noTeams": "Você não tem times.",
+    "loading": "Carregando plantel…",
+    "statTotal": "Remadores",
+    "statLeft": "Esquerda",
+    "statRight": "Direita",
+    "statEither": "Indiferente",
+    "boatTitle": "Vista do barco",
+    "colLeft": "Esquerda",
+    "colRight": "Direita",
+    "noSide": "Sem lado fixo",
+    "tableTitle": "Plantel completo",
+    "thName": "Nome",
+    "thSide": "Lado",
+    "thWeight": "Peso (kg)",
+    "thHeight": "Altura (cm)",
+    "noMembers": "Sem remadores no plantel.",
+    "empty": "—"
   }
 }

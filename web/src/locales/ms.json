@@ -9,6 +9,7 @@
     "ariaMain": "Menu utama",
     "home": "Laman utama",
     "teams": "Pasukan",
+    "balance": "Imbangan",
     "routines": "Rutin",
     "sessions": "Latihan",
     "competitions": "Pertandingan",
@@ -206,7 +207,9 @@
       "paladas": "Hentakan",
       "dpsMeters": "DPS (m/hentak)",
       "strokePeakAccelerationMs2": "Daya hentak (m/s²)"
-    }
+    },
+    "btnShowVariation": "Tunjukkan variasi %",
+    "btnHideVariation": "Sembunyikan variasi %"
   },
   "sessions": {
     "loading": "Memuatkan latihan…",
@@ -273,8 +276,7 @@
     "sessionsThisMonth": "Sesi bulan ini",
     "kmThisMonth": "Km bulan ini",
     "avgSpmThisMonth": "SPM purata bulan ini",
-    "compareDay": "Bandingkan hari →",
-    "compareSelected": "Bandingkan yang dipilih",
+    "compareSessions": "Bandingkan sesi",
     "totalDistance": "Jumlah jarak",
     "avgSpeed": "Laju purata",
     "avgSpm": "SPM purata",
@@ -290,8 +292,10 @@
     "avgDpsMonth": "DPS purata",
     "avgPaddlersMonth": "Pengayuh purata",
     "paddlers": "Pengayuh",
+    "paddlersAvg": "Pengayuh purata",
     "totalStrokes": "Jumlah hentakan",
     "resumeDay": "Ringkasan hari",
+    "btnDaySummary": "Ringkasan hari",
     "sessions": "Sesi",
     "distance": "Jarak",
     "avgSpmShort": "SPM purata",
@@ -358,6 +362,8 @@
     "plantelTitle": "Barisan",
     "plantelHint": "Data barisan disimpan di pelayan. Kapten dan jurulatih boleh sunting baris; kapten dan admin boleh tukar e-mel. Guna <strong>Simpan barisan</strong> untuk menerapkan semua perubahan.",
     "saveRoster": "Simpan barisan",
+    "plantelSubtitle": "{count} ahli · Edit dan tekan Simpan",
+    "invitePasswordHint": "Kata laluan awal: 12345678 (tukar di Akaun)",
     "inviteTitle": "Jemput ke pasukan",
     "inviteHintHtml": "Boleh jemput melalui e-mel walaupun tiada akaun: pengguna akan dicipta dengan kata laluan <strong>12345678</strong> (tukar di Akaun). Jika pelayan ada SMTP, e-mel login akan dihantar.",
     "nameOptional": "Nama penuh (pilihan)",
@@ -614,5 +620,64 @@
     "catTraining": "Latihan",
     "catCompetitions": "Pertandingan",
     "catGeneral": "Umum"
+  },
+  "analysis": {
+    "tabLabel": "Analisis AI",
+    "noData": "Data tidak mencukupi untuk menganalisis sesi ini.",
+    "scoreLabel": "Skor keseluruhan",
+    "sectionSpeed": "Kelajuan",
+    "sectionRhythm": "Rentak (SPM)",
+    "sectionTech": "Teknik (DPS)",
+    "sectionForce": "Daya Dayung",
+    "statusGood": "Baik",
+    "statusWarning": "Perhatian",
+    "statusProblem": "Masalah",
+    "speed": {
+      "excellent": "Kelajuan jelajah yang cemerlang",
+      "low": "Kelajuan rendah — pertimbangkan meningkatkan SPM atau kuasa dayung",
+      "cruiseDropSignificant": "Penurunan kelajuan ketara — kemungkinan keletihan atau kehilangan teknik di separuh kedua",
+      "instability": "Ketidakstabilan kelajuan — semak penyegerakan pasukan"
+    },
+    "spm": {
+      "tooLow": "SPM terlalu rendah untuk latihan kompetitif",
+      "tooHigh": "SPM terlalu tinggi — sukar mengekalkan teknik, pertimbangkan menurunkan rentak",
+      "fatigue": "Keletihan rentak — tingkatkan daya tahan aerobik",
+      "irregular": "Rentak tidak konsisten — perbaiki konsistensi"
+    },
+    "dps": {
+      "excellent": "Kecekapan dayung yang cemerlang",
+      "veryLow": "DPS sangat rendah — dayung tidak menjana daya dorong yang mencukupi. Semak kedalaman dan sudut masuk",
+      "fatigueDrop": "Kehilangan panjang dayung akibat keletihan — latih teknik dalam keadaan keletihan",
+      "spmCorrelation": "Peningkatan rentak tidak diterjemahkan kepada kelajuan — pasukan mungkin kehilangan kuasa setiap dayung"
+    },
+    "force": {
+      "low": "Daya dayung rendah — latih kuasa letupan pada catch",
+      "irregular": "Daya sangat tidak sekata antara dayung — tingkatkan konsistensi teknik",
+      "fatigue": "Keletihan daya — tambah latihan kuasa anaerobik"
+    },
+    "betaNote": "Analisis berdasarkan heuristik dragon boat. Tiada AI generatif.",
+    "scoreBreakdown": "Pecahan skor",
+    "consistLabel": "Konsistensi"
+  },
+  "balance": {
+    "title": "Imbangan Pasukan",
+    "selectTeam": "Pilih pasukan",
+    "noTeams": "Tiada pasukan.",
+    "loading": "Memuatkan pasukan…",
+    "statTotal": "Pendayung",
+    "statLeft": "Kiri",
+    "statRight": "Kanan",
+    "statEither": "Mana-mana",
+    "boatTitle": "Paparan bot",
+    "colLeft": "Kiri",
+    "colRight": "Kanan",
+    "noSide": "Tiada sisi tetap",
+    "tableTitle": "Pasukan penuh",
+    "thName": "Nama",
+    "thSide": "Sisi",
+    "thWeight": "Berat (kg)",
+    "thHeight": "Tinggi (cm)",
+    "noMembers": "Tiada pendayung dalam pasukan.",
+    "empty": "—"
   }
 }

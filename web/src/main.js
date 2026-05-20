@@ -27,6 +27,7 @@ import { renderRutinasHub, renderRutinasNew, renderRutinasViewer, renderRutinasE
 import { renderComunidad } from "./pages/community.js";
 import { renderForum, renderForumPost } from "./pages/forum.js";
 import { renderAccount } from "./pages/account.js";
+import { renderBalance } from "./pages/balance.js";
 
 // Router
 import { setRouteFn } from "./router.js";
@@ -52,6 +53,7 @@ function _activePageTitle() {
   if (!key || key === "home") return escapeHtml(t("nav.home"));
   if (key === "sessions" || key === "session") return escapeHtml(t("nav.sessions"));
   if (key === "teams" || key === "team") return escapeHtml(t("nav.teams"));
+  if (key === "balance") return escapeHtml(t("nav.balance"));
   if (key === "rutinas") return escapeHtml(t("nav.routines"));
   if (key === "competencias" || key === "regatas") return escapeHtml(t("nav.competitions"));
   if (key === "comunidad") return escapeHtml(t("nav.community"));
@@ -67,6 +69,7 @@ function highlightNav() {
   let key = "home";
   if (hash[0] === "sessions" || hash[0] === "session") key = "sessions";
   else if (hash[0] === "teams") key = "teams";
+  else if (hash[0] === "balance") key = "balance";
   else if (hash[0] === "rutinas") key = "rutinas";
   else if (hash[0] === "comunidad") key = "comunidad";
   else if (hash[0] === "foro") key = "foro";
@@ -97,6 +100,7 @@ function layout(content, { showNav = true, wide = false } = {}) {
       <nav class="nav-links">
         <a class="nav-item" href="#/" data-match="home"><i data-lucide="home"></i>${escapeHtml(t("nav.home"))}</a>
         <a class="nav-item" href="#/teams" data-match="teams"><i data-lucide="users"></i>${escapeHtml(t("nav.teams"))}</a>
+        <a class="nav-item" href="#/balance" data-match="balance"><i data-lucide="scale"></i>${escapeHtml(t("nav.balance"))}</a>
         <a class="nav-item" href="#/rutinas" data-match="rutinas"><i data-lucide="clipboard-list"></i>${escapeHtml(t("nav.routines"))}</a>
         <a class="nav-item" href="#/sessions" data-match="sessions"><i data-lucide="activity"></i>${escapeHtml(t("nav.sessions"))}</a>
         <a class="nav-item" href="#/competencias" data-match="competencias"><i data-lucide="trophy"></i>${escapeHtml(t("nav.competitions"))}</a>
@@ -341,6 +345,8 @@ function route() {
   }
 
   if (parts[0] === "cuenta") return renderAccount(layout);
+
+  if (parts[0] === "balance") return renderBalance(layout);
 
   if (parts[0] === "rutinas") {
     if (!parts[1]) return renderRutinasHub(layout);

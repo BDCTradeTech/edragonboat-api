@@ -9,6 +9,7 @@
     "ariaMain": "Menú principal",
     "home": "Inicio",
     "teams": "Equipo",
+    "balance": "Balance",
     "routines": "Rutinas",
     "sessions": "Entrenamientos",
     "competitions": "Competencias",
@@ -206,7 +207,9 @@
       "paladas": "Paladas",
       "dpsMeters": "DPS (m/palada)",
       "strokePeakAccelerationMs2": "Fuerza palada (m/s²)"
-    }
+    },
+    "btnShowVariation": "Mostrar variación %",
+    "btnHideVariation": "Ocultar variación %"
   },
   "sessions": {
     "loading": "Cargando entrenamientos…",
@@ -273,8 +276,7 @@
     "sessionsThisMonth": "Sesiones este mes",
     "kmThisMonth": "Km recorridos este mes",
     "avgSpmThisMonth": "SPM promedio este mes",
-    "compareDay": "Comparar día →",
-    "compareSelected": "Comparar seleccionadas",
+    "compareSessions": "Comparar sesiones",
     "totalDistance": "Distancia total",
     "avgSpeed": "Vel. prom.",
     "avgSpm": "SPM prom.",
@@ -290,8 +292,10 @@
     "avgDpsMonth": "DPS prom.",
     "avgPaddlersMonth": "Palistas prom.",
     "paddlers": "Palistas",
+    "paddlersAvg": "Palistas prom.",
     "totalStrokes": "Paladas totales",
     "resumeDay": "Resumen del día",
+    "btnDaySummary": "Resumen del día",
     "sessions": "Sesiones",
     "distance": "Distancia",
     "avgSpmShort": "SPM prom.",
@@ -358,6 +362,8 @@
     "plantelTitle": "Plantel",
     "plantelHint": "Datos del plantel se guardan en el servidor. El capitán y el entrenador pueden editar filas; el capitán y el administrador pueden cambiar emails. Usá <strong>Guardar plantel</strong> para aplicar todos los cambios.",
     "saveRoster": "Guardar plantel",
+    "plantelSubtitle": "{count} miembros · Editá y presioná Guardar",
+    "invitePasswordHint": "Contraseña inicial: 12345678 (cambiarla en Cuenta)",
     "inviteTitle": "Invitar al equipo",
     "inviteHintHtml": "Podés invitar por email aunque no tengan cuenta: se crea el usuario con contraseña <strong>12345678</strong> (que deberían cambiar en Cuenta). Si el servidor tiene SMTP, reciben un correo con el acceso.",
     "nameOptional": "Nombre (opcional)",
@@ -614,5 +620,64 @@
     "catTraining": "Entrenamiento",
     "catCompetitions": "Competencias",
     "catGeneral": "General"
+  },
+  "analysis": {
+    "tabLabel": "Análisis IA",
+    "noData": "No hay datos suficientes para analizar esta sesión.",
+    "scoreLabel": "Score general",
+    "sectionSpeed": "Velocidad",
+    "sectionRhythm": "Ritmo (SPM)",
+    "sectionTech": "Técnica (DPS)",
+    "sectionForce": "Fuerza de palada",
+    "statusGood": "Bien",
+    "statusWarning": "Atención",
+    "statusProblem": "Problema",
+    "speed": {
+      "excellent": "Excelente velocidad de crucero",
+      "low": "Velocidad baja — considerá aumentar el SPM o la potencia de palada",
+      "cruiseDropSignificant": "Caída de velocidad significativa — posible fatiga o pérdida de técnica en la segunda mitad",
+      "instability": "Inestabilidad en la velocidad — revisá la sincronización del equipo"
+    },
+    "spm": {
+      "tooLow": "SPM muy bajo para entrenamiento competitivo",
+      "tooHigh": "SPM muy alto — difícil mantener técnica, considerá bajar el ritmo y ganar potencia",
+      "fatigue": "Fatiga de ritmo — trabajá la resistencia aeróbica",
+      "irregular": "Ritmo irregular — mejorá la consistencia"
+    },
+    "dps": {
+      "excellent": "Excelente eficiencia de palada",
+      "veryLow": "DPS muy bajo — la palada no genera suficiente propulsión. Revisá profundidad y ángulo de entrada",
+      "fatigueDrop": "Pérdida de longitud de palada por fatiga — trabajá técnica bajo fatiga",
+      "spmCorrelation": "El aumento de ritmo no se traduce en velocidad — el equipo puede estar perdiendo potencia en cada palada"
+    },
+    "force": {
+      "low": "Fuerza de palada baja — trabajá potencia explosiva en el catch",
+      "irregular": "Fuerza muy irregular entre paladas — mejorá la consistencia técnica",
+      "fatigue": "Fatiga de fuerza — incorporá entrenamiento de potencia anaeróbica"
+    },
+    "betaNote": "Análisis basado en heurísticas de dragon boat. Sin IA generativa.",
+    "scoreBreakdown": "Desglose del score",
+    "consistLabel": "Consistencia"
+  },
+  "balance": {
+    "title": "Balance del Plantel",
+    "selectTeam": "Seleccioná un equipo",
+    "noTeams": "No tenés equipos.",
+    "loading": "Cargando plantel…",
+    "statTotal": "Remeros",
+    "statLeft": "Izquierda",
+    "statRight": "Derecha",
+    "statEither": "Indistinto",
+    "boatTitle": "Vista del bote",
+    "colLeft": "Izquierda",
+    "colRight": "Derecha",
+    "noSide": "Sin lado fijo",
+    "tableTitle": "Plantel completo",
+    "thName": "Nombre",
+    "thSide": "Lado",
+    "thWeight": "Peso (kg)",
+    "thHeight": "Talla (cm)",
+    "noMembers": "Sin remeros en el plantel.",
+    "empty": "—"
   }
 }

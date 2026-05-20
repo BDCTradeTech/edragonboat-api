@@ -9,6 +9,7 @@
     "ariaMain": "Main menu",
     "home": "Home",
     "teams": "Team",
+    "balance": "Balance",
     "routines": "Routines",
     "sessions": "Training",
     "competitions": "Races",
@@ -206,7 +207,9 @@
       "paladas": "Strokes",
       "dpsMeters": "DPS (m/stroke)",
       "strokePeakAccelerationMs2": "Stroke force (m/s²)"
-    }
+    },
+    "btnShowVariation": "Show variation %",
+    "btnHideVariation": "Hide variation %"
   },
   "sessions": {
     "loading": "Loading training sessions…",
@@ -274,8 +277,7 @@
     "sessionsThisMonth": "Sessions this month",
     "kmThisMonth": "Km this month",
     "avgSpmThisMonth": "Avg SPM this month",
-    "compareDay": "Compare day →",
-    "compareSelected": "Compare selected",
+    "compareSessions": "Compare sessions",
     "totalDistance": "Total distance",
     "avgSpeed": "Avg speed",
     "avgSpm": "Avg SPM",
@@ -290,8 +292,10 @@
     "filterTitle": "Training Filters",
     "avgDpsMonth": "Avg DPS",
     "avgPaddlersMonth": "Avg Paddlers",
+    "paddlersAvg": "Avg. paddlers",
     "totalStrokes": "Total strokes",
     "resumeDay": "Day summary",
+    "btnDaySummary": "Day Summary",
     "sessions": "Sessions",
     "distance": "Distance",
     "avgSpmShort": "Avg SPM",
@@ -358,6 +362,8 @@
     "plantelTitle": "Roster",
     "plantelHint": "Roster data is saved on the server. Captain and coach can edit rows; captain and admin can change emails. Use <strong>Save roster</strong> to apply all changes.",
     "saveRoster": "Save roster",
+    "plantelSubtitle": "{count} members · Edit and press Save",
+    "invitePasswordHint": "Initial password: 12345678 (change it in Account)",
     "inviteTitle": "Invite to team",
     "inviteHintHtml": "You can invite by email even without an account: a user is created with password <strong>12345678</strong> (they should change it in Account). If the server has SMTP, they receive the login email.",
     "nameOptional": "Name (optional)",
@@ -614,5 +620,64 @@
     "catTraining": "Training",
     "catCompetitions": "Competitions",
     "catGeneral": "General"
+  },
+  "analysis": {
+    "tabLabel": "AI Analysis",
+    "noData": "Not enough data to analyze this session.",
+    "scoreLabel": "Overall Score",
+    "sectionSpeed": "Speed",
+    "sectionRhythm": "Rhythm (SPM)",
+    "sectionTech": "Technique (DPS)",
+    "sectionForce": "Stroke Force",
+    "statusGood": "Good",
+    "statusWarning": "Warning",
+    "statusProblem": "Problem",
+    "speed": {
+      "excellent": "Excellent cruise speed",
+      "low": "Low speed — consider increasing SPM or stroke power",
+      "cruiseDropSignificant": "Significant speed drop — possible fatigue or technical loss in second half",
+      "instability": "Speed instability — review team synchronization"
+    },
+    "spm": {
+      "tooLow": "SPM too low for competitive training",
+      "tooHigh": "SPM too high — hard to maintain technique, consider lowering rhythm and gaining power",
+      "fatigue": "Rhythm fatigue — work on aerobic endurance",
+      "irregular": "Irregular rhythm — improve consistency"
+    },
+    "dps": {
+      "excellent": "Excellent stroke efficiency",
+      "veryLow": "Very low DPS — stroke not generating enough propulsion. Review depth and entry angle",
+      "fatigueDrop": "Stroke length loss due to fatigue — work on technique under fatigue",
+      "spmCorrelation": "Increased rhythm not translating to speed — team may be losing power per stroke"
+    },
+    "force": {
+      "low": "Low stroke force — work on explosive power at the catch",
+      "irregular": "Very irregular force between strokes — improve technical consistency",
+      "fatigue": "Force fatigue — add anaerobic power training"
+    },
+    "betaNote": "Analysis based on dragon boat heuristics. No generative AI.",
+    "scoreBreakdown": "Score breakdown",
+    "consistLabel": "Consistency"
+  },
+  "balance": {
+    "title": "Roster Balance",
+    "selectTeam": "Select a team",
+    "noTeams": "You have no teams.",
+    "loading": "Loading roster…",
+    "statTotal": "Paddlers",
+    "statLeft": "Left",
+    "statRight": "Right",
+    "statEither": "Either",
+    "boatTitle": "Boat view",
+    "colLeft": "Left",
+    "colRight": "Right",
+    "noSide": "No fixed side",
+    "tableTitle": "Full roster",
+    "thName": "Name",
+    "thSide": "Side",
+    "thWeight": "Weight (kg)",
+    "thHeight": "Height (cm)",
+    "noMembers": "No paddlers in roster.",
+    "empty": "—"
   }
 }

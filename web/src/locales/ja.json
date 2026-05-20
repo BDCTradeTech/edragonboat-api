@@ -9,6 +9,7 @@
     "ariaMain": "メインメニュー",
     "home": "ホーム",
     "teams": "チーム",
+    "balance": "バランス",
     "routines": "ルーティン",
     "sessions": "トレーニング",
     "competitions": "大会",
@@ -206,7 +207,9 @@
       "paladas": "ストローク",
       "dpsMeters": "DPS (m/ストローク)",
       "strokePeakAccelerationMs2": "ストローク力 (m/s²)"
-    }
+    },
+    "btnShowVariation": "変動率を表示",
+    "btnHideVariation": "変動率を非表示"
   },
   "sessions": {
     "loading": "トレーニングを読み込み中…",
@@ -273,8 +276,7 @@
     "sessionsThisMonth": "今月のセッション数",
     "kmThisMonth": "今月の走行距離 (km)",
     "avgSpmThisMonth": "今月の平均SPM",
-    "compareDay": "この日を比較 →",
-    "compareSelected": "選択を比較",
+    "compareSessions": "セッションを比較",
     "totalDistance": "合計距離",
     "avgSpeed": "平均速度",
     "avgSpm": "平均SPM",
@@ -290,8 +292,10 @@
     "avgDpsMonth": "平均DPS",
     "avgPaddlersMonth": "平均漕手",
     "paddlers": "漕手",
+    "paddlersAvg": "平均漕手",
     "totalStrokes": "総ストローク数",
     "resumeDay": "当日サマリー",
+    "btnDaySummary": "日のサマリー",
     "sessions": "セッション数",
     "distance": "距離",
     "avgSpmShort": "平均SPM",
@@ -358,6 +362,8 @@
     "plantelTitle": "名簿",
     "plantelHint": "名簿データはサーバーに保存されます。キャプテンとコーチは行を編集できます；キャプテンと管理者はメールを変更できます。<strong>名簿を保存</strong>で全変更を適用します。",
     "saveRoster": "名簿を保存",
+    "plantelSubtitle": "{count} 名 · 編集して保存を押してください",
+    "invitePasswordHint": "初期パスワード：12345678（アカウントで変更）",
     "inviteTitle": "チームへ招待",
     "inviteHintHtml": "アカウントなしでもメールで招待可能：パスワード <strong>12345678</strong> のユーザーが作成されます（アカウントで変更推奨）。サーバーに SMTP 設定があればメールが届きます。",
     "nameOptional": "フルネーム（任意）",
@@ -614,5 +620,64 @@
     "catTraining": "トレーニング",
     "catCompetitions": "大会",
     "catGeneral": "一般"
+  },
+  "analysis": {
+    "tabLabel": "AI分析",
+    "noData": "このセッションを分析するデータが不足しています。",
+    "scoreLabel": "総合スコア",
+    "sectionSpeed": "速度",
+    "sectionRhythm": "リズム (SPM)",
+    "sectionTech": "技術 (DPS)",
+    "sectionForce": "パドル力",
+    "statusGood": "良好",
+    "statusWarning": "注意",
+    "statusProblem": "問題",
+    "speed": {
+      "excellent": "優れた巡航速度",
+      "low": "速度が低い — SPMまたはパドル力を上げることを検討してください",
+      "cruiseDropSignificant": "速度の大幅な低下 — 後半での疲労または技術的損失の可能性",
+      "instability": "速度の不安定 — チームの同期を確認してください"
+    },
+    "spm": {
+      "tooLow": "競技トレーニングにはSPMが低すぎます",
+      "tooHigh": "SPMが高すぎます — 技術を維持しにくい。リズムを落とすことを検討してください",
+      "fatigue": "リズム疲労 — 有酸素持久力を鍛えましょう",
+      "irregular": "不規則なリズム — 一貫性を改善してください"
+    },
+    "dps": {
+      "excellent": "優れたパドル効率",
+      "veryLow": "DPSが非常に低い — パドルが十分な推進力を生んでいません。深さと入射角を確認してください",
+      "fatigueDrop": "疲労によるパドル長の低下 — 疲労下での技術を鍛えましょう",
+      "spmCorrelation": "リズムの増加が速度に反映されていない — チームが各ストロークで力を失っている可能性があります"
+    },
+    "force": {
+      "low": "パドル力が低い — キャッチでの爆発的パワーを鍛えましょう",
+      "irregular": "ストローク間で力が非常に不規則 — 技術的一貫性を改善してください",
+      "fatigue": "力の疲労 — 無酸素パワートレーニングを取り入れましょう"
+    },
+    "betaNote": "ドラゴンボートのヒューリスティクスによる分析。生成AIなし。",
+    "scoreBreakdown": "スコア内訳",
+    "consistLabel": "一貫性"
+  },
+  "balance": {
+    "title": "ロスター バランス",
+    "selectTeam": "チームを選択",
+    "noTeams": "チームがありません。",
+    "loading": "ロスター読み込み中…",
+    "statTotal": "パドラー",
+    "statLeft": "左",
+    "statRight": "右",
+    "statEither": "どちらでも",
+    "boatTitle": "ボートビュー",
+    "colLeft": "左",
+    "colRight": "右",
+    "noSide": "固定なし",
+    "tableTitle": "全メンバー",
+    "thName": "名前",
+    "thSide": "サイド",
+    "thWeight": "体重 (kg)",
+    "thHeight": "身長 (cm)",
+    "noMembers": "ロスターにパドラーがいません。",
+    "empty": "—"
   }
 }

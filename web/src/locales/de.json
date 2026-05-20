@@ -9,6 +9,7 @@
     "ariaMain": "Hauptmenü",
     "home": "Start",
     "teams": "Team",
+    "balance": "Balance",
     "routines": "Pläne",
     "sessions": "Training",
     "competitions": "Rennen",
@@ -206,7 +207,9 @@
       "paladas": "Züge",
       "dpsMeters": "DPS (m/Zug)",
       "strokePeakAccelerationMs2": "Zugkraft (m/s²)"
-    }
+    },
+    "btnShowVariation": "Variation % anzeigen",
+    "btnHideVariation": "Variation % ausblenden"
   },
   "sessions": {
     "loading": "Training wird geladen…",
@@ -273,8 +276,7 @@
     "sessionsThisMonth": "Einheiten diesen Monat",
     "kmThisMonth": "Km diesen Monat",
     "avgSpmThisMonth": "Ø SPM diesen Monat",
-    "compareDay": "Tag vergleichen →",
-    "compareSelected": "Ausgewählte vergleichen",
+    "compareSessions": "Sitzungen vergleichen",
     "totalDistance": "Gesamtdistanz",
     "avgSpeed": "Ø-Geschwindigkeit",
     "avgSpm": "Ø SPM",
@@ -290,8 +292,10 @@
     "avgDpsMonth": "Ø DPS",
     "avgPaddlersMonth": "Ø Paddler",
     "paddlers": "Paddler",
+    "paddlersAvg": "Ø Paddler",
     "totalStrokes": "Züge gesamt",
     "resumeDay": "Tageszusammenfassung",
+    "btnDaySummary": "Tageszusammenfassung",
     "sessions": "Einheiten",
     "distance": "Distanz",
     "avgSpmShort": "Ø SPM",
@@ -358,6 +362,8 @@
     "plantelTitle": "Kader",
     "plantelHint": "Kaderdaten werden auf dem Server gespeichert. Steuermann und Trainer können Zeilen bearbeiten; Steuermann und Admin können E-Mails ändern. Mit <strong>Kader speichern</strong> alle Änderungen übernehmen.",
     "saveRoster": "Kader speichern",
+    "plantelSubtitle": "{count} Mitglieder · Bearbeiten und Speichern drücken",
+    "invitePasswordHint": "Erstkennwort: 12345678 (in Konto ändern)",
     "inviteTitle": "Zum Team einladen",
     "inviteHintHtml": "Einladung per E-Mail auch ohne Konto möglich: Benutzer wird mit Passwort <strong>12345678</strong> angelegt (in Konto ändern). Bei konfiguriertem SMTP wird eine E-Mail gesendet.",
     "nameOptional": "Name (optional, Vorname und Nachname)",
@@ -614,5 +620,64 @@
     "catTraining": "Training",
     "catCompetitions": "Rennen",
     "catGeneral": "Allgemein"
+  },
+  "analysis": {
+    "tabLabel": "KI-Analyse",
+    "noData": "Nicht genügend Daten zur Analyse dieser Sitzung.",
+    "scoreLabel": "Gesamtpunktzahl",
+    "sectionSpeed": "Geschwindigkeit",
+    "sectionRhythm": "Rhythmus (SPM)",
+    "sectionTech": "Technik (DPS)",
+    "sectionForce": "Paddelkraft",
+    "statusGood": "Gut",
+    "statusWarning": "Achtung",
+    "statusProblem": "Problem",
+    "speed": {
+      "excellent": "Ausgezeichnete Reisegeschwindigkeit",
+      "low": "Niedrige Geschwindigkeit — SPM oder Paddelkraft erhöhen",
+      "cruiseDropSignificant": "Erheblicher Geschwindigkeitsabfall — mögliche Ermüdung in der zweiten Hälfte",
+      "instability": "Geschwindigkeitsschwankungen — Teamsynchronisation überprüfen"
+    },
+    "spm": {
+      "tooLow": "SPM zu niedrig für Wettkampftraining",
+      "tooHigh": "SPM zu hoch — Technik schwer aufrechtzuerhalten, Rhythmus reduzieren",
+      "fatigue": "Rhythmusermüdung — aerobe Ausdauer verbessern",
+      "irregular": "Unregelmäßiger Rhythmus — Konsistenz verbessern"
+    },
+    "dps": {
+      "excellent": "Ausgezeichnete Paddeleffizienz",
+      "veryLow": "DPS sehr niedrig — unzureichender Vortrieb. Tiefe und Eintrittswinkel prüfen",
+      "fatigueDrop": "Paddellänge durch Ermüdung verringert — Technik unter Belastung trainieren",
+      "spmCorrelation": "Rhythmussteigerung führt nicht zu mehr Geschwindigkeit — Kraftverlust pro Paddelschlag möglich"
+    },
+    "force": {
+      "low": "Niedrige Paddelkraft — explosive Kraft am Catch trainieren",
+      "irregular": "Sehr ungleichmäßige Kraft — technische Konsistenz verbessern",
+      "fatigue": "Kraftermüdung — anaerobes Krafttraining einbauen"
+    },
+    "betaNote": "Analyse basierend auf Dragon-Boat-Heuristiken. Keine generative KI.",
+    "scoreBreakdown": "Score-Aufschlüsselung",
+    "consistLabel": "Konsistenz"
+  },
+  "balance": {
+    "title": "Mannschaftsbalance",
+    "selectTeam": "Team auswählen",
+    "noTeams": "Keine Teams vorhanden.",
+    "loading": "Lade Kader…",
+    "statTotal": "Paddler",
+    "statLeft": "Links",
+    "statRight": "Rechts",
+    "statEither": "Beliebig",
+    "boatTitle": "Bootsansicht",
+    "colLeft": "Links",
+    "colRight": "Rechts",
+    "noSide": "Keine feste Seite",
+    "tableTitle": "Gesamtkader",
+    "thName": "Name",
+    "thSide": "Seite",
+    "thWeight": "Gewicht (kg)",
+    "thHeight": "Größe (cm)",
+    "noMembers": "Keine Paddler im Kader.",
+    "empty": "—"
   }
 }

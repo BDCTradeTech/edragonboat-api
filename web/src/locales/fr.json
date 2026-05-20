@@ -9,6 +9,7 @@
     "ariaMain": "Menu principal",
     "home": "Accueil",
     "teams": "Équipe",
+    "balance": "Balance",
     "routines": "Séances",
     "sessions": "Entraînements",
     "competitions": "Compétitions",
@@ -206,7 +207,9 @@
       "paladas": "Coupes",
       "dpsMeters": "DPS (m/coupe)",
       "strokePeakAccelerationMs2": "Force de la coupe (m/s²)"
-    }
+    },
+    "btnShowVariation": "Afficher variation %",
+    "btnHideVariation": "Masquer variation %"
   },
   "sessions": {
     "loading": "Chargement des entraînements…",
@@ -273,8 +276,7 @@
     "sessionsThisMonth": "Séances ce mois",
     "kmThisMonth": "Km parcourus ce mois",
     "avgSpmThisMonth": "SPM moyen ce mois",
-    "compareDay": "Comparer le jour →",
-    "compareSelected": "Comparer la sélection",
+    "compareSessions": "Comparer les séances",
     "totalDistance": "Distance totale",
     "avgSpeed": "Vit. moy.",
     "avgSpm": "SPM moy.",
@@ -290,8 +292,10 @@
     "avgDpsMonth": "DPS moy.",
     "avgPaddlersMonth": "Pagayeurs moy.",
     "paddlers": "Pagayeurs",
+    "paddlersAvg": "Palet. moy.",
     "totalStrokes": "Coups totaux",
     "resumeDay": "Résumé du jour",
+    "btnDaySummary": "Résumé du jour",
     "sessions": "Séances",
     "distance": "Distance",
     "avgSpmShort": "SPM moy.",
@@ -358,6 +362,8 @@
     "plantelTitle": "Effectif",
     "plantelHint": "Les données de l'effectif sont sauvegardées sur le serveur. Le capitaine et l'entraîneur peuvent modifier les lignes ; le capitaine et l'admin peuvent changer les e-mails. Utilisez <strong>Sauvegarder l'effectif</strong> pour appliquer tous les changements.",
     "saveRoster": "Sauvegarder l'effectif",
+    "plantelSubtitle": "{count} membres · Modifiez et appuyez sur Sauvegarder",
+    "invitePasswordHint": "Mot de passe initial : 12345678 (à changer dans Compte)",
     "inviteTitle": "Inviter dans l'équipe",
     "inviteHintHtml": "Vous pouvez inviter par e-mail même sans compte : un utilisateur est créé avec le mot de passe <strong>12345678</strong> (à changer dans Compte). Si le serveur a SMTP, il reçoit l'e-mail de connexion.",
     "nameOptional": "Nom (facultatif)",
@@ -614,5 +620,64 @@
     "catTraining": "Entraînement",
     "catCompetitions": "Compétitions",
     "catGeneral": "Général"
+  },
+  "analysis": {
+    "tabLabel": "Analyse IA",
+    "noData": "Données insuffisantes pour analyser cette session.",
+    "scoreLabel": "Score général",
+    "sectionSpeed": "Vitesse",
+    "sectionRhythm": "Rythme (SPM)",
+    "sectionTech": "Technique (DPS)",
+    "sectionForce": "Force de pagaie",
+    "statusGood": "Bien",
+    "statusWarning": "Attention",
+    "statusProblem": "Problème",
+    "speed": {
+      "excellent": "Excellente vitesse de croisière",
+      "low": "Vitesse faible — envisagez d'augmenter le SPM ou la puissance de pagaie",
+      "cruiseDropSignificant": "Chute de vitesse significative — possible fatigue ou perte technique en deuxième moitié",
+      "instability": "Instabilité de vitesse — vérifiez la synchronisation de l'équipe"
+    },
+    "spm": {
+      "tooLow": "SPM trop faible pour un entraînement compétitif",
+      "tooHigh": "SPM trop élevé — difficile de maintenir la technique, envisagez de ralentir le rythme",
+      "fatigue": "Fatigue rythmique — travaillez l'endurance aérobie",
+      "irregular": "Rythme irrégulier — améliorez la régularité"
+    },
+    "dps": {
+      "excellent": "Excellente efficacité de pagaie",
+      "veryLow": "DPS très faible — la pagaie ne génère pas assez de propulsion. Vérifiez la profondeur et l'angle d'entrée",
+      "fatigueDrop": "Perte de longueur de pagaie due à la fatigue — travaillez la technique sous fatigue",
+      "spmCorrelation": "L'augmentation du rythme ne se traduit pas en vitesse — l'équipe perd peut-être de la puissance par coup"
+    },
+    "force": {
+      "low": "Force de pagaie faible — travaillez la puissance explosive au catch",
+      "irregular": "Force très irrégulière entre les coups — améliorez la régularité technique",
+      "fatigue": "Fatigue de force — incorporez un entraînement de puissance anaérobie"
+    },
+    "betaNote": "Analyse basée sur des heuristiques dragon boat. Sans IA générative.",
+    "scoreBreakdown": "Décomposition du score",
+    "consistLabel": "Consistance"
+  },
+  "balance": {
+    "title": "Balance du Groupe",
+    "selectTeam": "Sélectionner une équipe",
+    "noTeams": "Vous n'avez pas d'équipes.",
+    "loading": "Chargement du groupe…",
+    "statTotal": "Pagayeurs",
+    "statLeft": "Gauche",
+    "statRight": "Droite",
+    "statEither": "Indifférent",
+    "boatTitle": "Vue du bateau",
+    "colLeft": "Gauche",
+    "colRight": "Droite",
+    "noSide": "Côté non fixé",
+    "tableTitle": "Groupe complet",
+    "thName": "Nom",
+    "thSide": "Côté",
+    "thWeight": "Poids (kg)",
+    "thHeight": "Taille (cm)",
+    "noMembers": "Aucun pagayeur dans le groupe.",
+    "empty": "—"
   }
 }

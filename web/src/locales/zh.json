@@ -9,6 +9,7 @@
     "ariaMain": "主导航",
     "home": "首页",
     "teams": "队伍",
+    "balance": "平衡",
     "routines": "训练计划",
     "sessions": "训练",
     "competitions": "比赛",
@@ -206,7 +207,9 @@
       "paladas": "划次",
       "dpsMeters": "DPS (m/次)",
       "strokePeakAccelerationMs2": "划桨力量 (m/s²)"
-    }
+    },
+    "btnShowVariation": "显示变化率 %",
+    "btnHideVariation": "隐藏变化率 %"
   },
   "sessions": {
     "loading": "正在加载训练…",
@@ -273,8 +276,7 @@
     "sessionsThisMonth": "本月训练次数",
     "kmThisMonth": "本月公里数",
     "avgSpmThisMonth": "本月平均SPM",
-    "compareDay": "对比当日 →",
-    "compareSelected": "比较所选",
+    "compareSessions": "比较会话",
     "totalDistance": "总距离",
     "avgSpeed": "平均速度",
     "avgSpm": "平均SPM",
@@ -290,8 +292,10 @@
     "avgDpsMonth": "平均DPS",
     "avgPaddlersMonth": "平均桨手",
     "paddlers": "桨手",
+    "paddlersAvg": "平均桨手",
     "totalStrokes": "总划桨次数",
     "resumeDay": "当日摘要",
+    "btnDaySummary": "日摘要",
     "sessions": "训练次数",
     "distance": "距离",
     "avgSpmShort": "平均SPM",
@@ -358,6 +362,8 @@
     "plantelTitle": "名单",
     "plantelHint": "名单数据保存在服务器。队长和教练可编辑行；队长和管理员可修改邮箱。使用<strong>保存名单</strong>应用所有更改。",
     "saveRoster": "保存名单",
+    "plantelSubtitle": "{count} 名成员 · 编辑后按保存",
+    "invitePasswordHint": "初始密码：12345678（在账户中修改）",
     "inviteTitle": "邀请加入队伍",
     "inviteHintHtml": "即使对方没有账户也可通过邮箱邀请：系统会创建密码为 <strong>12345678</strong> 的账户（建议在账户中修改）。服务器配置了 SMTP 时会发送邮件。",
     "nameOptional": "全名（选填）",
@@ -614,5 +620,64 @@
     "catTraining": "训练",
     "catCompetitions": "比赛",
     "catGeneral": "综合"
+  },
+  "analysis": {
+    "tabLabel": "AI分析",
+    "noData": "没有足够的数据来分析此次训练。",
+    "scoreLabel": "综合评分",
+    "sectionSpeed": "速度",
+    "sectionRhythm": "节奏 (SPM)",
+    "sectionTech": "技术 (DPS)",
+    "sectionForce": "划桨力量",
+    "statusGood": "良好",
+    "statusWarning": "注意",
+    "statusProblem": "问题",
+    "speed": {
+      "excellent": "优秀的巡航速度",
+      "low": "速度偏低 — 考虑提高SPM或划桨功率",
+      "cruiseDropSignificant": "速度显著下降 — 后半段可能出现疲劳或技术损失",
+      "instability": "速度不稳定 — 检查团队同步性"
+    },
+    "spm": {
+      "tooLow": "SPM对于竞技训练来说过低",
+      "tooHigh": "SPM过高 — 难以保持技术，考虑降低节奏并提升力量",
+      "fatigue": "节奏疲劳 — 加强有氧耐力训练",
+      "irregular": "节奏不规律 — 提高一致性"
+    },
+    "dps": {
+      "excellent": "优秀的划桨效率",
+      "veryLow": "DPS非常低 — 划桨推进力不足，检查入水深度和角度",
+      "fatigueDrop": "因疲劳导致划桨距离缩短 — 在疲劳状态下训练技术",
+      "spmCorrelation": "节奏加快未能转化为速度 — 每次划桨可能损失功率"
+    },
+    "force": {
+      "low": "划桨力量不足 — 加强入水时的爆发力训练",
+      "irregular": "各桨之间力量差异过大 — 提高技术一致性",
+      "fatigue": "力量疲劳 — 加入无氧功率训练"
+    },
+    "betaNote": "基于龙舟启发法的分析。无生成式AI。",
+    "scoreBreakdown": "评分细分",
+    "consistLabel": "一致性"
+  },
+  "balance": {
+    "title": "队员平衡",
+    "selectTeam": "选择队伍",
+    "noTeams": "您没有队伍。",
+    "loading": "加载名单…",
+    "statTotal": "桨手",
+    "statLeft": "左侧",
+    "statRight": "右侧",
+    "statEither": "不限",
+    "boatTitle": "船型视图",
+    "colLeft": "左侧",
+    "colRight": "右侧",
+    "noSide": "无固定侧",
+    "tableTitle": "完整名单",
+    "thName": "姓名",
+    "thSide": "侧别",
+    "thWeight": "体重 (kg)",
+    "thHeight": "身高 (cm)",
+    "noMembers": "名单中没有桨手。",
+    "empty": "—"
   }
 }

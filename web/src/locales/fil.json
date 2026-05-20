@@ -9,6 +9,7 @@
     "ariaMain": "Pangunahing menu",
     "home": "Tahanan",
     "teams": "Koponan",
+    "balance": "Balanse",
     "routines": "Mga routine",
     "sessions": "Pagsasanay",
     "competitions": "Paligsahan",
@@ -206,7 +207,9 @@
       "paladas": "Mga palada",
       "dpsMeters": "DPS (m/palada)",
       "strokePeakAccelerationMs2": "Lakas ng palada (m/s²)"
-    }
+    },
+    "btnShowVariation": "Ipakita ang variation %",
+    "btnHideVariation": "Itago ang variation %"
   },
   "sessions": {
     "loading": "Nilo-load ang mga pagsasanay…",
@@ -273,8 +276,7 @@
     "sessionsThisMonth": "Mga session ngayong buwan",
     "kmThisMonth": "Km ngayong buwan",
     "avgSpmThisMonth": "Average SPM ngayong buwan",
-    "compareDay": "Ikumpara ang araw →",
-    "compareSelected": "Ikumpara ang napili",
+    "compareSessions": "Ikumpara ang mga sesyon",
     "totalDistance": "Kabuuang distansya",
     "avgSpeed": "Avg. bilis",
     "avgSpm": "Avg. SPM",
@@ -290,8 +292,10 @@
     "avgDpsMonth": "Avg DPS",
     "avgPaddlersMonth": "Avg Paddlers",
     "paddlers": "Mga manlalangoy",
+    "paddlersAvg": "Avg. manlalayag",
     "totalStrokes": "Kabuuang palada",
     "resumeDay": "Buod ng araw",
+    "btnDaySummary": "Buod ng araw",
     "sessions": "Mga session",
     "distance": "Distansya",
     "avgSpmShort": "Avg. SPM",
@@ -358,6 +362,8 @@
     "plantelTitle": "Lineup",
     "plantelHint": "Ang datos ng lineup ay naka-save sa server. Ang kapitan at coach ay puwedeng mag-edit ng mga linya; ang kapitan at admin ay puwedeng magbago ng mga email. Gamitin ang <strong>I-save ang lineup</strong> para ilapat ang lahat ng pagbabago.",
     "saveRoster": "I-save ang lineup",
+    "plantelSubtitle": "{count} miyembro · I-edit at pindutin ang I-save",
+    "invitePasswordHint": "Paunang password: 12345678 (baguhin sa Account)",
     "inviteTitle": "Imbitahan sa koponan",
     "inviteHintHtml": "Puwedeng mag-imbita sa email kahit walang account: gagawa ng user na may password na <strong>12345678</strong> (dapat baguhin sa Account). Kung may SMTP ang server, makakatanggap ng login email.",
     "nameOptional": "Buong pangalan (opsyonal)",
@@ -614,5 +620,64 @@
     "catTraining": "Pagsasanay",
     "catCompetitions": "Paligsahan",
     "catGeneral": "Pangkalahatan"
+  },
+  "analysis": {
+    "tabLabel": "AI Pagsusuri",
+    "noData": "Hindi sapat ang datos para suriin ang session na ito.",
+    "scoreLabel": "Kabuuang puntos",
+    "sectionSpeed": "Bilis",
+    "sectionRhythm": "Ritmo (SPM)",
+    "sectionTech": "Teknik (DPS)",
+    "sectionForce": "Lakas ng Pagtutulak",
+    "statusGood": "Mabuti",
+    "statusWarning": "Babala",
+    "statusProblem": "Problema",
+    "speed": {
+      "excellent": "Mahusay na bilis ng paglalakbay",
+      "low": "Mababang bilis — isaalang-alang ang pagdaragdag ng SPM o lakas ng pagtutulak",
+      "cruiseDropSignificant": "Malaking pagbaba ng bilis — posibleng pagod o pagkawala ng teknik sa ikalawang kalahati",
+      "instability": "Hindi matatag ang bilis — suriin ang pagkakatugma ng koponan"
+    },
+    "spm": {
+      "tooLow": "Napakababa ng SPM para sa kompetitibong pagsasanay",
+      "tooHigh": "Napakataas ng SPM — mahirap panatilihin ang teknik, isaalang-alang ang pagbaba ng ritmo",
+      "fatigue": "Pagod sa ritmo — palakasin ang aerobic endurance",
+      "irregular": "Hindi regular ang ritmo — pagbutihin ang konsistensi"
+    },
+    "dps": {
+      "excellent": "Mahusay na kahusayan ng pagtutulak",
+      "veryLow": "Napakababa ng DPS — hindi sapat ang propulsyon ng pagtutulak. Suriin ang lalim at anggulo ng pagpasok",
+      "fatigueDrop": "Pagkawala ng haba ng pagtutulak dahil sa pagod — magsanay ng teknik sa ilalim ng pagod",
+      "spmCorrelation": "Ang pagtaas ng ritmo ay hindi nagiging bilis — maaaring nawawalan ng lakas ang koponan sa bawat pagtutulak"
+    },
+    "force": {
+      "low": "Mababang lakas ng pagtutulak — palakasin ang explosive power sa catch",
+      "irregular": "Napaka-iregular ng lakas sa pagitan ng mga pagtutulak — pagbutihin ang teknikal na konsistensi",
+      "fatigue": "Pagod sa lakas — isama ang anaerobic power training"
+    },
+    "betaNote": "Pagsusuri batay sa mga heuristic ng dragon boat. Walang generative AI.",
+    "scoreBreakdown": "Breakdown ng score",
+    "consistLabel": "Konsistensya"
+  },
+  "balance": {
+    "title": "Balanse ng Koponan",
+    "selectTeam": "Pumili ng koponan",
+    "noTeams": "Wala kang koponan.",
+    "loading": "Naglo-load ng roster…",
+    "statTotal": "Mga Paddler",
+    "statLeft": "Kaliwa",
+    "statRight": "Kanan",
+    "statEither": "Kahit alin",
+    "boatTitle": "View ng bangka",
+    "colLeft": "Kaliwa",
+    "colRight": "Kanan",
+    "noSide": "Walang nakapirming gilid",
+    "tableTitle": "Buong roster",
+    "thName": "Pangalan",
+    "thSide": "Gilid",
+    "thWeight": "Timbang (kg)",
+    "thHeight": "Taas (cm)",
+    "noMembers": "Walang paddler sa roster.",
+    "empty": "—"
   }
 }
