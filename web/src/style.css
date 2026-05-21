@@ -1632,63 +1632,138 @@ details[open] .disclosure-chev::after {
   gap: 1.25rem;
 }
 
-/* ── Pills/selectors compactos ── */
+/* ── Pills/selectors del comparador ── */
 .comparator-selectors-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .cmp-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 20px;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border-radius: 12px;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: #fff;
-  transition: opacity 0.15s;
-  white-space: nowrap;
+  transition: opacity 0.15s, transform 0.15s;
   flex-shrink: 0;
+  flex: 1;
+  min-width: 280px;
+  border: 1px solid;
 }
 
 .cmp-pill:hover {
-  opacity: 0.85;
+  opacity: 0.95;
+  transform: translateY(-1px);
 }
 
 .cmp-pill-a {
-  background: #0ea5e9;
+  background: #e6f4fe;
+  border-color: #0ea5e9;
 }
 
 .cmp-pill-b {
-  background: #f97316;
+  background: #fff4ec;
+  border-color: #f97316;
 }
 
-.cmp-pill-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.85;
+.cmp-pill-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  flex-shrink: 0;
+  min-width: 60px;
 }
 
 .cmp-pill-id {
-  font-weight: 700;
-  font-size: 13px;
+  font-weight: 800;
+  font-size: 20px;
+  color: #0ea5e9;
 }
 
-.cmp-pill-text {
-  font-size: 12px;
-  opacity: 0.9;
+.cmp-pill-a .cmp-pill-id {
+  color: #0ea5e9;
 }
 
-.cmp-pill-edit {
-  font-size: 12px;
-  opacity: 0.75;
+.cmp-pill-b .cmp-pill-id {
+  color: #f97316;
+}
+
+.cmp-pill-divider {
+  width: 1px;
+  background: currentColor;
+  opacity: 0.2;
   flex-shrink: 0;
+}
+
+.cmp-pill-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  gap: 4px;
+}
+
+.cmp-pill-header {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.cmp-pill-metrics {
+  display: flex;
+  gap: 12px;
+}
+
+.cmp-pill-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.cmp-pill-metric-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.cmp-pill-metric-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.cmp-pill-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  font-size: 16px;
+  flex-shrink: 0;
+  color: #0ea5e9;
+}
+
+.cmp-pill-b .cmp-pill-icon {
+  color: #f97316;
+}
+
+/* Para pills vacíos */
+.cmp-pill-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+}
+
+.cmp-pill-inner-text {
+  font-size: 13px;
+  color: #64748b;
 }
 
 .vs-badge {
@@ -1717,14 +1792,15 @@ details[open] .disclosure-chev::after {
   padding: 14px 16px;
 }
 
-/* Header del gráfico: título izquierda + métricas derecha */
+/* Header del gráfico: título izquierda + métricas derecha, centrado */
 .cmp-chart-header {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 10px;
   flex-wrap: wrap;
+  text-align: center;
 }
 
 .cmp-chart-title {

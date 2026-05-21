@@ -13,8 +13,13 @@ import { preferredSideLabel } from "../utils/format.js";
 let _members = [];
 let _boatSize = "large";
 let _priority = 50;
+let _strategy = 'normal';
+let _zigzagPhase = 0;
 let _seats = {};        // { 'L-1': { memberId: '...' }, 'R-1': ..., 'drummer': ..., 'timonel': ... }
 let _locked = new Set();
+let _drumWeight = 3;
+let _helmWeight = 3;
+let _genderFilter = '';
 
 const AVATAR_COLORS = [
   "#6366f1", "#f59e0b", "#10b981", "#ef4444",
@@ -75,37 +80,75 @@ function renderSeatHtml(seatId, isSpecial = false) {
   const seat = _seats[seatId];
   const locked = _locked.has(seatId);
 
+  if (seatId === "drummer" || seatId === "timonel") {
+    if (!seat?.memberId) {
+      const emoji = seatId === "drummer" ? "🥁" : "🚣";
+      const label = seatId === "drummer" ? "DRUMMER" : "TIMONEL";
+      return `
+      <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:8px">
+        <span style="font-size:0.75rem">${emoji}</span>
+        <span style="font-size:0.65rem;font-weight:600;color:#f1f5f9">${label}</span>
+        <span style="font-size:0.7rem;color:#94a3b8">Vacío</span>
+      </div>
+    `;
+    }
+    const member = memberById(seat.memberId);
+    if (!member) return `<div style="text-align:center;color:rgba(255,255,255,0.4);font-size:0.7rem;padding:0.2rem">?</div>`;
+    const idx = memberIndex(seat.memberId);
+    const color = avatarColor(idx);
+    const weightStr = member.weight_kg != null ? `${member.weight_kg}kg` : "—";
+    const emoji = seatId === "drummer" ? "🥁" : "🎯";
+    const label = seatId === "drummer" ? "DRUMMER" : "TIMONEL";
+    return `
+      <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:8px">
+        <span style="font-size:0.75rem">${emoji}</span>
+        <span style="font-size:0.65rem;font-weight:600;color:#f1f5f9">${label}</span>
+        <div style="width:22px;height:22px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:#fff;font-weight:700">${escapeHtml(initial(member.full_name))}</div>
+        <span style="font-size:0.7rem;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px">${escapeHtml(member.full_name)}</span>
+        <span style="font-size:0.65rem;color:rgba(255,255,255,0.7);white-space:nowrap">${weightStr}</span>
+      </div>
+    `;
+  }
+
   if (!seat || !seat.memberId) {
-    return `<div style="font-size:0.65rem;color:#475569;text-align:center;padding:0.3rem">Vacío</div>`;
+    return `<div style="display:flex;align-items:center;justify-content:center;min-height:34px;color:#94a3b8;font-size:11px;">Vacío</div>`;
   }
 
   const member = memberById(seat.memberId);
   if (!member) {
-    return `<div style="font-size:0.65rem;color:#475569;text-align:center;padding:0.3rem">?</div>`;
+    return `<div style="display:flex;align-items:center;justify-content:center;min-height:34px;color:rgba(255,255,255,0.3);font-size:11px;">?</div>`;
   }
 
   const idx = memberIndex(seat.memberId);
   const color = avatarColor(idx);
   const led = ledColor(member, seatId);
   const lockIcon = locked ? "🔒" : "🔓";
-  const weightStr = member.weight_kg != null ? `${member.weight_kg}kg` : "—";
-  const sideStr = sideLabel(member.preferred_side);
+  const weightVal = member.weight_kg != null ? member.weight_kg : "—";
+  const ps = member.preferred_side;
+  const slLabel = ps === 'left' ? 'Izq' : ps === 'right' ? 'Der' : '';
+  const infoLine = slLabel ? `${slLabel} · ${weightVal}kg` : `${weightVal}kg`;
+  const initials = escapeHtml(initial(member.full_name));
+  const name = escapeHtml(member.full_name);
 
-  const ledHtml = led !== null
-    ? `<div id="led-${seatId}" style="width:8px;height:8px;border-radius:50%;background:${led};flex-shrink:0"></div>`
-    : `<div id="led-${seatId}" style="font-size:0.6rem;flex-shrink:0">⭐</div>`;
+  const ledColor_ = led !== null ? led : null;
+  const ledHtml = ledColor_ !== null
+    ? `<div style="width:6px;height:6px;border-radius:50%;background:${ledColor_};flex-shrink:0;"></div>`
+    : `<div style="font-size:9px;flex-shrink:0;">⭐</div>`;
+
+  const sideStr = ps === 'left' ? 'Izq' : ps === 'right' ? 'Der' : 'Ind';
+  const weightStr = member.weight_kg != null ? `${member.weight_kg}kg` : '—';
 
   return `
-    <div style="display:flex;align-items:center;gap:0.3rem">
-      ${ledHtml}
-      <div style="width:22px;height:22px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:#fff;font-weight:700;flex-shrink:0">${escapeHtml(initial(member.full_name))}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:0.7rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1e293b">${escapeHtml(member.full_name)}</div>
-        <div style="font-size:0.6rem;color:#64748b">(${sideStr})·${weightStr}</div>
-      </div>
-      <div id="lock-${seatId}" onclick="event.stopPropagation();balToggleLock('${seatId}')" style="font-size:0.75rem;cursor:pointer" title="Fijar posición">${lockIcon}</div>
+  <div style="display:flex;align-items:center;gap:5px;width:100%;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:6px;padding:3px 5px;box-sizing:border-box">
+    ${ledHtml}
+    <div style="width:24px;height:24px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:700;flex-shrink:0">${escapeHtml(initial(member.full_name))}</div>
+    <div style="flex:1;min-width:0;overflow:hidden;display:flex;align-items:baseline;gap:0">
+      <span style="font-size:12px;font-weight:500;color:#fff;white-space:nowrap">${escapeHtml(member.full_name)}</span>
+      <span style="font-size:10px;color:rgba(255,255,255,0.6);margin-left:4px;white-space:nowrap">(${sideStr}) · ${weightStr}</span>
     </div>
-  `;
+    <span style="font-size:11px;cursor:pointer;opacity:${locked?'1':'0.25'};color:${locked?'#f59e0b':'#94a3b8'}" onclick="event.stopPropagation();balToggleLock('${seatId}')">${lockIcon}</span>
+  </div>
+`;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,27 +182,31 @@ function balRenderBoat() {
     const lockedL = _locked.has(seatL);
     const lockedR = _locked.has(seatR);
 
-    const bgL = hasL ? "#ffffff" : "rgba(255,255,255,0.1)";
-    const bgR = hasR ? "#ffffff" : "rgba(255,255,255,0.1)";
-    const borderL = lockedL ? "1px solid #fbbf24" : (hasL ? "1px solid #334155" : "1px dashed rgba(255,255,255,0.3)");
-    const borderR = lockedR ? "1px solid #fbbf24" : (hasR ? "1px solid #334155" : "1px dashed rgba(255,255,255,0.3)");
+    const bgL = "transparent";
+    const bgR = "transparent";
+    const borderL = lockedL ? "1px solid #fbbf24" : (hasL ? "none" : "1px dashed rgba(255,255,255,0.3)");
+    const borderR = lockedR ? "1px solid #fbbf24" : (hasR ? "none" : "1px dashed rgba(255,255,255,0.3)");
 
     html += `
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:0.3rem;align-items:center">
+      <div style="display:grid;grid-template-columns:1fr 20px 1fr;gap:0.2rem;align-items:center">
         <div id="seat-${seatL}" data-seat="${seatL}" onclick="balToggleLock('${seatL}')"
-          style="border-radius:8px;padding:0.4rem 0.5rem;cursor:pointer;min-height:44px;background:${bgL};border:${borderL};transition:border 0.2s">
+          ${hasL && !lockedL ? `draggable="true" ondragstart="balDragStart(event,'${seatL}')"` : ''}
+          ondragover="balDragOver(event,'${seatL}')" ondrop="balDrop(event,'${seatL}')" ondragleave="balDragLeave(event,'${seatL}')"
+          style="border-radius:8px;cursor:pointer;min-height:34px;background:${bgL};border:${borderL};transition:border 0.2s">
           ${renderSeatHtml(seatL)}
         </div>
-        <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#cbd5e1;flex-shrink:0">${i}</div>
+        <div style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#cbd5e1;flex-shrink:0">${i}</div>
         <div id="seat-${seatR}" data-seat="${seatR}" onclick="balToggleLock('${seatR}')"
-          style="border-radius:8px;padding:0.4rem 0.5rem;cursor:pointer;min-height:44px;background:${bgR};border:${borderR};transition:border 0.2s">
+          ${hasR && !lockedR ? `draggable="true" ondragstart="balDragStart(event,'${seatR}')"` : ''}
+          ondragover="balDragOver(event,'${seatR}')" ondrop="balDrop(event,'${seatR}')" ondragleave="balDragLeave(event,'${seatR}')"
+          style="border-radius:8px;cursor:pointer;min-height:34px;background:${bgR};border:${borderR};transition:border 0.2s">
           ${renderSeatHtml(seatR)}
         </div>
       </div>
     `;
 
-    // Eje central entre fila 5 y 6 en bote grande
-    if (_boatSize === "large" && i === 5) {
+    // Eje central entre fila 5 y 6 en bote grande, o entre fila 3 y 4 en bote chico
+    if ((_boatSize === "large" && i === 5) || (_boatSize === "small" && i === 3)) {
       html += `<div style="height:1px;background:rgba(255,255,255,0.2);margin:0.1rem 0;border-radius:999px"></div>`;
     }
   }
@@ -210,84 +257,168 @@ function balUpdateSvgSide(frontKg, backKg) {
 // ---------------------------------------------------------------------------
 function balUpdateScores() {
   const rows = rowCount();
-  let leftKg = 0, rightKg = 0, frontKg = 0, backKg = 0;
-  let onCorrectSide = 0, totalWithPref = 0;
+  let wL = 0, wR = 0, wF = 0, wB = 0, assigned = 0, onSide = 0, total = 0;
 
+  // Calcular pesos por lado (izq/der) y posición (adelante/atrás)
   for (let i = 1; i <= rows; i++) {
     const lSeat = _seats[`L-${i}`];
     const rSeat = _seats[`R-${i}`];
     const lMember = lSeat ? memberById(lSeat.memberId) : null;
     const rMember = rSeat ? memberById(rSeat.memberId) : null;
-    const lW = lMember ? memberWeight(lMember) : 0;
-    const rW = rMember ? memberWeight(rMember) : 0;
-    leftKg += lW;
-    rightKg += rW;
-    if (i <= rows / 2) {
-      frontKg += lW + rW;
-    } else {
-      backKg += lW + rW;
+
+    if (lMember) {
+      const w = memberWeight(lMember);
+      wL += w;
+      assigned++;
+      if (i <= rows / 2) wF += w;
+      else wB += w;
     }
-    for (const [seatId, member] of [[`L-${i}`, lMember], [`R-${i}`, rMember]]) {
-      if (!member) continue;
-      const side = member.preferred_side;
-      if (side === "left" || side === "right") {
-        totalWithPref++;
-        const isLeft = seatId.startsWith("L");
-        if ((side === "left" && isLeft) || (side === "right" && !isLeft)) onCorrectSide++;
-      }
+    if (rMember) {
+      const w = memberWeight(rMember);
+      wR += w;
+      assigned++;
+      if (i <= rows / 2) wF += w;
+      else wB += w;
     }
   }
 
-  const totalLR = leftKg + rightKg;
-  const totalFB = frontKg + backKg;
-  const scoreLR = totalLR > 0 ? Math.round(100 - (Math.abs(leftKg - rightKg) / totalLR) * 100) : 100;
-  const scoreFB = totalFB > 0 ? Math.round(100 - (Math.abs(frontKg - backKg) / totalFB) * 100) : 100;
-  const scoreSide = totalWithPref > 0 ? Math.round((onCorrectSide / totalWithPref) * 100) : 100;
-  const diffKg = Math.abs(leftKg - rightKg);
+  // Contar palistas en su lado preferido
+  Object.entries(_seats).forEach(([sid, seat]) => {
+    if (!seat?.memberId || !sid.startsWith('L-') && !sid.startsWith('R-')) return;
+    const m = memberById(seat.memberId);
+    if (!m) return;
+    const ps = m.preferred_side;
+    if (ps === 'left' || ps === 'right') {
+      total++;
+      if ((ps === 'left' && sid.startsWith('L-')) || (ps === 'right' && sid.startsWith('R-'))) onSide++;
+    }
+  });
+
+  // Calcular scores
+  const totalLR = wL + wR || 1;
+  const totalFB = wF + wB || 1;
+  const scoreLR = Math.round(100 - (Math.abs(wL - wR) / totalLR) * 100);
+  const scoreFB = Math.round(100 - (Math.abs(wF - wB) / totalFB) * 100);
+  const scoreSide = total > 0 ? Math.round((onSide / total) * 100) : 0;
+  const diffLR = Math.abs(wL - wR);
+  const diffFB = Math.abs(wF - wB);
 
   const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
-  setEl("val-score-lr", `${scoreLR}%`);
-  setEl("val-score-fb", `${scoreFB}%`);
-  setEl("val-score-side", `${scoreSide}%`);
-  setEl("val-score-diff", `${diffKg.toFixed(1)}kg`);
+  // Actualizar score boxes
+  setEl("score-lr", `${scoreLR}%`);
+  setEl("score-fb", `${scoreFB}%`);
+  setEl("score-side", total > 0 ? `${onSide}/${total}` : "—");
+  setEl("score-count", `${assigned}`);
 
-  const leftPct = totalLR > 0 ? (leftKg / totalLR) * 100 : 50;
-  const frontPct = totalFB > 0 ? (frontKg / totalFB) * 100 : 50;
-
+  // Actualizar barras Izq/Der
+  const pctL = totalLR > 0 ? (wL / totalLR) * 100 : 50;
+  const pctR = 100 - pctL;
   const setWidth = (id, pct) => { const el = document.getElementById(id); if (el) el.style.width = `${pct}%`; };
-  setWidth("bar-left-fill", leftPct);
-  setWidth("bar-right-fill", 100 - leftPct);
-  setWidth("bar-front-fill", frontPct);
-  setWidth("bar-back-fill", 100 - frontPct);
+  setWidth("bar-lr-left", pctL);
+  setWidth("bar-lr-right", pctR);
+  setEl("bar-lr-left-label", `${wL.toFixed(0)}`);
+  setEl("bar-lr-right-label", `${wR.toFixed(0)}`);
+  let lrDiffText;
+  if (wL === wR) lrDiffText = 'Perfectamente equilibrado';
+  else if (wL > wR) lrDiffText = `${(wL - wR).toFixed(1)} kg más a la izquierda`;
+  else lrDiffText = `${(wR - wL).toFixed(1)} kg más a la derecha`;
+  setEl("bar-lr-diff", lrDiffText);
 
-  setEl("bar-left-kg", `${leftKg.toFixed(0)}kg`);
-  setEl("bar-right-kg", `${rightKg.toFixed(0)}kg`);
-  setEl("bar-front-kg", `${frontKg.toFixed(0)}kg`);
-  setEl("bar-back-kg", `${backKg.toFixed(0)}kg`);
-
-  balUpdateSvgFront(leftKg, rightKg);
-  balUpdateSvgSide(frontKg, backKg);
+  // Actualizar barras Ade/Atr
+  const pctF = totalFB > 0 ? (wF / totalFB) * 100 : 50;
+  const pctB = 100 - pctF;
+  setWidth("bar-fb-front", pctF);
+  setWidth("bar-fb-back", pctB);
+  setEl("bar-fb-front-label", `${wF.toFixed(0)}`);
+  setEl("bar-fb-back-label", `${wB.toFixed(0)}`);
+  let fbDiffText;
+  if (wF === wB) fbDiffText = 'Perfectamente equilibrado';
+  else if (wF > wB) fbDiffText = `${(wF - wB).toFixed(1)} kg más adelante`;
+  else fbDiffText = `${(wB - wF).toFixed(1)} kg más atrás`;
+  setEl("bar-fb-diff", fbDiffText);
 
   // Instrucción timonel
   const instrBox = document.getElementById("timonel-instruction");
-  if (instrBox) {
+  const instrWrapper = document.getElementById("timonel-instruction-wrapper");
+  if (instrBox && instrWrapper) {
     const msgs = [];
-    if (diffKg > 5) {
-      msgs.push(`Correrse hacia ${leftKg > rightKg ? "la derecha" : "la izquierda"} (${diffKg.toFixed(1)}kg de diferencia)`);
-    }
-    const diffFB = Math.abs(frontKg - backKg);
-    if (diffFB > 20) {
-      msgs.push(`Correrse hacia ${frontKg > backKg ? "atrás" : "adelante"} (${diffFB.toFixed(1)}kg de diferencia)`);
+    if (diffLR > 5) {
+      msgs.push(`Correrse hacia ${wL > wR ? "la derecha" : "la izquierda"} (${diffLR.toFixed(1)}kg de diferencia)`);
     }
     if (msgs.length > 0) {
       instrBox.textContent = "🎯 " + msgs.join(" · ");
-      instrBox.style.display = "block";
+      instrWrapper.style.display = "block";
     } else {
-      instrBox.style.display = "none";
+      instrWrapper.style.display = "none";
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Estrategia de distribución
+// ---------------------------------------------------------------------------
+function applyStrategy(freeLeft, freeRight, strategy, phase) {
+  if (strategy === 'normal') {
+    return { left: freeLeft, right: freeRight };
+  }
+
+  if (strategy === 'zigzag') {
+    // Generar secuencia de asientos intercalada adelante-atrás
+    // phase=0: [L-1, R-2, L-3, R-4, ...]
+    // phase=1: [R-1, L-2, R-3, L-4, ...]
+    const rows = rowCount();
+    const allSeats = [];
+
+    if (phase === 0) {
+      // L-1, R-2, L-3, R-4, ...
+      for (let i = 1; i <= rows; i++) {
+        if (i % 2 === 1) allSeats.push(`L-${i}`);
+        else allSeats.push(`R-${i}`);
+      }
+    } else {
+      // R-1, L-2, R-3, L-4, ...
+      for (let i = 1; i <= rows; i++) {
+        if (i % 2 === 1) allSeats.push(`R-${i}`);
+        else allSeats.push(`L-${i}`);
+      }
+    }
+
+    // Particionar los asientos zig-zag en left y right
+    const newLeft = allSeats.filter(s => s.startsWith('L-'));
+    const newRight = allSeats.filter(s => s.startsWith('R-'));
+
+    return { left: newLeft, right: newRight };
+  }
+
+  if (strategy === 'dispersed') {
+    const leftOdd  = freeLeft.filter(s => parseInt(s.split('-')[1]) % 2 === 1);
+    const leftEven = freeLeft.filter(s => parseInt(s.split('-')[1]) % 2 === 0);
+    const rightOdd  = freeRight.filter(s => parseInt(s.split('-')[1]) % 2 === 1);
+    const rightEven = freeRight.filter(s => parseInt(s.split('-')[1]) % 2 === 0);
+    return { left: [...leftOdd, ...leftEven], right: [...rightOdd, ...rightEven] };
+  }
+
+  return { left: freeLeft, right: freeRight };
+}
+
+function balSetStrategy(s) {
+  if (s === 'zigzag' && _strategy === 'zigzag') {
+    _zigzagPhase = _zigzagPhase === 0 ? 1 : 0;
+  } else {
+    _zigzagPhase = 0;
+  }
+  _strategy = s;
+  document.querySelectorAll('.bal-strategy-btn').forEach(b => {
+    const active = b.dataset.strategy === s;
+    b.style.border = active ? '2px solid #3b82f6' : '1px solid #e2e8f0';
+    b.style.background = active ? '#e6f1fb' : '#f8fafc';
+    b.style.color = active ? '#1d4ed8' : '#334155';
+  });
+  const hasSeated = Object.values(_seats).some(v => v !== null);
+  if (hasSeated) balRun();
+}
+window.balSetStrategy = balSetStrategy;
 
 // ---------------------------------------------------------------------------
 // Algoritmo de balanceo
@@ -299,8 +430,10 @@ function balRun() {
   }
 
   const checkboxes = document.querySelectorAll('#bal-member-list input[type="checkbox"]:checked');
-  if (checkboxes.length === 0) {
-    alert('Seleccioná al menos un palista.');
+  const drummerSel = document.getElementById("sel-drummer")?.value || "";
+  const timonelSel = document.getElementById("sel-timonel")?.value || "";
+  if (checkboxes.length === 0 && !drummerSel && !timonelSel) {
+    alert('Seleccioná al menos un palista, drummer o timonel.');
     return;
   }
 
@@ -325,9 +458,6 @@ function balRun() {
   console.log('selectedIds:', [...selectedIds]);
   console.log('_members count:', _members.length);
   console.log('selected:', selected.map(m => m.full_name + ':' + m.user_id));
-
-  const drummerSel = document.getElementById("sel-drummer")?.value || "";
-  const timonelSel = document.getElementById("sel-timonel")?.value || "";
 
   const rows = rowCount();
 
@@ -373,8 +503,11 @@ function balRun() {
   }
 
   // Asientos libres (no bloqueados) — usar orden intercalado
-  const freeLeft  = allLeftSeats.filter(s => !newSeats[s]);
-  const freeRight = allRightSeats.filter(s => !newSeats[s]);
+  let freeLeft  = allLeftSeats.filter(s => !newSeats[s]);
+  let freeRight = allRightSeats.filter(s => !newSeats[s]);
+  const stratResult = applyStrategy(freeLeft, freeRight, _strategy, _zigzagPhase);
+  freeLeft  = stratResult.left;
+  freeRight = stratResult.right;
   const nL = freeLeft.length;
   const nR = freeRight.length;
 
@@ -384,29 +517,38 @@ function balRun() {
   let assignedLeft  = [];  // palistas que irán a la izquierda
   let assignedRight = [];  // palistas que irán a la derecha
 
-  if (_priority === 0) {
-    // Solo peso: ignorar preferencia, alternar más pesado izq/der
+  if (_priority <= 25) {
+    // Solo peso: ordenar desc y alternar izq/der
     const allSorted = [...pool].sort((a, b) => memberWeight(b) - memberWeight(a));
-    for (let i = 0; i < allSorted.length; i++) {
-      if (i % 2 === 0) assignedLeft.push(allSorted[i]);
-      else             assignedRight.push(allSorted[i]);
-    }
-  } else if (_priority === 100) {
-    // Solo lado: respetar preferencia estrictamente; indiferentes llenan huecos
+    let li = 0, ri = 0;
+    allSorted.forEach((m, idx) => {
+      if (idx % 2 === 0 && li < freeLeft.length) {
+        assignedLeft.push(m); li++;
+      } else if (ri < freeRight.length) {
+        assignedRight.push(m); ri++;
+      } else if (li < freeLeft.length) {
+        assignedLeft.push(m); li++;
+      }
+    });
+  } else if (_priority >= 75) {
+    // Solo lado: respetar preferencia estrictamente; indiferentes al lado más liviano
     const lPref = pool.filter(m => m.preferred_side === "left").sort((a, b) => memberWeight(b) - memberWeight(a));
     const rPref = pool.filter(m => m.preferred_side === "right").sort((a, b) => memberWeight(b) - memberWeight(a));
     const ePref = pool.filter(m => m.preferred_side !== "left" && m.preferred_side !== "right").sort((a, b) => memberWeight(b) - memberWeight(a));
     assignedLeft  = [...lPref];
     assignedRight = [...rPref];
-    // Completar con indiferentes donde falten
-    while (assignedLeft.length < nL && ePref.length > 0) assignedLeft.push(ePref.shift());
-    while (assignedRight.length < nR && ePref.length > 0) assignedRight.push(ePref.shift());
-    // Si aún sobran indiferentes, llenar el que tenga espacio
-    while (ePref.length > 0) {
-      if (assignedLeft.length < nL) assignedLeft.push(ePref.shift());
-      else if (assignedRight.length < nR) assignedRight.push(ePref.shift());
-      else break;
-    }
+    // Completar con indiferentes al lado más liviano
+    ePref.forEach(m => {
+      let wL = assignedLeft.reduce((s, x) => s + memberWeight(x), 0);
+      let wR = assignedRight.reduce((s, x) => s + memberWeight(x), 0);
+      if (wL <= wR && assignedLeft.length < nL) {
+        assignedLeft.push(m);
+      } else if (assignedRight.length < nR) {
+        assignedRight.push(m);
+      } else if (assignedLeft.length < nL) {
+        assignedLeft.push(m);
+      }
+    });
   } else {
     // Equilibrado (0 < priority < 100): peso + lado
     let lPool = pool.filter(m => m.preferred_side === "left").sort((a, b) => memberWeight(b) - memberWeight(a));
@@ -469,17 +611,15 @@ function balRun() {
 // ---------------------------------------------------------------------------
 function balToggleLock(seatId) {
   if (!_seats[seatId] || !_seats[seatId].memberId) return;
-  const seatEl = document.getElementById(`seat-${seatId}`);
   if (_locked.has(seatId)) {
     _locked.delete(seatId);
-    const lockEl = document.getElementById(`lock-${seatId}`);
-    if (lockEl) lockEl.textContent = "🔓";
-    if (seatEl) seatEl.style.opacity = "1";
   } else {
     _locked.add(seatId);
-    const lockEl = document.getElementById(`lock-${seatId}`);
-    if (lockEl) lockEl.textContent = "🔒";
-    if (seatEl) seatEl.style.opacity = "0.8";
+  }
+  // Re-renderizar solo el asiento afectado
+  const seatEl = document.getElementById(`seat-${seatId}`);
+  if (seatEl) {
+    seatEl.innerHTML = renderSeatHtml(seatId);
   }
 }
 
@@ -515,8 +655,7 @@ function balSetBoatSize(size) {
       btnSmall.style.color = "#334155";
     }
   }
-  const memberListEl = document.getElementById("bal-member-list");
-  if (memberListEl) memberListEl.style.maxHeight = size === "large" ? "520px" : "330px";
+  // (max-height eliminado — la lista usa todo el alto disponible)
 
   // Limpiar asientos que ya no existen si se reduce el bote
   if (size === "small") {
@@ -544,6 +683,10 @@ function balUpdatePriorityText(val) {
   else if (v === 50) el.textContent = "Equilibrado: combina peso y preferencia de lado por igual";
   else if (v < 100) el.textContent = "Prioridad lado: respeta la preferencia de lado principalmente";
   else el.textContent = "Solo lado: respeta el lado preferido sin considerar el peso";
+
+  // Si ya hay palistas asignados, re-balancear automáticamente
+  const hasSeated = Object.values(_seats).some(v => v !== null);
+  if (hasSeated) balRun();
 }
 
 function balSetPriority(val) {
@@ -568,6 +711,10 @@ function balSetPriority(val) {
       btn.style.color = "#334155";
     }
   });
+
+  // Si ya hay palistas asignados, re-balancear automáticamente
+  const hasSeated = Object.values(_seats).some(v => v !== null);
+  if (hasSeated) balRun();
 }
 
 // ---------------------------------------------------------------------------
@@ -582,25 +729,30 @@ function balUpdateCount() {
 // ---------------------------------------------------------------------------
 // Generar la lista de miembros en el panel izquierdo
 // ---------------------------------------------------------------------------
-function buildMemberList() {
+function balRenderRoster() {
   const container = document.getElementById("bal-member-list");
   if (!container) return;
 
+  const filtered = _members.filter(m =>
+    !_genderFilter || m.sex === _genderFilter
+  );
+
   let html = "";
-  _members.forEach((m, idx) => {
+  filtered.forEach((m) => {
+    const idx = memberIndex(m.user_id);
     const color = avatarColor(idx);
     const sc = sideColor(m.preferred_side);
     const sl = sideLabel(m.preferred_side);
     const weightStr = m.weight_kg != null ? `${m.weight_kg} kg` : "— kg";
     html += `
-      <label style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.4rem;border-radius:8px;cursor:pointer;border:0.5px solid #e2e8f0;background:#fff">
-        <input type="checkbox" data-member-id="${escapeHtml(String(m.user_id))}" style="accent-color:#0ea5e9;width:14px;height:14px" onchange="balUpdateCount()">
-        <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#fff;font-weight:700;flex-shrink:0">${escapeHtml(initial(m.full_name))}</div>
+      <label style="display:flex;align-items:center;gap:0.4rem;padding:0.25rem 0.5rem;border-radius:6px;cursor:pointer;min-height:32px;border-bottom:0.5px solid #f1f5f9">
+        <input type="checkbox" data-member-id="${escapeHtml(String(m.user_id))}" style="accent-color:#0ea5e9;width:16px;height:16px;flex-shrink:0" onchange="balUpdateCount()">
+        <div style="width:22px;height:22px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:#fff;font-weight:700;flex-shrink:0">${escapeHtml(initial(m.full_name))}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:0.78rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(m.full_name)}</div>
-          <div style="display:flex;gap:0.3rem;align-items:center">
-            <span style="font-size:0.65rem;padding:0.1rem 0.35rem;border-radius:999px;background:${sc};color:#fff">${sl}</span>
-            <span style="font-size:0.65rem;color:#94a3b8">${weightStr}</span>
+          <div style="font-size:0.75rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1e293b">${escapeHtml(m.full_name)}</div>
+          <div style="display:flex;align-items:center;gap:0.25rem;margin-top:0.1rem">
+            <span style="font-size:0.5rem;font-weight:600;padding:1px 5px;border-radius:3px;background:${sc};color:#fff">${sl}</span>
+            <span style="font-size:0.7rem;color:#475569">${weightStr}</span>
           </div>
         </div>
       </label>
@@ -609,6 +761,9 @@ function buildMemberList() {
   container.innerHTML = html;
   balUpdateCount();
 }
+
+// Alias para compatibilidad con llamadas internas existentes
+function buildMemberList() { balRenderRoster(); }
 
 // ---------------------------------------------------------------------------
 // Poblar los selects de drummer y timonel
@@ -631,63 +786,62 @@ function buildRoleSelects() {
 // HTML estático de la página
 // ---------------------------------------------------------------------------
 function buildPageHtml(teamName) {
-  const cardStyle = `background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:1rem`;
-  const labelStyle = `font-size:0.8rem;font-weight:600;color:#64748b;margin-bottom:0.5rem`;
+  const cardStyle = `background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:8px 10px`;
+  const labelStyle = `font-size:10px;font-weight:600;color:#64748b;margin-bottom:0.5rem`;
 
   return `
-<div style="display:grid;grid-template-columns:260px 1fr;gap:1rem;align-items:start">
+<div style="display:grid;grid-template-columns:220px 240px 1fr;gap:8px;align-items:start">
 
-  <!-- ===== PANEL IZQUIERDO ===== -->
-  <div id="bal-left" style="display:flex;flex-direction:column;gap:0.75rem;height:100%">
+  <!-- ===== COLUMNA 1: controles ===== -->
+  <div id="bal-left" style="display:flex;flex-direction:column;gap:8px;height:100%">
 
     <!-- Card 1: tipo de bote -->
-    <div style="${cardStyle}">
+    <div style="${cardStyle};flex:1">
       <div style="${labelStyle}">TIPO DE BOTE</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
+      <div style="display:flex;flex-direction:column;gap:6px">
         <button id="btn-boat-small" onclick="balSetBoatSize('small')"
-          style="padding:0.5rem;border-radius:8px;border:2px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:0.8rem;color:#334155">
+          style="width:100%;padding:0.5rem;border-radius:8px;border:2px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:0.8rem;color:#334155">
           🚣 Chico
         </button>
         <button id="btn-boat-large" onclick="balSetBoatSize('large')"
-          style="padding:0.5rem;border-radius:8px;border:2px solid #0ea5e9;background:#eff6ff;cursor:pointer;font-size:0.8rem;font-weight:600;color:#185fa5">
+          style="width:100%;padding:0.5rem;border-radius:8px;border:2px solid #0ea5e9;background:#eff6ff;cursor:pointer;font-size:0.8rem;font-weight:600;color:#185fa5">
           🚣🚣 Grande
         </button>
       </div>
     </div>
 
-    <!-- Card 2: roles especiales -->
-    <div style="${cardStyle}">
-      <div style="${labelStyle}">ROLES ESPECIALES</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;overflow:hidden">
-        <div style="border:1px solid #fed7aa;border-radius:8px;padding:0.5rem;background:#fff7ed;min-width:0;overflow:hidden">
-          <div style="font-size:0.75rem;font-weight:600;color:#ea580c;margin-bottom:0.3rem">🥁 Drummer</div>
-          <select id="sel-drummer" style="width:100%;max-width:100%;font-size:0.75rem;border:1px solid #e2e8f0;border-radius:6px;padding:0.25rem;margin-bottom:0.3rem;box-sizing:border-box">
-            <option value="">— ninguno —</option>
-          </select>
-          <div style="display:flex;align-items:center;gap:0.25rem;font-size:0.7rem;color:#64748b;min-width:0">
-            <span style="flex-shrink:0">Tambor</span>
-            <input id="inp-drummer-weight" type="number" min="0" step="0.1" value="3"
-              style="width:40px;min-width:0;border:1px solid #e2e8f0;border-radius:4px;padding:0.15rem 0.25rem;font-size:0.75rem;box-sizing:border-box">
-            <span style="flex-shrink:0">kg</span>
-          </div>
-        </div>
-        <div style="border:1px solid #e9d5ff;border-radius:8px;padding:0.5rem;background:#faf5ff;min-width:0;overflow:hidden">
-          <div style="font-size:0.75rem;font-weight:600;color:#7c3aed;margin-bottom:0.3rem">🎯 Timonel</div>
-          <select id="sel-timonel" style="width:100%;max-width:100%;font-size:0.75rem;border:1px solid #e2e8f0;border-radius:6px;padding:0.25rem;margin-bottom:0.3rem;box-sizing:border-box">
-            <option value="">— ninguno —</option>
-          </select>
-          <div style="display:flex;align-items:center;gap:0.25rem;font-size:0.7rem;color:#64748b;min-width:0">
-            <span style="flex-shrink:0">Timón</span>
-            <input id="inp-timonel-weight" type="number" min="0" step="0.1" value="3"
-              style="width:40px;min-width:0;border:1px solid #e2e8f0;border-radius:4px;padding:0.15rem 0.25rem;font-size:0.75rem;box-sizing:border-box">
-            <span style="flex-shrink:0">kg</span>
-          </div>
-        </div>
+    <!-- Card 2a: drummer -->
+    <div style="background:#fff7ed;border:1px solid #f97316;border-radius:8px;padding:10px;flex:1">
+      <div style="font-size:11px;font-weight:600;color:#ea580c;margin-bottom:6px;">🥁 Drummer</div>
+      <select id="sel-drummer" onchange="balRun && balRun()" style="width:100%;font-size:11px;padding:4px;border-radius:4px;border:1px solid #e2e8f0;margin-bottom:6px;">
+        <option value="">— ninguno —</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <span style="font-size:11px;color:#64748b;">Peso tambor:</span>
+        <input type="number" min="0" id="bal-drum-weight" value="3"
+          style="width:52px;font-size:12px;border:1px solid #e2e8f0;border-radius:4px;padding:3px 6px;"
+          oninput="balSetDrumWeight(+this.value)">
+        <span style="font-size:11px;color:#64748b;">kg</span>
+      </div>
+    </div>
+
+    <!-- Card 2b: timonel -->
+    <div style="background:#f5f3ff;border:1px solid #7c3aed;border-radius:8px;padding:10px;flex:1">
+      <div style="font-size:11px;font-weight:600;color:#7c3aed;margin-bottom:6px;">🚣 Timonel</div>
+      <select id="sel-timonel" onchange="balRun && balRun()" style="width:100%;font-size:11px;padding:4px;border-radius:4px;border:1px solid #e2e8f0;margin-bottom:6px;">
+        <option value="">— ninguno —</option>
+      </select>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <span style="font-size:11px;color:#64748b;">Peso timón:</span>
+        <input type="number" min="0" id="bal-helm-weight" value="3"
+          style="width:52px;font-size:12px;border:1px solid #e2e8f0;border-radius:4px;padding:3px 6px;"
+          oninput="balSetHelmWeight(+this.value)">
+        <span style="font-size:11px;color:#64748b;">kg</span>
       </div>
     </div>
 
     <!-- Card 3: prioridad de balanceo -->
-    <div style="${cardStyle}">
+    <div style="background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:8px 10px;flex:1">
       <div style="${labelStyle}">PRIORIDAD DE BALANCEO</div>
       <div style="display:flex;gap:0.3rem;margin-bottom:0.5rem">
         <button class="bal-priority-preset" data-val="0" onclick="balSetPriority(0)"
@@ -700,94 +854,99 @@ function buildPageHtml(teamName) {
       <input id="bal-priority-slider" type="range" min="0" max="100" value="50"
         style="width:100%;accent-color:#0ea5e9;border-radius:4px"
         oninput="balUpdatePriorityText(this.value)">
-      <p id="bal-priority-text" style="font-size:0.72rem;color:#334155;margin-top:0.25rem;min-height:2em">
+      <p id="bal-priority-text" style="font-size:0.7rem;color:#334155;margin-top:0.25rem;min-height:2em">
         Equilibrado: combina peso y preferencia de lado por igual
       </p>
     </div>
 
-    <!-- Card 4: palistas -->
-    <div style="${cardStyle};flex:1">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-        <div style="${labelStyle}">PALISTAS</div>
-        <div id="bal-selected-count" style="font-size:0.75rem;color:#0ea5e9;font-weight:600">0 seleccionados</div>
+    <!-- Card 4: estrategia de distribución -->
+    <div style="background:#fff;border:0.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;flex:1">
+      <div style="font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Estrategia</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="bal-strategy-btn" data-strategy="normal" onclick="balSetStrategy('normal')"
+          style="width:100%;text-align:left;padding:8px 10px;border-radius:6px;background:#e6f1fb;color:#1d4ed8;border:2px solid #3b82f6;font-size:10px;cursor:pointer;">
+          <div>Normal</div>
+          <div style="font-size:10px;color:#94a3b8;font-weight:normal">llena desde adelante hacia atrás</div>
+        </button>
+        <button class="bal-strategy-btn" data-strategy="zigzag" onclick="balSetStrategy('zigzag')"
+          style="width:100%;text-align:left;padding:8px 10px;border-radius:6px;background:#f8fafc;color:#334155;border:1px solid #e2e8f0;font-size:10px;cursor:pointer;">
+          <div>Zig-zag</div>
+          <div style="font-size:10px;color:#94a3b8;font-weight:normal">alterna izquierda/derecha por fila (presionar 2× para invertir)</div>
+        </button>
+        <button class="bal-strategy-btn" data-strategy="dispersed" onclick="balSetStrategy('dispersed')"
+          style="width:100%;text-align:left;padding:8px 10px;border-radius:6px;background:#f8fafc;color:#334155;border:1px solid #e2e8f0;font-size:10px;cursor:pointer;">
+          <div>Fila c/2</div>
+          <div style="font-size:10px;color:#94a3b8;font-weight:normal">de a 2 por fila, dejando una fila vacía entre cada par</div>
+        </button>
       </div>
-      <div id="bal-member-list" style="max-height:520px;overflow-y:auto;display:flex;flex-direction:column;gap:0.3rem">
-      </div>
-      <button id="btn-balance" onclick="balRun()"
-        style="width:100%;margin-top:0.75rem;padding:0.6rem;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.85rem">
-        Balancear
-      </button>
     </div>
 
   </div><!-- /bal-left -->
 
-  <!-- ===== PANEL DERECHO ===== -->
+  <!-- ===== COLUMNA 2: palistas ===== -->
+  <div id="bal-center" style="display:flex;flex-direction:column;gap:8px;height:100%">
+
+    <!-- Card palistas -->
+    <div style="${cardStyle};flex:1;display:flex;flex-direction:column">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+        <div style="${labelStyle}">PALISTAS</div>
+        <div id="bal-selected-count" style="font-size:0.75rem;color:#0ea5e9;font-weight:600">0 seleccionados</div>
+      </div>
+      <button id="btn-balance" onclick="balRun()" style="width:100%;margin-bottom:0.5rem;padding:0.5rem;background:#0ea5e9;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.85rem">⚡ Balancear</button>
+      <div id="bal-gender-filter" style="display:flex;gap:4px;margin:8px 0">
+        <button data-g="" onclick="balSetGender('')"
+          style="flex:1;padding:5px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #cbd5e1;background:#3b82f6;color:#fff">Todos</button>
+        <button data-g="male" onclick="balSetGender('male')"
+          style="flex:1;padding:5px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #cbd5e1;background:#f8fafc;color:#334155">Masc.</button>
+        <button data-g="female" onclick="balSetGender('female')"
+          style="flex:1;padding:5px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #cbd5e1;background:#f8fafc;color:#334155">Fem.</button>
+      </div>
+      <div id="bal-member-list" style="overflow-y:auto;display:flex;flex-direction:column;gap:0.3rem;flex:1;">
+      </div>
+    </div>
+
+  </div><!-- /bal-center -->
+
+  <!-- ===== COLUMNA 3: bote + barras ===== -->
   <div id="bal-right" style="display:flex;flex-direction:column;gap:0.75rem">
 
     <!-- Row 1: nombre del bote + PDF -->
-    <div style="display:flex;gap:0.5rem;align-items:center">
+    <div style="display:flex;gap:8px;align-items:center">
       <input id="inp-boat-name" type="text" placeholder="Ej: Open Premier 20 palistas"
         style="flex:1;padding:0.5rem 0.75rem;border:0.5px solid #e2e8f0;border-radius:8px;font-size:0.85rem">
-      <button onclick="balExportPDF()"
-        style="padding:0.5rem 0.75rem;border:0.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">
-        🖨️ PDF
-      </button>
+      <button onclick="balPrint()" style="padding:7px 12px;background:#fff;border:1px solid #3b82f6;color:#3b82f6;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;height:36px">🖨️ PDF</button>
     </div>
 
-    <!-- Card scores -->
-    <div style="${cardStyle}">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.75rem">
-        <div style="text-align:center;padding:0.5rem;border-radius:8px;background:#f0f9ff;border:0.5px solid #bae6fd">
-          <div style="font-size:1.25rem;font-weight:700;color:#0369a1" id="val-score-lr">—</div>
-          <div style="font-size:0.65rem;color:#64748b">Balance Izq/Der</div>
+    <!-- Barras de balance ARRIBA del bote -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0.75rem">
+      <!-- Card Izq/Der -->
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
+        <div style="font-size:11px;color:#64748b;font-weight:600;text-align:center;margin-bottom:8px">Izquierda / Derecha</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="white-space:nowrap"><span id="bar-lr-left-label" style="font-size:18px;font-weight:700;color:#3b82f6">0</span><span style="font-size:11px;color:#3b82f6">kg</span></span>
+          <div style="flex:1;height:6px;border-radius:3px;overflow:hidden;background:#f1f5f9;display:flex">
+            <div id="bar-lr-left" style="height:100%;background:#3b82f6;transition:width 0.3s;width:50%"></div>
+            <div id="bar-lr-right" style="height:100%;background:#f97316;transition:width 0.3s;width:50%"></div>
+          </div>
+          <span style="white-space:nowrap"><span id="bar-lr-right-label" style="font-size:18px;font-weight:700;color:#f97316">0</span><span style="font-size:11px;color:#f97316">kg</span></span>
         </div>
-        <div style="text-align:center;padding:0.5rem;border-radius:8px;background:#f0fdf4;border:0.5px solid #bbf7d0">
-          <div style="font-size:1.25rem;font-weight:700;color:#15803d" id="val-score-fb">—</div>
-          <div style="font-size:0.65rem;color:#64748b">Balance Ade/Atr</div>
-        </div>
-        <div style="text-align:center;padding:0.5rem;border-radius:8px;background:#fefce8;border:0.5px solid #fef08a">
-          <div style="font-size:1.25rem;font-weight:700;color:#a16207" id="val-score-side">—</div>
-          <div style="font-size:0.65rem;color:#64748b">En su lado</div>
-        </div>
-        <div style="text-align:center;padding:0.5rem;border-radius:8px;background:#fff7ed;border:0.5px solid #fed7aa">
-          <div style="font-size:1.25rem;font-weight:700;color:#c2410c" id="val-score-diff">—</div>
-          <div style="font-size:0.65rem;color:#64748b">Dif. peso</div>
+        <div style="font-size:20px;font-weight:700;color:#f59e0b;text-align:center;margin-top:6px">
+          <span id="bar-lr-diff">—</span>
         </div>
       </div>
-
-      <!-- Barra Izq/Der -->
-      <div style="margin-bottom:0.5rem">
-        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#64748b;margin-bottom:0.2rem">
-          <span>◀ Izquierda <span id="bar-left-kg">0kg</span></span>
-          <span><span id="bar-right-kg">0kg</span> Derecha ▶</span>
+      <!-- Card Ade/Atr -->
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px">
+        <div style="font-size:11px;color:#64748b;font-weight:600;text-align:center;margin-bottom:8px">Adelante / Atrás</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="white-space:nowrap"><span id="bar-fb-front-label" style="font-size:18px;font-weight:700;color:#1d4ed8">0</span><span style="font-size:11px;color:#1d4ed8">kg</span></span>
+          <div style="flex:1;height:6px;border-radius:3px;overflow:hidden;background:#f1f5f9;display:flex">
+            <div id="bar-fb-front" style="height:100%;background:#1d4ed8;transition:width 0.3s;width:50%"></div>
+            <div id="bar-fb-back" style="height:100%;background:#8b5cf6;transition:width 0.3s;width:50%"></div>
+          </div>
+          <span style="white-space:nowrap"><span id="bar-fb-back-label" style="font-size:18px;font-weight:700;color:#8b5cf6">0</span><span style="font-size:11px;color:#8b5cf6">kg</span></span>
         </div>
-        <div style="height:12px;border-radius:999px;overflow:hidden;background:#f1f5f9;display:flex">
-          <div id="bar-left-fill" style="background:#0ea5e9;width:50%;transition:width 0.3s"></div>
-          <div id="bar-right-fill" style="background:#f97316;width:50%;transition:width 0.3s"></div>
-        </div>
-      </div>
-
-      <!-- Barra Ade/Atr -->
-      <div>
-        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#64748b;margin-bottom:0.2rem">
-          <span>▲ Adelante <span id="bar-front-kg">0kg</span></span>
-          <span><span id="bar-back-kg">0kg</span> Atrás ▼</span>
-        </div>
-        <div style="height:12px;border-radius:999px;overflow:hidden;background:#f1f5f9;display:flex">
-          <div id="bar-front-fill" style="background:#1d4ed8;width:50%;transition:width 0.3s"></div>
-          <div id="bar-back-fill" style="background:#7c3aed;width:50%;transition:width 0.3s"></div>
-        </div>
-      </div>
-
-      <!-- SVG views -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.75rem">
-        <div style="border:0.5px solid #e2e8f0;border-radius:8px;padding:0.5rem;text-align:center">
-          <div style="font-size:0.7rem;color:#64748b;margin-bottom:0.3rem">Vista frontal</div>
-          <svg id="svg-front" width="100%" height="80" viewBox="0 0 120 80"></svg>
-        </div>
-        <div style="border:0.5px solid #e2e8f0;border-radius:8px;padding:0.5rem;text-align:center">
-          <div style="font-size:0.7rem;color:#64748b;margin-bottom:0.3rem">Vista lateral</div>
-          <svg id="svg-side" width="100%" height="80" viewBox="0 0 120 80"></svg>
+        <div style="font-size:20px;font-weight:700;color:#f59e0b;text-align:center;margin-top:6px">
+          <span id="bar-fb-diff">—</span>
         </div>
       </div>
     </div>
@@ -798,30 +957,44 @@ function buildPageHtml(teamName) {
         <span>◀ Izquierda</span><span>Derecha ▶</span>
       </div>
 
+      <!-- Proa label -->
+      <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.5);text-align:center;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">▲ Proa</div>
+
       <!-- Drummer -->
-      <div id="seat-drummer" onclick="balToggleLock('drummer')"
-        style="border:1px solid #fed7aa;border-radius:8px;padding:0.4rem 0.5rem;cursor:pointer;min-height:40px;background:rgba(234,88,12,0.15);margin-bottom:0.5rem">
-        <div style="font-size:0.6rem;color:#fed7aa;font-weight:600;margin-bottom:0.2rem">🥁 DRUMMER</div>
-        <div id="slot-drummer">
-          <div style="font-size:0.65rem;color:#94a3b8;text-align:center;padding:0.2rem">Vacío</div>
+      <div style="display:grid;grid-template-columns:1fr 20px 1fr;gap:0.2rem;align-items:center;margin-bottom:0.5rem">
+        <div></div>
+        <div id="seat-drummer" onclick="balToggleLock('drummer')"
+          style="cursor:pointer;display:flex;justify-content:center;align-items:center;">
+          <div id="slot-drummer">
+            <div style="font-size:0.65rem;color:#94a3b8;text-align:center;padding:0.2rem">Vacío</div>
+          </div>
         </div>
+        <div></div>
       </div>
 
       <!-- Filas de asientos -->
-      <div id="bal-rows" style="display:flex;flex-direction:column;gap:0.3rem;margin:0.5rem 0"></div>
+      <div id="bal-rows" style="display:flex;flex-direction:column;gap:0.2rem;margin:0.5rem 0"></div>
 
       <!-- Timonel -->
-      <div id="seat-timonel" onclick="balToggleLock('timonel')"
-        style="border:1px solid #e9d5ff;border-radius:8px;padding:0.4rem 0.5rem;cursor:pointer;min-height:40px;background:rgba(124,58,237,0.15);margin-top:0.5rem">
-        <div style="font-size:0.6rem;color:#e9d5ff;font-weight:600;margin-bottom:0.2rem">🎯 TIMONEL</div>
-        <div id="slot-timonel">
-          <div style="font-size:0.65rem;color:#94a3b8;text-align:center;padding:0.2rem">Vacío</div>
+      <div style="display:grid;grid-template-columns:1fr 20px 1fr;gap:0.2rem;align-items:center;margin-top:0.5rem">
+        <div></div>
+        <div id="seat-timonel" onclick="balToggleLock('timonel')"
+          style="cursor:pointer;display:flex;justify-content:center;align-items:center;">
+          <div id="slot-timonel">
+            <div style="font-size:0.65rem;color:#94a3b8;text-align:center;padding:0.2rem">Vacío</div>
+          </div>
         </div>
+        <div></div>
       </div>
 
+      <!-- Popa label -->
+      <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.5);text-align:center;text-transform:uppercase;letter-spacing:0.5px;margin-top:3px">▼ Popa</div>
+
       <!-- Instrucción timonel -->
-      <div id="timonel-instruction"
-        style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:0.5rem;margin-top:0.5rem;font-size:0.72rem;color:#854d0e;display:none">
+      <div style="text-align:center;display:none" id="timonel-instruction-wrapper">
+        <div id="timonel-instruction"
+          style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:6px 14px;font-size:12px;color:#fff;margin:4px auto;width:auto">
+        </div>
       </div>
     </div>
 
@@ -861,6 +1034,11 @@ async function renderBalanceDetail(teamId, layout, teams) {
     _locked = new Set();
     _boatSize = "large";
     _priority = 50;
+    _strategy = 'normal';
+    _zigzagPhase = 0;
+    _drumWeight = 3;
+    _helmWeight = 3;
+    _genderFilter = '';
 
     const teamName = escapeHtml(team.name || t("teams.emptyNoTeam"));
 
@@ -883,10 +1061,6 @@ async function renderBalanceDetail(teamId, layout, teams) {
 
     const pageHtml = `
       <div>
-        <div style="display:flex;align-items:baseline;gap:0.75rem;margin-bottom:0.75rem">
-          <h1 style="margin:0;font-size:1.25rem">${escapeHtml(t("balance.title"))}</h1>
-          <span style="font-size:0.85rem;color:#64748b">${teamName}</span>
-        </div>
         ${selectorHtml}
         ${_members.length === 0
           ? `<p style="color:#94a3b8">${escapeHtml(t("balance.noMembers"))}</p>`
@@ -964,6 +1138,68 @@ function balChangeTeam(teamId) {
 }
 
 // ---------------------------------------------------------------------------
+// Drag & Drop entre asientos
+// ---------------------------------------------------------------------------
+function balDragStart(e, seatId) {
+  e.dataTransfer.setData('text/plain', seatId);
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function balDragOver(e, seatId) {
+  if (_locked.has(seatId)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const el = document.getElementById(`seat-${seatId}`);
+  if (el) el.style.outline = '2px dashed #fff';
+}
+
+function balDragLeave(e, seatId) {
+  const el = document.getElementById(`seat-${seatId}`);
+  if (el) el.style.outline = '';
+}
+
+function balDrop(e, targetId) {
+  e.preventDefault();
+  const el = document.getElementById(`seat-${targetId}`);
+  if (el) el.style.outline = '';
+  if (_locked.has(targetId)) return;
+  const sourceId = e.dataTransfer.getData('text/plain');
+  if (!sourceId || sourceId === targetId) return;
+  // Swap
+  const tmp = _seats[sourceId] ? { ..._seats[sourceId] } : null;
+  _seats[sourceId] = _seats[targetId] ? { ..._seats[targetId] } : null;
+  _seats[targetId] = tmp;
+  balRenderBoat();
+  balUpdateScores();
+}
+
+// ---------------------------------------------------------------------------
+// Peso del tambor y del timón
+// ---------------------------------------------------------------------------
+function balSetDrumWeight(val) {
+  _drumWeight = isFinite(val) && val >= 0 ? val : 0;
+  balUpdateScores();
+}
+
+function balSetHelmWeight(val) {
+  _helmWeight = isFinite(val) && val >= 0 ? val : 0;
+  balUpdateScores();
+}
+
+// ---------------------------------------------------------------------------
+// Filtro de género
+// ---------------------------------------------------------------------------
+function balSetGender(g) {
+  _genderFilter = g;
+  document.querySelectorAll('#bal-gender-filter button').forEach(btn => {
+    const active = btn.dataset.g === g;
+    btn.style.background = active ? '#3b82f6' : '#f8fafc';
+    btn.style.color = active ? '#fff' : '#334155';
+  });
+  balRenderRoster();
+}
+
+// ---------------------------------------------------------------------------
 // Exports globales para handlers onclick
 // ---------------------------------------------------------------------------
 window.balSetBoatSize = balSetBoatSize;
@@ -974,3 +1210,11 @@ window.balToggleLock = balToggleLock;
 window.balUpdateCount = balUpdateCount;
 window.balChangeTeam = balChangeTeam;
 window.balExportPDF = () => window.print();
+window.balPrint = () => window.print();
+window.balDragStart = balDragStart;
+window.balDragOver = balDragOver;
+window.balDrop = balDrop;
+window.balDragLeave = balDragLeave;
+window.balSetDrumWeight = balSetDrumWeight;
+window.balSetHelmWeight = balSetHelmWeight;
+window.balSetGender = balSetGender;

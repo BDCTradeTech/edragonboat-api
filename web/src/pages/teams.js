@@ -156,35 +156,29 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
   const canManage = isCaptain || isCoach || isPlatformAdmin;
   const canEditRoster = canManage;
 
-  const thStyle = "font-size:9px;text-transform:uppercase;color:#94a3b8;font-weight:600;padding:0.5rem 0.6rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;white-space:nowrap";
-  const tdStyle = "padding:0.45rem 0.6rem;border-bottom:1px solid #f1f5f9;vertical-align:middle";
+  const thStyle = "font-size:10px;text-transform:uppercase;color:#94a3b8;font-weight:600;padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap";
+  const tdStyle = "padding:10px;border-bottom:0.5px solid #f1f5f9;vertical-align:middle";
 
-  // Grid columns (exact widths): 220px avatar+name+email, 70px sex, 110px birth, 90px height, 90px weight, 120px side, 120px role, 80px manage
-  const gridCols = canManage
-    ? "220px 70px 110px 90px 90px 120px 120px 80px"
-    : "220px 70px 110px 90px 90px 120px 120px";
-
-  const theadStyle = `display:grid;grid-template-columns:${gridCols};width:100%;gap:0`;
-  const trStyle = `display:grid;grid-template-columns:${gridCols};width:100%;gap:0`;
-
-  const th = (label, sortKey = null) => {
+  const th = (label, sortKey = null, width) => {
+    const widthStyle = width ? `width:${width};` : "";
     if (sortKey === null) {
-      return `<th style="${thStyle}">${escapeHtml(label)}</th>`;
+      return `<th style="${widthStyle}${thStyle}">${escapeHtml(label)}</th>`;
     }
-    return `<th style="${thStyle};cursor:pointer" data-sort-key="${sortKey}" role="button" tabindex="0">${escapeHtml(label)}</th>`;
+    return `<th style="${widthStyle}${thStyle};cursor:pointer" data-sort-key="${sortKey}" role="button" tabindex="0">${escapeHtml(label)}</th>`;
   };
 
-  const thead = `<thead style="${theadStyle}"><tr style="display:grid;grid-template-columns:${gridCols};gap:0">
-    ${th("")}
-    ${th(t("teams.thName"), "name")}
-    ${th(t("teams.thSex"), "sex")}
-    ${th(t("teams.thBirth"), "birth")}
-    ${th(t("teams.thHeight"), "height")}
-    ${th(t("teams.thWeight"), "weight")}
-    ${th(t("teams.thPreferredSide"), "side")}
-    ${th(t("teams.thRole"), "role")}
-    ${canManage ? th(t("teams.thManage")) : ""}
-  </tr></thead>`;
+  const thead = `<thead>
+    <tr>
+      ${th(t("teams.thName"), "name", "200px")}
+      ${th(t("teams.thSex"), "sex", "110px")}
+      ${th(t("teams.thBirth"), "birth", "130px")}
+      ${th(t("teams.thHeight"), "height", "90px")}
+      ${th(t("teams.thWeight"), "weight", "90px")}
+      ${th(t("teams.thPreferredSide"), "side", "120px")}
+      ${th(t("teams.thRole"), "role", "120px")}
+      ${canManage ? th("", null, "80px") : ""}
+    </tr>
+  </thead>`;
 
   function avatarCell(m, idx) {
     const color = AVATAR_COLORS[idx % AVATAR_COLORS.length];
@@ -192,15 +186,15 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
     const nameHtml = escapeHtml(m.full_name || t("account.emptyDash"));
     let emailHtml;
     if (canEditEmail) {
-      emailHtml = `<input type="email" class="member-email" maxlength="320" autocomplete="email" value="${escapeHtml(m.email)}" style="${rosterInputStyle()};font-size:0.72rem;color:#64748b" />`;
+      emailHtml = `<input type="email" class="member-email" maxlength="320" autocomplete="email" value="${escapeHtml(m.email)}" style="border:0.5px solid #e2e8f0;border-radius:5px;padding:4px 6px;font-size:12px;width:100%;box-sizing:border-box;background:#fff;color:#64748b;margin-top:2px" />`;
     } else {
-      emailHtml = `<span style="font-size:0.72rem;color:#64748b">${escapeHtml(m.email)}</span>`;
+      emailHtml = `<span style="font-size:12px;color:#64748b;display:block;margin-top:2px">${escapeHtml(m.email)}</span>`;
     }
     return `<td style="${tdStyle}">
-      <div style="display:flex;align-items:center;gap:0.5rem">
-        <div style="width:32px;height:32px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.82rem;font-weight:700;flex-shrink:0">${initial}</div>
-        <div style="min-width:0">
-          <div style="font-weight:600;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">${nameHtml}</div>
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="width:32px;height:32px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">${initial}</div>
+        <div style="min-width:0;flex:1">
+          <div style="font-weight:600;font-size:13px">${nameHtml}</div>
           ${emailHtml}
         </div>
       </div>
@@ -208,31 +202,33 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
   }
 
   function sexTd(m) {
-    if (canEditRoster) return `<td style="${tdStyle}"><select class="roster-sex" aria-label="${escapeHtml(t("teams.sexAria"))}" style="${rosterInputStyle()}">${sexSelectOptionsHtml(m)}</select></td>`;
+    const inpStyle = "border:0.5px solid #e2e8f0;border-radius:5px;padding:4px 6px;font-size:12px;width:100%;box-sizing:border-box;background:#fff";
+    if (canEditRoster) return `<td style="${tdStyle}"><select class="roster-sex" aria-label="${escapeHtml(t("teams.sexAria"))}" style="${inpStyle}">${sexSelectOptionsHtml(m)}</select></td>`;
     const label = m.sex === "male" ? t("teams.sexMale") : t("teams.sexFemale");
-    return `<td style="${tdStyle};font-size:0.82rem">${escapeHtml(label)}</td>`;
+    return `<td style="${tdStyle};font-size:12px">${escapeHtml(label)}</td>`;
   }
 
   function rosterTds(m) {
+    const inpStyle = "border:0.5px solid #e2e8f0;border-radius:5px;padding:4px 6px;font-size:12px;width:100%;box-sizing:border-box;background:#fff";
     if (canEditRoster) {
       return `
-        <td style="${tdStyle}"><input class="roster-birth" type="date" value="${rosterBirthInputValue(m.birth_date)}" style="${rosterInputStyle()}" /></td>
-        <td style="${tdStyle}"><input class="roster-h" type="number" step="0.1" min="0" placeholder="${escapeHtml(t("teams.placeholderCm"))}" value="${m.height_cm != null ? escapeHtml(String(m.height_cm)) : ""}" style="${rosterInputStyle()};width:68px" /></td>
-        <td style="${tdStyle}"><input class="roster-w" type="number" step="0.1" min="0" placeholder="${escapeHtml(t("teams.placeholderKg"))}" value="${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : ""}" style="${rosterInputStyle()};width:68px" /></td>
-        <td style="${tdStyle}"><select class="roster-side" style="${rosterInputStyle()}">${preferredSideOptionsHtml(m)}</select></td>`;
+        <td style="${tdStyle}"><input class="roster-birth" type="date" value="${rosterBirthInputValue(m.birth_date)}" style="${inpStyle}" /></td>
+        <td style="${tdStyle}"><input class="roster-h" type="number" step="0.1" min="0" placeholder="${escapeHtml(t("teams.placeholderCm"))}" value="${m.height_cm != null ? escapeHtml(String(m.height_cm)) : ""}" style="${inpStyle}" /></td>
+        <td style="${tdStyle}"><input class="roster-w" type="number" step="0.1" min="0" placeholder="${escapeHtml(t("teams.placeholderKg"))}" value="${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : ""}" style="${inpStyle}" /></td>
+        <td style="${tdStyle}"><select class="roster-side" style="${inpStyle}">${preferredSideOptionsHtml(m)}</select></td>`;
     }
     const d = t("account.emptyDash");
     const birthDisplay = m.birth_date ? formatBirthDateDisplay(m.birth_date) : null;
     return `
-      <td style="${tdStyle};font-size:0.82rem">${birthDisplay ? escapeHtml(birthDisplay) : escapeHtml(d)}</td>
-      <td style="${tdStyle};font-size:0.82rem">${m.height_cm != null ? escapeHtml(String(m.height_cm)) : escapeHtml(d)}</td>
-      <td style="${tdStyle};font-size:0.82rem">${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : escapeHtml(d)}</td>
-      <td style="${tdStyle};font-size:0.82rem">${escapeHtml(preferredSideLabel(m.preferred_side))}</td>`;
+      <td style="${tdStyle};font-size:12px">${birthDisplay ? escapeHtml(birthDisplay) : escapeHtml(d)}</td>
+      <td style="${tdStyle};font-size:12px">${m.height_cm != null ? escapeHtml(String(m.height_cm)) : escapeHtml(d)}</td>
+      <td style="${tdStyle};font-size:12px">${m.weight_kg != null ? escapeHtml(String(m.weight_kg)) : escapeHtml(d)}</td>
+      <td style="${tdStyle};font-size:12px">${escapeHtml(preferredSideLabel(m.preferred_side))}</td>`;
   }
 
   function roleTd(m) {
     const rAria = escapeHtml(t("teams.roleAria"));
-    const selStyle = rosterInputStyle();
+    const selStyle = "border:0.5px solid #e2e8f0;border-radius:5px;padding:4px 6px;font-size:12px;width:100%;box-sizing:border-box;background:#fff";
     if (isPlatformAdmin) return `<td style="${tdStyle}"><select class="role-select-acc" data-team="${teamId}" data-user="${m.user_id}" aria-label="${rAria}" style="${selStyle}"><option value="captain" ${m.role === "captain" ? "selected" : ""}>${escapeHtml(t("roles.captain"))}</option><option value="coach" ${m.role === "coach" ? "selected" : ""}>${escapeHtml(t("roles.coach"))}</option><option value="paddler" ${m.role === "paddler" ? "selected" : ""}>${escapeHtml(t("roles.paddler"))}</option></select></td>`;
     if (m.role === "captain") return `<td style="${tdStyle}">${roleBadgeHtml(m.role)}</td>`;
     if (isCoach && m.role === "coach") return `<td style="${tdStyle}">${roleBadgeHtml(m.role)}</td>`;
@@ -242,28 +238,27 @@ function buildTeamPlantelTable(members, { isCaptain, isCoach, isPlatformAdmin, c
 
   function manageTd(m) {
     if (!canManage) return "";
-    const btnStyle = "padding:0.22rem 0.6rem;border:1px solid #ef4444;color:#ef4444;background:transparent;border-radius:5px;font-size:0.75rem;cursor:pointer";
+    const btnStyle = "padding:4px 8px;border:1px solid #ef4444;color:#ef4444;background:transparent;border-radius:5px;font-size:11px;cursor:pointer";
     if (isPlatformAdmin) return `<td style="${tdStyle}"><button type="button" class="btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}" style="${btnStyle}" ${m.role === "captain" ? `disabled title="${escapeHtml(t("teams.removeCaptainHint"))}"` : ""}>${escapeHtml(t("teams.remove"))}</button></td>`;
-    if (m.role === "captain") return `<td style="${tdStyle}"><span style="color:#94a3b8;font-size:0.78rem">${escapeHtml(t("account.emptyDash"))}</span></td>`;
-    if (isCoach && m.role === "coach") return `<td style="${tdStyle}"><span style="color:#94a3b8;font-size:0.78rem">${escapeHtml(t("teams.coachOnlyManagesPaddler"))}</span></td>`;
+    if (m.role === "captain") return `<td style="${tdStyle}"><span style="color:#94a3b8;font-size:11px">${escapeHtml(t("account.emptyDash"))}</span></td>`;
+    if (isCoach && m.role === "coach") return `<td style="${tdStyle}"><span style="color:#94a3b8;font-size:11px">${escapeHtml(t("teams.coachOnlyManagesPaddler"))}</span></td>`;
     return `<td style="${tdStyle}"><button type="button" class="btn-remove-acc" data-team="${teamId}" data-user="${m.user_id}" style="${btnStyle}">${escapeHtml(t("teams.remove"))}</button></td>`;
   }
 
   const rows = members.map((m, idx) => {
-    const rowAttrs = `data-user-id="${m.user_id}" data-initial-role="${m.role}" data-initial-email="${encodeURIComponent(m.email)}" style="transition:background 0.15s;${trStyle}" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''"`;
-    return `<tr ${rowAttrs}>${avatarCell(m, idx)}${sexTd(m)}${rosterTds(m)}${roleTd(m)}${manageTd(m)}</tr>`;
+    const rowAttrs = `data-user-id="${m.user_id}" data-initial-role="${m.role}" data-initial-email="${encodeURIComponent(m.email)}"`;
+    return `<tr ${rowAttrs} onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">${avatarCell(m, idx)}${sexTd(m)}${rosterTds(m)}${roleTd(m)}${manageTd(m)}</tr>`;
   }).join("");
 
-  const tableWrapStyle = "border-radius:10px;overflow:hidden;border:0.5px solid #e2e8f0";
+  const tableWrapStyle = "overflow-x:auto;border-radius:10px;border:1px solid #e2e8f0";
 
   // Store members and sort info for later re-rendering
-  const tableHtml = `<div style="${tableWrapStyle}"><div class="table-scroll"><table class="plantel-table" data-team="${teamId}" style="width:100%;border-collapse:collapse">${thead}<tbody style="display:contents" class="plantel-tbody">${rows}</tbody></table></div></div>`;
+  const tableHtml = `<div style="${tableWrapStyle}"><table class="plantel-table" data-team="${teamId}" style="width:100%;border-collapse:collapse">${thead}<tbody class="plantel-tbody">${rows}</tbody></table></div>`;
 
   // Return HTML with metadata
   return {
     html: tableHtml,
     _members: members,
-    _gridCols: gridCols,
     _tdStyle: tdStyle,
     _teamId: teamId,
     _canEditRoster: canEditRoster,
