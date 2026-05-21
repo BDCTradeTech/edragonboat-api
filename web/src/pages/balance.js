@@ -37,11 +37,11 @@ function initial(name) {
 }
 
 function memberById(id) {
-  return _members.find((m) => String(m.id) === String(id)) || null;
+  return _members.find((m) => String(m.user_id) === String(id)) || null;
 }
 
 function memberIndex(id) {
-  return _members.findIndex((m) => String(m.id) === String(id));
+  return _members.findIndex((m) => String(m.user_id) === String(id));
 }
 
 function sideColor(side) {
@@ -100,8 +100,8 @@ function renderSeatHtml(seatId, isSpecial = false) {
       ${ledHtml}
       <div style="width:22px;height:22px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:#fff;font-weight:700;flex-shrink:0">${escapeHtml(initial(member.full_name))}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:0.7rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#f1f5f9">${escapeHtml(member.full_name)}</div>
-        <div style="font-size:0.6rem;color:#94a3b8">(${sideStr})·${weightStr}</div>
+        <div style="font-size:0.7rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1e293b">${escapeHtml(member.full_name)}</div>
+        <div style="font-size:0.6rem;color:#64748b">(${sideStr})·${weightStr}</div>
       </div>
       <div id="lock-${seatId}" onclick="event.stopPropagation();balToggleLock('${seatId}')" style="font-size:0.75rem;cursor:pointer" title="Fijar posición">${lockIcon}</div>
     </div>
@@ -139,10 +139,10 @@ function balRenderBoat() {
     const lockedL = _locked.has(seatL);
     const lockedR = _locked.has(seatR);
 
-    const bgL = hasL ? "#1a3a5c" : "#1e3a5f";
-    const bgR = hasR ? "#1a3a5c" : "#1e3a5f";
-    const borderL = lockedL ? "1px solid #fbbf24" : (hasL ? "1px solid #334155" : "1px dashed #334155");
-    const borderR = lockedR ? "1px solid #fbbf24" : (hasR ? "1px solid #334155" : "1px dashed #334155");
+    const bgL = hasL ? "#ffffff" : "rgba(255,255,255,0.1)";
+    const bgR = hasR ? "#ffffff" : "rgba(255,255,255,0.1)";
+    const borderL = lockedL ? "1px solid #fbbf24" : (hasL ? "1px solid #334155" : "1px dashed rgba(255,255,255,0.3)");
+    const borderR = lockedR ? "1px solid #fbbf24" : (hasR ? "1px solid #334155" : "1px dashed rgba(255,255,255,0.3)");
 
     html += `
       <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:0.3rem;align-items:center">
@@ -306,26 +306,52 @@ function balRun() {
 
   const selectedIds = new Set([...checkboxes].map(cb => String(cb.dataset.memberId)));
 
+  console.log('IDs seleccionados:', [...selectedIds]);
+  console.log('primer checkbox dataset:', checkboxes[0]?.dataset);
+  console.log('primer checkbox getAttribute:', checkboxes[0]?.getAttribute('data-member-id'));
+
   // Construir lista deduplicada respetando el orden de _members
   const seenSel = new Set();
   const selected = [];
   for (const m of _members) {
-    if (selectedIds.has(String(m.id)) && !seenSel.has(String(m.id))) {
-      seenSel.add(String(m.id));
+    if (selectedIds.has(String(m.user_id)) && !seenSel.has(String(m.user_id))) {
+      seenSel.add(String(m.user_id));
       selected.push(m);
     }
   }
+
+  console.log('=== BALRUN DEBUG ===');
+  console.log('checkboxes marcados:', checkboxes.length);
+  console.log('selectedIds:', [...selectedIds]);
+  console.log('_members count:', _members.length);
+  console.log('selected:', selected.map(m => m.full_name + ':' + m.user_id));
 
   const drummerSel = document.getElementById("sel-drummer")?.value || "";
   const timonelSel = document.getElementById("sel-timonel")?.value || "";
 
   const rows = rowCount();
-  const leftSeats = Array.from({ length: rows }, (_, i) => `L-${i + 1}`);
-  const rightSeats = Array.from({ length: rows }, (_, i) => `R-${i + 1}`);
+
+  // Función para generar orden intercalado (adelante-atrás)
+  function interleavedSeats(side, numRows) {
+    const result = [];
+    let front = 1, back = numRows;
+    while (front <= back) {
+      result.push(`${side}-${front}`);
+      if (front !== back) result.push(`${side}-${back}`);
+      front++;
+      back--;
+    }
+    return result;
+  }
+
+  const allLeftSeats  = interleavedSeats('L', rows);
+  const allRightSeats = interleavedSeats('R', rows);
 
   // Preservar posiciones bloqueadas
   const newSeats = {};
-  for (const seatId of [...leftSeats, ...rightSeats, "drummer", "timonel"]) {
+  // Reconstruir lista completa de seats desde el orden intercalado
+  const allSeats = [...allLeftSeats, ...allRightSeats, "drummer", "timonel"];
+  for (const seatId of allSeats) {
     if (_locked.has(seatId) && _seats[seatId]) {
       newSeats[seatId] = { ..._seats[seatId] };
     }
@@ -335,72 +361,103 @@ function balRun() {
   if (drummerSel && !_locked.has("drummer")) newSeats["drummer"] = { memberId: drummerSel };
   if (timonelSel && !_locked.has("timonel")) newSeats["timonel"] = { memberId: timonelSel };
 
-  // Pool de palistas: seleccionados menos los ya colocados, deduplicado
+  // Pool de palistas: seleccionados menos los ya colocados en asientos bloqueados/roles
   const placed = new Set(Object.values(newSeats).map(s => s.memberId).filter(Boolean));
   const poolSeen = new Set(placed);
   const pool = [];
   for (const m of selected) {
-    if (!poolSeen.has(String(m.id))) {
-      poolSeen.add(String(m.id));
+    if (!poolSeen.has(String(m.user_id))) {
+      poolSeen.add(String(m.user_id));
       pool.push(m);
     }
   }
 
-  // Separar por lado preferido
-  let lPool = pool.filter(m => m.preferred_side === "left");
-  let rPool = pool.filter(m => m.preferred_side === "right");
-  let ePool = pool.filter(m => !m.preferred_side || m.preferred_side === "either");
+  // Asientos libres (no bloqueados) — usar orden intercalado
+  const freeLeft  = allLeftSeats.filter(s => !newSeats[s]);
+  const freeRight = allRightSeats.filter(s => !newSeats[s]);
+  const nL = freeLeft.length;
+  const nR = freeRight.length;
 
-  // Modo peso: ignorar lado, ordenar por peso desc
-  if (_priority < 50) {
-    const all = [...lPool, ...rPool, ...ePool].sort(
-      (a, b) => memberWeight(b) - memberWeight(a)
-    );
-    lPool = [];
-    rPool = [];
-    ePool = all;
-  }
+  // ------------------------------------------------------------------
+  // Distribuir palistas a lados según _priority
+  // ------------------------------------------------------------------
+  let assignedLeft  = [];  // palistas que irán a la izquierda
+  let assignedRight = [];  // palistas que irán a la derecha
 
-  // Extrae y elimina el primer elemento del primer array no vacío
-  const take = (...arrs) => {
-    for (const arr of arrs) {
-      if (arr.length > 0) return arr.splice(0, 1)[0];
+  if (_priority === 0) {
+    // Solo peso: ignorar preferencia, alternar más pesado izq/der
+    const allSorted = [...pool].sort((a, b) => memberWeight(b) - memberWeight(a));
+    for (let i = 0; i < allSorted.length; i++) {
+      if (i % 2 === 0) assignedLeft.push(allSorted[i]);
+      else             assignedRight.push(allSorted[i]);
     }
-    return null;
-  };
+  } else if (_priority === 100) {
+    // Solo lado: respetar preferencia estrictamente; indiferentes llenan huecos
+    const lPref = pool.filter(m => m.preferred_side === "left").sort((a, b) => memberWeight(b) - memberWeight(a));
+    const rPref = pool.filter(m => m.preferred_side === "right").sort((a, b) => memberWeight(b) - memberWeight(a));
+    const ePref = pool.filter(m => m.preferred_side !== "left" && m.preferred_side !== "right").sort((a, b) => memberWeight(b) - memberWeight(a));
+    assignedLeft  = [...lPref];
+    assignedRight = [...rPref];
+    // Completar con indiferentes donde falten
+    while (assignedLeft.length < nL && ePref.length > 0) assignedLeft.push(ePref.shift());
+    while (assignedRight.length < nR && ePref.length > 0) assignedRight.push(ePref.shift());
+    // Si aún sobran indiferentes, llenar el que tenga espacio
+    while (ePref.length > 0) {
+      if (assignedLeft.length < nL) assignedLeft.push(ePref.shift());
+      else if (assignedRight.length < nR) assignedRight.push(ePref.shift());
+      else break;
+    }
+  } else {
+    // Equilibrado (0 < priority < 100): peso + lado
+    let lPool = pool.filter(m => m.preferred_side === "left").sort((a, b) => memberWeight(b) - memberWeight(a));
+    let rPool = pool.filter(m => m.preferred_side === "right").sort((a, b) => memberWeight(b) - memberWeight(a));
+    let ePool = pool.filter(m => m.preferred_side !== "left" && m.preferred_side !== "right").sort((a, b) => memberWeight(b) - memberWeight(a));
 
-  const freeLeft = leftSeats.filter(s => !newSeats[s]);
-  const freeRight = rightSeats.filter(s => !newSeats[s]);
+    // Mover exceso de lPool (los más livianos) a ePool
+    while (lPool.length > nL) ePool.unshift(lPool.pop());
+    // Mover exceso de rPool (los más livianos) a ePool
+    while (rPool.length > nR) ePool.unshift(rPool.pop());
 
-  // Llenar izquierda: preferencia izquierda, luego indiferentes
-  for (const seat of freeLeft) {
-    const m = take(lPool, ePool);
-    if (!m) break;
-    newSeats[seat] = { memberId: String(m.id) };
+    assignedLeft  = [...lPool];
+    assignedRight = [...rPool];
+
+    // Distribuir ePool al lado más liviano
+    ePool.sort((a, b) => memberWeight(b) - memberWeight(a));
+    for (const m of ePool) {
+      if (assignedLeft.length >= nL && assignedRight.length >= nR) break;
+      const sumL = assignedLeft.reduce((s, x) => s + memberWeight(x), 0);
+      const sumR = assignedRight.reduce((s, x) => s + memberWeight(x), 0);
+      const canL = assignedLeft.length < nL;
+      const canR = assignedRight.length < nR;
+      if (canL && (!canR || sumL <= sumR)) assignedLeft.push(m);
+      else if (canR)                        assignedRight.push(m);
+    }
   }
 
-  // Llenar derecha: preferencia derecha, luego indiferentes
-  for (const seat of freeRight) {
-    const m = take(rPool, ePool);
-    if (!m) break;
-    newSeats[seat] = { memberId: String(m.id) };
+  console.log('assignedLeft:', assignedLeft.map(m => m.full_name + ':' + memberWeight(m) + 'kg'));
+  console.log('assignedRight:', assignedRight.map(m => m.full_name + ':' + memberWeight(m) + 'kg'));
+
+  // ------------------------------------------------------------------
+  // Asignar palistas a asientos en orden intercalado
+  // (adelante-atrás): primer palista a fila 1, segundo a fila N,
+  // tercero a fila 2, etc. Así el peso se distribuye desde los extremos.
+  // ------------------------------------------------------------------
+  // Ordenar por peso descendente (más pesados primero)
+  const sortedLeft = [...assignedLeft].sort((a, b) => memberWeight(b) - memberWeight(a));
+  const sortedRight = [...assignedRight].sort((a, b) => memberWeight(b) - memberWeight(a));
+
+  // Asignar al orden intercalado
+  for (let i = 0; i < sortedLeft.length && i < freeLeft.length; i++) {
+    const seatId = freeLeft[i];
+    newSeats[seatId] = { memberId: String(sortedLeft[i].user_id) };
   }
 
-  // Sobrantes derecha → asientos izquierda libres
-  const stillFreeLeft = freeLeft.filter(s => !newSeats[s]);
-  for (const seat of stillFreeLeft) {
-    const m = take(rPool, ePool);
-    if (!m) break;
-    newSeats[seat] = { memberId: String(m.id) };
+  for (let i = 0; i < sortedRight.length && i < freeRight.length; i++) {
+    const seatId = freeRight[i];
+    newSeats[seatId] = { memberId: String(sortedRight[i].user_id) };
   }
 
-  // Sobrantes izquierda → asientos derecha libres
-  const stillFreeRight = freeRight.filter(s => !newSeats[s]);
-  for (const seat of stillFreeRight) {
-    const m = take(lPool, ePool);
-    if (!m) break;
-    newSeats[seat] = { memberId: String(m.id) };
-  }
+  console.log('newSeats:', JSON.stringify(newSeats));
 
   _seats = newSeats;
   balRenderBoat();
@@ -537,7 +594,7 @@ function buildMemberList() {
     const weightStr = m.weight_kg != null ? `${m.weight_kg} kg` : "— kg";
     html += `
       <label style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.4rem;border-radius:8px;cursor:pointer;border:0.5px solid #e2e8f0;background:#fff">
-        <input type="checkbox" data-member-id="${escapeHtml(String(m.id))}" style="accent-color:#0ea5e9;width:14px;height:14px" onchange="balUpdateCount()">
+        <input type="checkbox" data-member-id="${escapeHtml(String(m.user_id))}" style="accent-color:#0ea5e9;width:14px;height:14px" onchange="balUpdateCount()">
         <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:#fff;font-weight:700;flex-shrink:0">${escapeHtml(initial(m.full_name))}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:0.78rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(m.full_name)}</div>
@@ -562,7 +619,7 @@ function buildRoleSelects() {
   if (!selDrummer || !selTimonel) return;
 
   const options = _members
-    .map((m) => `<option value="${escapeHtml(String(m.id))}">${escapeHtml(m.full_name)}</option>`)
+    .map((m) => `<option value="${escapeHtml(String(m.user_id))}">${escapeHtml(m.full_name)}</option>`)
     .join("");
 
   const emptyOpt = `<option value="">— ninguno —</option>`;
